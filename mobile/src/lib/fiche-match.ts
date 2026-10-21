@@ -12,12 +12,21 @@
 // ============================================
 
 import { buteursDuMatch, buteursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
-import { DEFAULT_HALF_DURATION, extraTimeDuration, halfDuration } from "@/lib/competition-format";
+import { DEFAULT_HALF_DURATION, extraTimeDuration, halfDuration, matchDuration } from "@/lib/competition-format";
+import { couleursDesBarres } from "@/lib/couleurs-equipe";
+import { matchsQuiComptent } from "@/lib/exhibition";
 import type { Deroule } from "@/lib/fil-du-match";
+import { derniersResultats, type ResultatDeForme } from "@/lib/forme";
 import { FOOT } from "@/i18n/foot";
 import { minuteEnDirect } from "@/lib/minute-du-match";
+import { notesDuCamp } from "@/lib/notes";
+import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
+import { computeStandings, pouleDuMatch, type GroupStanding } from "@/lib/poules";
+import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
+import { aDesStats, lignesStats, type LigneStat } from "@/lib/stats-match";
 import { etatDeLaSeance, SEANCE_VIDE } from "@/lib/tirs-au-but";
 import type { Competition, CompMatch, CompTeam, LineupEntry, Match } from "@/types";
+import { couleurs } from "~/theme";
 
 const f = FOOT.fr;
 
@@ -35,6 +44,32 @@ export interface CampDeFiche {
   formation: string | null;
 }
 
+/** Ce que la fiche sait autour du match : la forme, la poule, le face-à-face, les stats. */
+export interface ContexteDeFiche {
+  /** Les cinq derniers résultats officiels de chaque camp, avant ce match (lib/forme). */
+  formes: { domicile: ResultatDeForme[]; exterieur: ResultatDeForme[] };
+  /** La poule des deux équipes, en phase de groupes seulement. */
+  poule: GroupStanding | null;
+  /** Les rencontres terminées entre les deux équipes, dans cette compétition, celle-ci exclue. */
+  faceAFace: CompMatch[];
+  /** Du point de vue du domicile de CE match. */
+  bilanFaceAFace: { home: number; draw: number; away: number };
+  stats: LigneStat[];
+  aDesStats: boolean;
+  /** Chaque camp dans sa couleur, sur les barres (lib/couleurs-equipe, piste sombre). */
+  couleurs: { home: string; away: string } | null;
+}
+
+/** Ce que `photoDeLaLigne` (lib/photos-sans-compte) lit d'une ligne de feuille. */
+export interface LignePhoto {
+  id: string;
+  user_id: string | null;
+  photo_url: string | null;
+  club_ghost_id: string | null;
+  /** Le club KoppaFoot derrière l'équipe de compétition, d'où viennent les visages sans compte. */
+  club: string | null;
+}
+
 export interface Fiche {
   /** Pour les liens, le partage, et les règles qui diffèrent d'une page à l'autre. */
   genre: "competition" | "amical";
@@ -50,19 +85,58 @@ export interface Fiche {
   penaltyHome: number | null;
   penaltyAway: number | null;
   buteurs: ButeursDuMatch;
-  mvp: { nom: string | null; playerId: string | null; userId: string | null; teamId: string | null };
+  mvp: {
+    nom: string | null; playerId: string | null; userId: string | null; teamId: string | null;
+    /** La note que la console lui a vue (lib/notes), même calcul que le classement. */
+    note: { valeur: number | null; faits: number } | null;
+    /** « 2 buts, 1 passe » (lib/recit-du-match). */
+    motif: string | null;
+  };
+  contexte: ContexteDeFiche;
+  /** De quoi retrouver le visage de chaque ligne des deux feuilles, par identifiant de ligne. */
+  lignesPhoto: Record<string, LignePhoto>;
   dureeMiTemps: number;
   dureeProlongation?: number;
   /** Le chemin de la page web, pour le partage et « Voir sur le site ». */
   lienSite: string;
 }
 
-const mvpDe = (m: Pick<CompMatch, "mvpPlayerName" | "mvpPlayerId" | "mvpUserId" | "mvpTeamId">) => ({
-  nom: m.mvpPlayerName ?? null,
-  playerId: m.mvpPlayerId ?? null,
-  userId: m.mvpUserId ?? null,
-  teamId: m.mvpTeamId ?? null,
-});
+type MatchCommun = CompMatch | Match;
+
+/**
+ * L'homme du match, sa note et ce qu'il a fait. La note se calcule sur la
+ * feuille de SON camp, sur la durée du format (page compétition, `noteDeLHomme`).
+ */
+function mvpDe(m: MatchCommun, duree: number): Fiche["mvp"] {
+  const events = m.liveState?.events ?? [];
+  let note: Fiche["mvp"]["note"] = null;
+  if (m.mvpPlayerId && m.mvpTeamId) {
+    const feuille = m.mvpTeamId === m.homeTeamId ? m.homeLineup ?? [] : m.awayLineup ?? [];
+    const n = notesDuCamp(m, feuille, events, m.mvpTeamId, duree).get(m.mvpPlayerId);
+    note = n ? { valeur: n.note, faits: n.faits } : null;
+  }
+  return {
+    nom: m.mvpPlayerName ?? null,
+    playerId: m.mvpPlayerId ?? null,
+    userId: m.mvpUserId ?? null,
+    teamId: m.mvpTeamId ?? null,
+    note,
+    motif: m.mvpPlayerId ? motifDesMarques(marquesDesJoueurs(events)[m.mvpPlayerId], "fr") : null,
+  };
+}
+
+/** Les compteurs du match, comme la fiche du site et la console (lib/stats-match). */
+function statsDe(m: MatchCommun): { stats: LigneStat[]; aDesStats: boolean } {
+  const events = m.liveState?.events ?? [];
+  const possession = m.liveState?.possession ?? null;
+  const chronoTourne = m.status === "live" && !!m.liveState?.isTimerRunning;
+  return {
+    stats: lignesStats(
+      events, m.homeTeamId, m.awayTeamId, { home: m.scoreHome ?? 0, away: m.scoreAway ?? 0 }, possession, chronoTourne,
+    ),
+    aDesStats: aDesStats(events, possession, chronoTourne),
+  };
+}
 
 /**
  * Une rencontre de compétition.
@@ -70,7 +144,13 @@ const mvpDe = (m: Pick<CompMatch, "mvpPlayerName" | "mvpPlayerId" | "mvpUserId" 
  * L'ÉCUSSON VIENT DE LA FICHE DE L'ÉQUIPE, la copie du match ensuite : la
  * copie se périme (page compétition du site, `ecusson`).
  */
-export function ficheDepuisCompetition(match: CompMatch, competition: Competition, equipes: CompTeam[]): Fiche {
+export function ficheDepuisCompetition(
+  match: CompMatch,
+  competition: Competition,
+  equipes: CompTeam[],
+  /** Les autres matchs de la compétition : la forme, la poule, le face-à-face. */
+  matchs: CompMatch[] = [],
+): Fiche {
   const ecusson = (teamId: string | null, copie: string | null): string | null => {
     const deLaFiche = teamId ? equipes.find((e) => e.id === teamId)?.logoUrl : null;
     return deLaFiche ?? copie;
@@ -85,17 +165,71 @@ export function ficheDepuisCompetition(match: CompMatch, competition: Competitio
         ? `Poule ${match.group}`
         : null;
   const events = match.liveState?.events ?? [];
+  const equipeDe = (teamId: string | null) => (teamId ? equipes.find((e) => e.id === teamId) : undefined);
+
+  // La forme, avant ce match ; une exhibition n'y entre pas (lib/exhibition).
+  const officiels = matchsQuiComptent(matchs);
+  const formes = {
+    domicile: derniersResultats(officiels, match.homeTeamId, match),
+    exterieur: derniersResultats(officiels, match.awayTeamId, match),
+  };
+  // Ni la phase finale ni un match d'exhibition n'ont de poule à montrer.
+  const poule = match.stage === "group" && competition.format
+    ? pouleDuMatch(computeStandings(matchs, equipes, competition.format), match.homeTeamId, match.awayTeamId)
+    : null;
+  // Face-à-face : les rencontres terminées entre ces deux équipes (page compétition, `h2h`).
+  const faceAFace = match.homeTeamId && match.awayTeamId
+    ? matchs.filter((m) =>
+        m.id !== match.id
+        && m.status === "completed"
+        && m.scoreHome !== null && m.scoreAway !== null
+        && ((m.homeTeamId === match.homeTeamId && m.awayTeamId === match.awayTeamId)
+          || (m.homeTeamId === match.awayTeamId && m.awayTeamId === match.homeTeamId)))
+    : [];
+  const bilanFaceAFace = { home: 0, draw: 0, away: 0 };
+  for (const m of faceAFace) {
+    const nousADomicile = m.homeTeamId === match.homeTeamId;
+    const nous = (nousADomicile ? m.scoreHome : m.scoreAway) ?? 0;
+    const eux = (nousADomicile ? m.scoreAway : m.scoreHome) ?? 0;
+    if (nous > eux) bilanFaceAFace.home += 1;
+    else if (nous < eux) bilanFaceAFace.away += 1;
+    else bilanFaceAFace.draw += 1;
+  }
+
+  // Le visage de chaque ligne : le compte, la photo posée sur la ligne
+  // d'effectif, sinon celle de sa fiche au club (page compétition, `photosParLigne`).
+  const lignesPhoto: Record<string, LignePhoto> = {};
+  const camps: [string | null, LineupEntry[]][] = [
+    [match.homeTeamId, match.homeLineup ?? []],
+    [match.awayTeamId, match.awayLineup ?? []],
+  ];
+  for (const [teamId, lignes] of camps) {
+    const equipe = equipeDe(teamId);
+    for (const e of lignes) {
+      const effectif = equipe?.players.find((p) => p.id === e.playerId);
+      lignesPhoto[e.playerId] = {
+        id: e.playerId,
+        user_id: e.userId ?? null,
+        photo_url: effectif?.photo_url ?? null,
+        club_ghost_id: effectif?.club_ghost_id ?? null,
+        club: equipe?.claimedByTeamId ?? null,
+      };
+    }
+  }
+
   return {
     genre: "competition",
     id: match.id,
     statut: match.status,
     domicile: {
       teamId: match.homeTeamId, nom: match.homeTeamName, logo: ecusson(match.homeTeamId, match.homeTeamLogo),
-      score: match.scoreHome, forme: [], lineup: match.homeLineup ?? [], formation: match.homeFormation ?? null,
+      score: match.scoreHome, forme: formes.domicile.map((r) => r.resultat),
+      lineup: match.homeLineup ?? [], formation: match.homeFormation ?? null,
     },
     exterieur: {
       teamId: match.awayTeamId, nom: match.awayTeamName, logo: ecusson(match.awayTeamId, match.awayTeamLogo),
-      score: match.scoreAway, forme: [], lineup: match.awayLineup ?? [], formation: match.awayFormation ?? null,
+      score: match.scoreAway, forme: formes.exterieur.map((r) => r.resultat),
+      lineup: match.awayLineup ?? [], formation: match.awayFormation ?? null,
     },
     date: match.date,
     heure: match.time,
@@ -107,7 +241,14 @@ export function ficheDepuisCompetition(match: CompMatch, competition: Competitio
     penaltyHome: match.penaltyHome,
     penaltyAway: match.penaltyAway,
     buteurs: buteursDuMatch(events, match.homeTeamId, undefined, dureeMiTemps),
-    mvp: mvpDe(match),
+    mvp: mvpDe(match, competition.format ? matchDuration(competition.format) : DUREE_MATCH_DEFAUT),
+    contexte: {
+      formes, poule, faceAFace, bilanFaceAFace, ...statsDe(match),
+      couleurs: couleursDesBarres(
+        equipeDe(match.homeTeamId)?.color ?? null, equipeDe(match.awayTeamId)?.color ?? null, couleurs.surfaceHaute,
+      ),
+    },
+    lignesPhoto,
     dureeMiTemps,
     dureeProlongation: competition.format ? extraTimeDuration(competition.format) : undefined,
     lienSite: `/c/${competition.slug}/matches/${match.id}`,
@@ -147,7 +288,18 @@ export function ficheDepuisAmical(match: Match): Fiche {
     buteurs: match.recordedAt
       ? buteursRenseignes(match.recordedScorers ?? [], match.isHome ? "home" : "away")
       : buteursDuMatch(events, match.homeTeamId, undefined, DEFAULT_HALF_DURATION),
-    mvp: mvpDe(match),
+    mvp: mvpDe(match, DUREE_MATCH_DEFAUT),
+    // Un amical n'a ni poule, ni compétition où chercher une forme ou un face-à-face.
+    contexte: {
+      formes: { domicile: [], exterieur: [] }, poule: null, faceAFace: [], bilanFaceAFace: { home: 0, draw: 0, away: 0 },
+      couleurs: null, ...statsDe(match),
+    },
+    lignesPhoto: Object.fromEntries(
+      [...(match.homeLineup ?? []), ...(match.awayLineup ?? [])].map((e) => [
+        e.playerId,
+        { id: e.playerId, user_id: e.userId ?? null, photo_url: null, club_ghost_id: null, club: null },
+      ]),
+    ),
     dureeMiTemps: DEFAULT_HALF_DURATION,
     lienSite: `/matches/${match.id}`,
   };
@@ -156,22 +308,21 @@ export function ficheDepuisAmical(match: Match): Fiche {
 const commence = (fiche: Fiche) => fiche.statut === "live" || fiche.statut === "completed";
 const nbFaits = (fiche: Fiche) => fiche.liveState?.events?.length ?? 0;
 
+/** Ce que la fiche ne sait pas encore d'elle-même : le tchat (PR C). */
 export interface DonneesDesOnglets {
   tchatVisible: boolean;
-  hasStats: boolean;
-  hasStandings: boolean;
-  hasH2H: boolean;
 }
 
 /** Les onglets à montrer : ceux qui ont quelque chose à dire. */
 export function ongletsDeLaFiche(fiche: Fiche, d: DonneesDesOnglets): Onglet[] {
+  const { contexte } = fiche;
   if (fiche.genre === "amical") {
     // Page amicale, `<MatchTabs tabs=…>` : le fil toujours, la compo en dernier.
     return [
       "feed",
       ...(d.tchatVisible ? (["tchat"] as const) : []),
       "infos",
-      ...(d.hasStats ? (["stats"] as const) : []),
+      ...(contexte.aDesStats ? (["stats"] as const) : []),
       "lineups",
     ];
   }
@@ -182,9 +333,9 @@ export function ongletsDeLaFiche(fiche: Fiche, d: DonneesDesOnglets): Onglet[] {
     ["tchat", d.tchatVisible],
     ["infos", true],
     ["lineups", true],
-    ["stats", d.hasStats],
-    ["standings", d.hasStandings],
-    ["h2h", d.hasH2H],
+    ["stats", contexte.aDesStats],
+    ["standings", !!contexte.poule && contexte.poule.rows.length > 0],
+    ["h2h", contexte.faceAFace.length > 0],
   ] as const).filter(([, on]) => on).map(([o]) => o);
 }
 
@@ -192,7 +343,8 @@ export function ongletsDeLaFiche(fiche: Fiche, d: DonneesDesOnglets): Onglet[] {
  * L'onglet ouvert tant qu'on n'en a choisi aucun : Infos avant le coup
  * d'envoi, le fil dès qu'il y a un fil.
  */
-export function ongletParDefaut(fiche: Fiche, hasStats: boolean): Onglet {
+export function ongletParDefaut(fiche: Fiche): Onglet {
+  const hasStats = fiche.contexte.aDesStats;
   const mvp = !!fiche.mvp.nom;
   if (fiche.genre === "amical") return fiche.statut === "live" || fiche.statut === "completed" || mvp ? "feed" : "infos";
   return fiche.statut === "live" || hasStats || mvp ? "feed" : "infos";

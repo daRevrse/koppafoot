@@ -2,7 +2,6 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { aDesStats } from "@/lib/stats-match";
 import { Compos } from "~/components/fiche/Compos";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
 import { FilDuMatch } from "~/components/fiche/FilDuMatch";
@@ -29,17 +28,10 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
   const [choix, setChoix] = useState<Onglet | null>(null);
   const [compact, setCompact] = useState(false);
 
-  // PR A : ni tchat, ni stats, ni classement, ni face-à-face (PR B et C).
-  const donnees: DonneesDesOnglets = { tchatVisible: false, hasStats: false, hasStandings: false, hasH2H: false };
+  // Le tchat arrive avec la PR C ; le reste, la fiche le sait d'elle-même.
+  const donnees: DonneesDesOnglets = { tchatVisible: false };
   const onglets = ongletsDeLaFiche(fiche, donnees);
-  // L'onglet par défaut suit déjà la règle du site, stats comprises : un
-  // match joué avec ses faits s'ouvre sur le fil, même avant l'onglet Stats.
-  const avecStats = aDesStats(
-    fiche.liveState?.events ?? [],
-    fiche.liveState?.possession ?? null,
-    fiche.statut === "live" && !!fiche.liveState?.isTimerRunning,
-  );
-  const actif = ongletAffiche(choix, onglets, ongletParDefaut(fiche, avecStats));
+  const actif = ongletAffiche(choix, onglets, ongletParDefaut(fiche));
 
   const retour = () => (router.canGoBack() ? router.back() : router.replace("/"));
 
