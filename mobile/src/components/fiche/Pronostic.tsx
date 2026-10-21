@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { EMPTY_COUNTS, pourcentages, type Pick, type PredictionCounts } from "@/lib/pronostics-shared";
 import { Ecusson } from "~/components/Ecusson";
 import { BarreRepartition, TexteDeSegment, type SegmentRepartition } from "~/components/fiche/BarreRepartition";
@@ -13,7 +13,7 @@ import { couleurs, espacement, polices } from "~/theme";
 
 /**
  * « Qui gagne ? » (components/match/PredictionPoll) : trois segments, et
- * leurs parts une fois qu'on a voté. Un compte, un pronostic, modifiable
+ * leurs parts dès le premier vote. Un compte, un pronostic, modifiable
  * jusqu'au coup d'envoi ; après, la barre ne fait plus que montrer.
  */
 export function Pronostic({ fiche }: { fiche: Fiche }) {
@@ -60,6 +60,9 @@ export function Pronostic({ fiche }: { fiche: Fiche }) {
       await pronostiquer(fiche.id, uid, pick);
       setLu({ uid, pick });
       setComptes(await comptesDesPronostics(fiche.id));
+    } catch {
+      // Refusé (session expirée) ou perdu : on le dit, et le choix affiché reste l'ancien.
+      Alert.alert("Ton pronostic n'est pas passé", "Réessaie dans un instant.");
     } finally {
       setEnvoi(null);
     }
