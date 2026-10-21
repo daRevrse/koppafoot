@@ -98,7 +98,7 @@ export default function EcranAccueil() {
         {dernier ? (
           <>
             <Bouton titre="Voir le direct" onPress={() => terminer()} />
-            <Bouton titre="J'ai déjà un compte" variante="lien" sombre onPress={() => terminer("/connexion")} />
+            <Bouton titre="J'ai déjà un compte" variante="lien" onPress={() => terminer("/connexion")} />
           </>
         ) : (
           <Bouton titre="Suivant" onPress={() => liste.current?.scrollToIndex({ index: index + 1 })} />

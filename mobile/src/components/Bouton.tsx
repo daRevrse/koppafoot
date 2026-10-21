@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from "react-native";
-import { couleurs, polices } from "~/theme";
+import { couleurs, polices, rayons } from "~/theme";
 
 type Variante = "plein" | "contour" | "lien";
 
@@ -7,11 +7,9 @@ interface Props extends Omit<PressableProps, "children" | "style"> {
   titre: string;
   variante?: Variante;
   occupe?: boolean;
-  /** Posé sur un fond sombre (l'accueil) : un libellé clair pour « contour » et « lien ». */
-  sombre?: boolean;
 }
 
-export function Bouton({ titre, variante = "plein", occupe = false, sombre = false, disabled, ...reste }: Props) {
+export function Bouton({ titre, variante = "plein", occupe = false, disabled, ...reste }: Props) {
   const inactif = disabled || occupe;
   return (
     <Pressable
@@ -22,29 +20,27 @@ export function Bouton({ titre, variante = "plein", occupe = false, sombre = fal
       {...reste}
     >
       {occupe ? (
-        <ActivityIndicator color={variante === "plein" ? "#fff" : couleurs.primaire} />
+        <ActivityIndicator color={variante === "plein" ? couleurs.surPrimaire : couleurs.primaire} />
       ) : (
-        <Text
-          style={[
-            styles.libelle,
-            variante === "plein" || sombre ? styles.libellePlein : styles.libelleAutre,
-          ]}
-        >
-          {titre}
-        </Text>
+        <Text style={[styles.libelle, libelles[variante]]}>{titre}</Text>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 48, paddingHorizontal: 20, alignItems: "center", justifyContent: "center" },
+  base: { minHeight: 48, paddingHorizontal: 20, alignItems: "center", justifyContent: "center", borderRadius: rayons.champ },
   plein: { backgroundColor: couleurs.primaire },
-  contour: { borderWidth: 1, borderColor: couleurs.bordure, backgroundColor: couleurs.fond },
+  contour: { borderWidth: 1, borderColor: couleurs.bordure, backgroundColor: couleurs.surface },
   lien: { minHeight: 40 },
   inactif: { opacity: 0.5 },
   presse: { opacity: 0.8 },
   libelle: { fontSize: 15, fontFamily: polices.texteGras },
-  libellePlein: { color: "#fff" },
-  libelleAutre: { color: couleurs.texte },
+});
+
+// Le plein porte le fond de l'écran sur le vert : le blanc n'y faisait que 3,8.
+const libelles = StyleSheet.create({
+  plein: { color: couleurs.surPrimaire },
+  contour: { color: couleurs.texte },
+  lien: { color: couleurs.primaire },
 });

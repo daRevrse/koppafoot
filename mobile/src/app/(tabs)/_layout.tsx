@@ -12,6 +12,7 @@ export default function OngletsLayout() {
         tabBarActiveTintColor: couleurs.primaire,
         tabBarInactiveTintColor: couleurs.texteDiscret,
         tabBarLabelStyle: { fontFamily: polices.texteMoyen, fontSize: 11 },
+        tabBarStyle: { backgroundColor: couleurs.fond, borderTopColor: couleurs.bordure },
       }}
     >
       <Tabs.Screen

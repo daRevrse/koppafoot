@@ -1,7 +1,7 @@
 import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
 import { Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
 import { useLastNotificationResponse } from "expo-notifications";
-import { Stack, useRouter } from "expo-router";
+import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
@@ -17,6 +17,20 @@ void SplashScreen.preventAutoHideAsync();
 // Les fenêtres de connexion s'ouvrent PAR-DESSUS les onglets.
 export const unstable_settings = { anchor: "(tabs)" };
 
+/** Le fond des écrans et des transitions : sans lui, un éclair blanc entre deux écrans. */
+const THEME_NAVIGATION: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: couleurs.primaire,
+    background: couleurs.fond,
+    card: couleurs.fond,
+    text: couleurs.texte,
+    border: couleurs.bordure,
+    notification: couleurs.direct,
+  },
+};
+
 export default function RacineLayout() {
   const [policesPretes] = useFonts({
     Outfit_700Bold, Outfit_800ExtraBold, DMSans_400Regular, DMSans_500Medium, DMSans_700Bold,
@@ -24,8 +38,10 @@ export default function RacineLayout() {
   return (
     <AuthProvider>
       <AccueilProvider>
-        <StatusBar style="dark" />
-        <Navigation policesPretes={policesPretes} />
+        <ThemeProvider value={THEME_NAVIGATION}>
+          <StatusBar style="light" />
+          <Navigation policesPretes={policesPretes} />
+        </ThemeProvider>
       </AccueilProvider>
     </AuthProvider>
   );

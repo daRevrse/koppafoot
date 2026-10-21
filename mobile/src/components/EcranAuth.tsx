@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -10,8 +11,14 @@ export function EcranAuth({ titre, phrase, children }: { titre: string; phrase: 
   return (
     <SafeAreaView style={styles.ecran} edges={["top", "bottom"]}>
       <View style={styles.barre}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} hitSlop={12}>
-          <Text style={styles.fermer}>Fermer</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Fermer"
+          onPress={() => router.back()}
+          hitSlop={8}
+          style={({ pressed }) => [styles.fermer, pressed && styles.fermerPresse]}
+        >
+          <Ionicons name="close" size={20} color={couleurs.texte} />
         </Pressable>
       </View>
       <KeyboardAvoidingView style={styles.ecran} behavior={Platform.OS === "ios" ? "padding" : undefined}>
@@ -32,8 +39,12 @@ export const stylesAuth = StyleSheet.create({
 
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
-  barre: { paddingHorizontal: 20, paddingVertical: 12, alignItems: "flex-end" },
-  fermer: { fontFamily: polices.texteMoyen, fontSize: 15, color: couleurs.texteSecondaire },
+  barre: { paddingHorizontal: 16, paddingVertical: 8, alignItems: "flex-end" },
+  fermer: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: couleurs.surface,
+    alignItems: "center", justifyContent: "center",
+  },
+  fermerPresse: { backgroundColor: couleurs.surfaceHaute },
   contenu: { paddingHorizontal: 24, paddingBottom: 32 },
   titre: { fontFamily: polices.titre, fontSize: 26, color: couleurs.texte },
   phrase: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteDiscret, marginTop: 4, marginBottom: 28 },
