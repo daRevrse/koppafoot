@@ -1,5 +1,6 @@
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
+import { initiales } from "~/lib/initiales";
 import { couleurs, polices } from "~/theme";
 
 /**
@@ -13,15 +14,9 @@ export function Ecusson({ url, nom, taille = 22 }: { url: string | null; nom: st
   if (url && url.startsWith("http")) {
     return <Image source={{ uri: url }} style={dimensions} contentFit="contain" accessibilityIgnoresInvertColors />;
   }
-  const initiales = nom
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((mot) => mot[0]?.toUpperCase() ?? "")
-    .join("");
   return (
     <View style={[styles.rond, dimensions]}>
-      <Text style={[styles.initiales, { fontSize: Math.round(taille * 0.4) }]}>{initiales}</Text>
+      <Text style={[styles.initiales, { fontSize: Math.round(taille * 0.4) }]}>{initiales(nom)}</Text>
     </View>
   );
 }
