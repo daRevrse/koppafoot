@@ -4,7 +4,7 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Bouton } from "~/components/Bouton";
 import { useAuth } from "~/lib/auth";
 import { googleDisponible, messageErreurGoogle } from "~/lib/google";
-import { couleurs, polices } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
 
 /**
  * « Continuer avec Google », puis « ou » avant le formulaire e-mail.
@@ -35,7 +35,7 @@ export function ConnexionGoogle({ onErreur }: { onErreur: (message: string | nul
       <Bouton titre="Continuer avec Google" variante="contour" occupe={occupe} onPress={continuer} />
       <View style={styles.separateur}>
         <View style={styles.trait} />
-        <Text style={styles.ou}>ou</Text>
+        <Text style={styles.ou}>OU</Text>
         <View style={styles.trait} />
       </View>
     </>
@@ -45,5 +45,5 @@ export function ConnexionGoogle({ onErreur }: { onErreur: (message: string | nul
 const styles = StyleSheet.create({
   separateur: { flexDirection: "row", alignItems: "center", gap: 12 },
   trait: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: couleurs.bordure },
-  ou: { fontFamily: polices.texteMoyen, fontSize: 12, color: couleurs.texteDiscret },
+  ou: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: couleurs.texteDiscret },
 });

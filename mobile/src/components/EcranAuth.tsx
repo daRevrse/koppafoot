@@ -3,7 +3,7 @@ import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { couleurs, polices } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
 
 /** Le cadre commun aux fenêtres de connexion, d'inscription et de mot de passe. */
 export function EcranAuth({ titre, phrase, children }: { titre: string; phrase: string; children: ReactNode }) {
@@ -23,7 +23,7 @@ export function EcranAuth({ titre, phrase, children }: { titre: string; phrase: 
       </View>
       <KeyboardAvoidingView style={styles.ecran} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.contenu} keyboardShouldPersistTaps="handled">
-          <Text style={styles.titre}>{titre}</Text>
+          <Text style={styles.titre}>{titre.toUpperCase()}</Text>
           <Text style={styles.phrase}>{phrase}</Text>
           <View style={styles.formulaire}>{children}</View>
         </ScrollView>
@@ -40,13 +40,15 @@ export const stylesAuth = StyleSheet.create({
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   barre: { paddingHorizontal: 16, paddingVertical: 8, alignItems: "flex-end" },
+  // Un petit bouton-icône : rond, comme ceux du site (rounded-full).
   fermer: {
-    width: 36, height: 36, borderRadius: 18, backgroundColor: couleurs.surface,
+    width: 36, height: 36, borderRadius: 18, borderWidth: 1, borderColor: couleurs.bordure,
     alignItems: "center", justifyContent: "center",
   },
   fermerPresse: { backgroundColor: couleurs.surfaceHaute },
   contenu: { paddingHorizontal: 24, paddingBottom: 32 },
-  titre: { fontFamily: polices.titre, fontSize: 26, color: couleurs.texte },
-  phrase: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteDiscret, marginTop: 4, marginBottom: 28 },
+  // classeTitreAuth : font-display font-black, capitales, interlignage 0,95.
+  titre: { fontFamily: polices.titre, fontSize: 30, lineHeight: 30, letterSpacing: espacement(30, -0.02), color: couleurs.texte },
+  phrase: { fontFamily: polices.texte, fontSize: 14, lineHeight: 22, color: couleurs.texteSecondaire, marginTop: 12, marginBottom: 32 },
   formulaire: { gap: 16 },
 });

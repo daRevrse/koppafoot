@@ -1,5 +1,11 @@
-import { SPLASH_FOND } from "@/config/ios-launch";
 import { couleurs } from "~/theme";
+
+// La couleur de l'écran de lancement, celle que le téléphone peint avant le
+// premier rendu (app.json, plugin expo-splash-screen).
+const appJson = require("../../app.json") as { expo: { plugins: unknown[] } };
+const lancement = appJson.expo.plugins
+  .filter((p): p is [string, { backgroundColor: string }] => Array.isArray(p) && p[0] === "expo-splash-screen")
+  .map(([, options]) => options.backgroundColor)[0];
 
 /** Le contraste WCAG 2 entre deux couleurs « #rrggbb ». */
 function contraste(a: string, b: string): number {
@@ -18,8 +24,12 @@ const TEXTES = ["texte", "texteSecondaire", "texteDiscret", "primaire", "direct"
 const FONDS = ["fond", "surface", "surfaceHaute"] as const;
 
 describe("la palette", () => {
-  it("part du fond de l'écran de lancement", () => {
-    expect(couleurs.fond.toLowerCase()).toBe(SPLASH_FOND.toLowerCase());
+  it("prend le noir du thème sombre du site", () => {
+    expect(couleurs.fond.toLowerCase()).toBe("#080d0b");
+  });
+
+  it("et l'écran de lancement le peint déjà : pas d'éclair d'une autre couleur", () => {
+    expect(lancement?.toLowerCase()).toBe(couleurs.fond.toLowerCase());
   });
 
   // Toute couleur de texte sur tout fond : un composant n'a pas à savoir
@@ -28,7 +38,7 @@ describe("la palette", () => {
     expect(contraste(couleurs[t], couleurs[f])).toBeGreaterThanOrEqual(4.5);
   });
 
-  it("le libellé d'un bouton plein se lit sur primaire", () => {
-    expect(contraste(couleurs.surPrimaire, couleurs.primaire)).toBeGreaterThanOrEqual(4.5);
+  it("le libellé d'un bouton plein se lit sur son vert", () => {
+    expect(contraste(couleurs.surBouton, couleurs.bouton)).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
-import { couleurs, polices, rayons } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
 
 interface Props extends TextInputProps {
   etiquette: string;
   erreur?: string | null;
 }
 
+/**
+ * Le champ du site (auth-ui) : un filet carré, l'étiquette en capitales, et
+ * un focus qui renforce la bordure au lieu d'allumer un anneau vert.
+ */
 export function Champ({ etiquette, erreur, style, onFocus, onBlur, ...reste }: Props) {
   const [focus, setFocus] = useState(false);
   return (
     <View style={styles.bloc}>
-      <Text style={styles.etiquette}>{etiquette}</Text>
+      <Text style={styles.etiquette}>{etiquette.toUpperCase()}</Text>
       <TextInput
         accessibilityLabel={etiquette}
         placeholderTextColor={couleurs.texteDiscret}
@@ -36,12 +40,14 @@ export function Champ({ etiquette, erreur, style, onFocus, onBlur, ...reste }: P
 
 const styles = StyleSheet.create({
   bloc: { gap: 6 },
-  etiquette: { fontSize: 12, fontFamily: polices.texteGras, color: couleurs.texteSecondaire },
-  champ: {
-    borderWidth: 1, borderColor: couleurs.bordure, backgroundColor: couleurs.surface, borderRadius: rayons.champ,
-    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, fontFamily: polices.texte, color: couleurs.texte,
+  etiquette: {
+    fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.texteDiscret,
   },
-  champFocus: { borderColor: couleurs.primaire },
+  champ: {
+    borderWidth: 1, borderColor: couleurs.bordure, backgroundColor: couleurs.surface,
+    paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, fontFamily: polices.texteDemi, color: couleurs.texte,
+  },
+  champFocus: { borderColor: couleurs.bordureForte },
   champErreur: { borderColor: couleurs.erreur },
-  erreur: { fontSize: 12, fontFamily: polices.texte, color: couleurs.erreur },
+  erreur: { fontSize: 12, fontFamily: polices.texteGras, color: couleurs.erreur },
 });

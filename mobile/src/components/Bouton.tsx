@@ -1,5 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from "react-native";
-import { couleurs, polices, rayons } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
 
 type Variante = "plein" | "contour" | "lien";
 
@@ -9,6 +9,11 @@ interface Props extends Omit<PressableProps, "children" | "style"> {
   occupe?: boolean;
 }
 
+/**
+ * Les boutons du site (components/auth/auth-ui) : carrés, en capitales
+ * espacées. « plein » est classeBoutonAuth, « contour » le geste secondaire,
+ * « lien » le lien de pied (classeLienPiedAuth).
+ */
 export function Bouton({ titre, variante = "plein", occupe = false, disabled, ...reste }: Props) {
   const inactif = disabled || occupe;
   return (
@@ -20,27 +25,34 @@ export function Bouton({ titre, variante = "plein", occupe = false, disabled, ..
       {...reste}
     >
       {occupe ? (
-        <ActivityIndicator color={variante === "plein" ? couleurs.surPrimaire : couleurs.primaire} />
+        <ActivityIndicator color={variante === "plein" ? couleurs.surBouton : couleurs.texte} />
       ) : (
-        <Text style={[styles.libelle, libelles[variante]]}>{titre}</Text>
+        <Text style={libelles[variante]}>{titre.toUpperCase()}</Text>
       )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 48, paddingHorizontal: 20, alignItems: "center", justifyContent: "center", borderRadius: rayons.champ },
-  plein: { backgroundColor: couleurs.primaire },
-  contour: { borderWidth: 1, borderColor: couleurs.bordure, backgroundColor: couleurs.surface },
+  base: { minHeight: 48, paddingHorizontal: 24, alignItems: "center", justifyContent: "center" },
+  plein: { backgroundColor: couleurs.bouton, borderWidth: 1, borderColor: couleurs.bouton },
+  contour: { borderWidth: 1, borderColor: couleurs.bordure },
   lien: { minHeight: 40 },
-  inactif: { opacity: 0.5 },
+  inactif: { opacity: 0.4 },
   presse: { opacity: 0.8 },
-  libelle: { fontSize: 15, fontFamily: polices.texteGras, textAlign: "center" },
 });
 
-// Le plein porte le fond de l'écran sur le vert : le blanc n'y faisait que 3,8.
 const libelles = StyleSheet.create({
-  plein: { color: couleurs.surPrimaire },
-  contour: { color: couleurs.texte },
-  lien: { color: couleurs.primaire },
+  plein: {
+    fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), textAlign: "center",
+    color: couleurs.surBouton,
+  },
+  contour: {
+    fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), textAlign: "center",
+    color: couleurs.texteSecondaire,
+  },
+  lien: {
+    fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), textAlign: "center",
+    color: couleurs.texteDiscret,
+  },
 });

@@ -34,7 +34,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#0d291b"
+          "backgroundColor": "#080d0b"
         }
       ],
       "@react-native-google-signin/google-signin",

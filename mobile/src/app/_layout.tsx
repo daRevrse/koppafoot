@@ -1,5 +1,7 @@
-import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
-import { Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
+import {
+  DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
+} from "@expo-google-fonts/dm-sans";
+import { Outfit_700Bold, Outfit_900Black, useFonts } from "@expo-google-fonts/outfit";
 import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -32,7 +34,8 @@ const THEME_NAVIGATION: Theme = {
 
 export default function RacineLayout() {
   const [policesPretes] = useFonts({
-    Outfit_700Bold, Outfit_800ExtraBold, DMSans_400Regular, DMSans_500Medium, DMSans_700Bold,
+    Outfit_700Bold, Outfit_900Black,
+    DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
   });
   return (
     <AuthProvider>
