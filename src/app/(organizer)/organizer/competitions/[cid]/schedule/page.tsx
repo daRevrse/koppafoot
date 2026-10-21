@@ -7,8 +7,9 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, ChevronLeft, MapPin, Upload,
   Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock, Goal,
-  GitBranch, ChevronsDownUp, ChevronsUpDown, Trash2,
+  GitBranch, ChevronsDownUp, ChevronsUpDown, Trash2, FileDown,
 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   onCompetition,
   onCompMatches,
@@ -122,6 +123,39 @@ export default function CompetitionSchedulePage() {
   const { demander, Dialogue } = useConfirmation();
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+
+  // Le calendrier et les résultats en PDF, que l'organisateur partage ou
+  // glisse dans ses rapports : un vrai fichier, fabriqué par le serveur (voir
+  // lib/pdf-calendrier).
+  const { firebaseUser } = useAuth();
+  const [telechargement, setTelechargement] = useState(false);
+  const telechargerLeCalendrier = async () => {
+    if (!firebaseUser) return;
+    setTelechargement(true);
+    try {
+      const jeton = await firebaseUser.getIdToken();
+      const res = await fetch(`/api/competitions/${cid}/calendrier`, {
+        headers: { Authorization: `Bearer ${jeton}` },
+      });
+      if (!res.ok) {
+        const corps = await res.json().catch(() => ({}));
+        toast.error(corps.error ?? "Le calendrier n'a pas pu être créé");
+        return;
+      }
+      const fichier = await res.blob();
+      const nom = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1]
+        ?? `calendrier-${competition?.slug ?? cid}.pdf`;
+      const lien = document.createElement("a");
+      lien.href = URL.createObjectURL(fichier);
+      lien.download = nom;
+      lien.click();
+      setTimeout(() => URL.revokeObjectURL(lien.href), 10_000);
+    } catch {
+      toast.error("Le calendrier n'a pas pu être téléchargé");
+    } finally {
+      setTelechargement(false);
+    }
+  };
 
   // "Add match" modal.
   const [addOpen, setAddOpen] = useState(false);
@@ -1103,7 +1137,8 @@ export default function CompetitionSchedulePage() {
             )}
           </motion.p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        {/* Trois boutons ne tiennent pas sur une ligne de téléphone : ils passent à la ligne. */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={openAdd}
@@ -1120,6 +1155,16 @@ export default function CompetitionSchedulePage() {
             <Upload size={16} />
             Importer
           </Link>
+          <button
+            type="button"
+            onClick={() => void telechargerLeCalendrier()}
+            disabled={telechargement || !hasMatches}
+            title="Télécharger le calendrier et les résultats en PDF"
+            className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {telechargement ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
+            PDF
+          </button>
         </div>
       </div>
 

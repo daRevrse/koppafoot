@@ -67,6 +67,11 @@ export function firestoreToProfile(uid: string, data: FirestoreUser): UserProfil
     ...(data.height !== undefined && { height: data.height }),
     ...(data.weight !== undefined && { weight: data.weight }),
     ...(data.date_of_birth !== undefined && { dateOfBirth: data.date_of_birth }),
+    // Le consentement à l'image (lib/consentement-image). Sans ces deux
+    // lignes, la réponse enregistrée revenait vide : les modals se rouvraient
+    // à chaque visite.
+    ...(data.consentement_image !== undefined && { consentementImage: data.consentement_image }),
+    ...(data.consentements_effectif_demandes !== undefined && { consentementsEffectifDemandes: data.consentements_effectif_demandes }),
     // Social
     followersCount: data.followers_count ?? 0,
     followingCount: data.following_count ?? 0,

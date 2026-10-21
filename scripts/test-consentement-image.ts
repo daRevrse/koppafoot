@@ -10,6 +10,8 @@ import {
   aDemanderAuJoueur, consentementAEnregistrer, consentementPour, estMineur, etatDuConsentement, lireConsentement,
   photoAutorisee, reponsePourLaPhoto,
 } from "@/lib/consentement-image";
+import { firestoreToProfile } from "@/lib/profil";
+import type { FirestoreUser } from "@/types";
 
 let echecs = 0;
 function cas(nom: string, fn: () => void) {
@@ -137,6 +139,30 @@ cas("sans nouvelle réponse, une nouvelle photo n'a plus de réponse", () => {
 
 cas("sans photo, rien à ranger", () => {
   assert.equal(consentementAEnregistrer({ photo: null, reponse: "oui", ancien: oui(), par: "orga" }), null);
+});
+
+console.log("\nLe compte relu");
+
+// Le contexte d'authentification construit l'utilisateur avec
+// `firestoreToProfile`. Il ne lisait pas la réponse : enregistrée, elle
+// revenait vide, et le modal ne se fermait jamais.
+const compte = (extra: Partial<FirestoreUser>) =>
+  firestoreToProfile("u1", { email: "j@exemple.test", profile_picture_url: PHOTO, ...extra } as FirestoreUser);
+
+cas("la réponse du joueur revient avec son compte, et la question ne se repose plus", () => {
+  const u = compte({ consentement_image: oui() });
+  assert.deepEqual(u.consentementImage, oui());
+  assert.equal(aDemanderAuJoueur({ photo: u.profilePictureUrl, consentement: u.consentementImage, dateNaissance: u.dateOfBirth }, JOUR), false);
+});
+
+cas("les équipes déjà présentées à l'organisateur reviennent avec son compte", () => {
+  assert.deepEqual(compte({ consentements_effectif_demandes: { "comp:c1:e1": "2026-10-19" } }).consentementsEffectifDemandes, { "comp:c1:e1": "2026-10-19" });
+});
+
+cas("un compte sans réponse n'en a pas", () => {
+  const u = compte({});
+  assert.equal(u.consentementImage, undefined);
+  assert.equal(u.consentementsEffectifDemandes, undefined);
 });
 
 if (echecs > 0) {
