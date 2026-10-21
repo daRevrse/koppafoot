@@ -3,6 +3,7 @@ import { StatusBar } from "expo-status-bar";
 import { useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
+import { FilDuMatch } from "~/components/fiche/FilDuMatch";
 import { OngletsFiche } from "~/components/fiche/OngletsFiche";
 import { useMaintenant } from "~/hooks/useFiche";
 import {
@@ -34,6 +35,9 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
 
   let panneau: ReactNode;
   switch (actif) {
+    case "feed":
+      panneau = <FilDuMatch fiche={fiche} />;
+      break;
     default:
       panneau = <Text style={styles.provisoire}>{actif}</Text>;
   }
