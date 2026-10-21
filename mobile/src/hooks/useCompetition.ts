@@ -10,6 +10,8 @@ export interface EtatDeLaCompetition {
   /** `null` tant que le premier relevé des matchs n'est pas arrivé : rien n'est encore « vide ». */
   matchs: CompMatch[] | null;
   equipes: CompTeam[];
+  /** Le premier relevé des équipes est arrivé : une équipe absente est alors introuvable. */
+  equipesLues: boolean;
   /** Le nombre d'abonnés, compté par le serveur ; `null` tant qu'on ne le sait pas. */
   abonnes: number | null;
   chargement: boolean;
@@ -26,7 +28,7 @@ export function useCompetition(cid: string): EtatDeLaCompetition {
   const actif = usePremierPlan();
   const [competition, setCompetition] = useState<Competition | null | undefined>(undefined);
   const [matchs, setMatchs] = useState<CompMatch[] | null>(null);
-  const [equipes, setEquipes] = useState<CompTeam[]>([]);
+  const [equipes, setEquipes] = useState<CompTeam[] | null>(null);
   const [abonnes, setAbonnes] = useState<number | null>(null);
 
   useEffect(() => {
@@ -58,7 +60,8 @@ export function useCompetition(cid: string): EtatDeLaCompetition {
   return {
     competition: competition ?? null,
     matchs,
-    equipes,
+    equipes: equipes ?? [],
+    equipesLues: equipes !== null,
     abonnes,
     chargement: competition === undefined,
     introuvable: competition === null,
