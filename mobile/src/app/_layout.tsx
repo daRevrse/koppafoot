@@ -4,11 +4,10 @@ import { useLastNotificationResponse } from "expo-notifications";
 import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
-import { urlDuSite } from "~/lib/config";
+import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { lienDeLaNotification, suivreLeJeton } from "~/lib/push";
 import { couleurs } from "~/theme";
 
@@ -95,7 +94,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
     const lien = lienDeLaNotification(reponse);
     if (!lien || dejaOuverte.current === id) return;
     dejaOuverte.current = id;
-    void WebBrowser.openBrowserAsync(urlDuSite(lien), { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
+    ouvrirSurLeSite(lien);
   }, [pret, reponse]);
 
   if (!pret) return null;
