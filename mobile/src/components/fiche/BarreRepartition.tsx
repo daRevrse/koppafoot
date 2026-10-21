@@ -19,19 +19,23 @@ export interface SegmentRepartition {
  * segments carrés, larges de leur part, celui en tête en vert. Le bilan d'un
  * face-à-face ; le pronostic (PR C), avec `onChoisir`.
  */
-export function BarreRepartition({ segments, libelle, enAvant = null, choisi = null, onChoisir, occupe = false }: {
+export function BarreRepartition({
+  segments, libelle, enAvant = null, choisi = null, onChoisir, occupe = false, largeursEgales = false,
+}: {
   segments: SegmentRepartition[];
   libelle: string;
   enAvant?: string | null;
   choisi?: string | null;
   onChoisir?: (cle: string) => void;
   occupe?: boolean;
+  /** Des largeurs égales tant qu'il n'y a pas de chiffres à montrer (le pronostic sans vote). */
+  largeursEgales?: boolean;
 }) {
   return (
     <View style={styles.barre} accessibilityRole={onChoisir ? undefined : "summary"} accessibilityLabel={libelle}>
       {segments.map((s, i) => {
         const vert = enAvant === s.cle;
-        const style = [styles.segment, i > 0 && styles.separe, vert && styles.vert, { flexGrow: Math.max(s.pct, 0) }];
+        const style = [styles.segment, i > 0 && styles.separe, vert && styles.vert, { flexGrow: largeursEgales ? 1 : Math.max(s.pct, 0) }];
         const contenu = (
           <>
             <View style={styles.haut}>

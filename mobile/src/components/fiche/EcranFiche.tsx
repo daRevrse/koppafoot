@@ -1,7 +1,10 @@
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { isSuperAdmin } from "@/lib/hats";
+import { cibleMatch } from "@/lib/audience";
+import { ongletTchatVisible } from "@/lib/tchat";
 import { ClassementDeLaPoule } from "~/components/fiche/ClassementDeLaPoule";
 import { Compos } from "~/components/fiche/Compos";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
@@ -10,13 +13,17 @@ import { FilDuMatch } from "~/components/fiche/FilDuMatch";
 import { InfosMatch } from "~/components/fiche/InfosMatch";
 import { OngletsFiche } from "~/components/fiche/OngletsFiche";
 import { StatsDuMatch } from "~/components/fiche/StatsDuMatch";
+import { TchatDuMatch } from "~/components/fiche/TchatDuMatch";
+import { useAudience } from "~/hooks/useAudience";
 import { useMaintenant } from "~/hooks/useFiche";
 import { usePhotosDeLaFiche } from "~/hooks/usePhotos";
 import {
   ongletAffiche, ongletParDefaut, ongletsDeLaFiche, type DonneesDesOnglets, type Fiche, type Onglet,
 } from "~/lib/fiche-match";
+import { useAuth } from "~/lib/auth";
+import { useMessagesDuTchat } from "~/lib/interactions-match";
 import { retourSelection } from "~/lib/retour";
-import { couleurs, polices } from "~/theme";
+import { couleurs } from "~/theme";
 
 /** Au-delà de ce défilement, le score du tableau est sorti de l'écran : la barre le reprend. */
 const SEUIL_COMPACT = 150;
@@ -32,9 +39,13 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
   const [choix, setChoix] = useState<Onglet | null>(null);
   const [compact, setCompact] = useState(false);
   const photos = usePhotosDeLaFiche(fiche);
+  const { utilisateur, profil } = useAuth();
+  const messages = useMessagesDuTchat(fiche.id);
+  useAudience(cibleMatch(fiche.id), { direct: fiche.statut === "live", cid: fiche.competition?.id ?? null });
 
-  // Le tchat arrive avec la PR C ; le reste, la fiche le sait d'elle-même.
-  const donnees: DonneesDesOnglets = { tchatVisible: false };
+  // Le tchat se montre en direct, ou après s'il reste des messages à relire ;
+  // le reste, la fiche le sait d'elle-même.
+  const donnees: DonneesDesOnglets = { tchatVisible: ongletTchatVisible(fiche.statut, messages?.length ?? 0) };
   const onglets = ongletsDeLaFiche(fiche, donnees);
   const actif = ongletAffiche(choix, onglets, ongletParDefaut(fiche));
 
@@ -62,8 +73,16 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
     case "h2h":
       panneau = <FaceAFace fiche={fiche} />;
       break;
-    default:
-      panneau = <Text style={styles.provisoire}>{actif}</Text>;
+    case "tchat": {
+      // Le bouton seulement : le serveur refait le contrôle avant de supprimer.
+      const uid = utilisateur?.uid;
+      const peutModerer = !!uid && (fiche.moderateurs.includes(uid) || isSuperAdmin(profil));
+      panneau = (
+        <TchatDuMatch mid={fiche.id} cid={fiche.competition?.id ?? null} statut={fiche.statut}
+          messages={messages ?? []} peutModerer={peutModerer} />
+      );
+      break;
+    }
   }
 
   return (
@@ -72,6 +91,9 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
       <BarreFiche fiche={fiche} maintenant={maintenant} compact={compact} onRetour={retour} />
       <ScrollView
         stickyHeaderIndices={[1]}
+        // Le champ du tchat reste au-dessus du clavier (iOS ; Android redimensionne seul).
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
         scrollEventThrottle={32}
         onScroll={(e) => {
           const replie = e.nativeEvent.contentOffset.y > SEUIL_COMPACT;
@@ -99,5 +121,4 @@ const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingBottom: 48 },
   panneau: { paddingTop: 16, minHeight: 400 },
-  provisoire: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.texteDiscret, padding: 16 },
 });

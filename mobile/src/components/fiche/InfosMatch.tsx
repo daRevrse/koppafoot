@@ -5,14 +5,14 @@ import { libelleDuJour } from "@/lib/dates";
 import { dateLongue } from "@/lib/terrains";
 import { Ecusson } from "~/components/Ecusson";
 import { FormeDesEquipes } from "~/components/fiche/Forme";
+import { Pronostic } from "~/components/fiche/Pronostic";
 import { useSuivi } from "~/hooks/useSuivi";
 import type { Fiche } from "~/lib/fiche-match";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { couleurs, espacement, polices } from "~/theme";
 
-// Les infos du site (components/match/MatchInfoList), réduites pour la PR A :
-// le coup d'envoi, le lieu, la compétition. La forme, le pronostic et
-// l'arbitre arrivent avec les PR B et C.
+// Les infos du site (components/match/MatchInfoList) : le pronostic, la
+// forme des deux équipes, puis le coup d'envoi, le lieu et la compétition.
 
 const PROCHES = ["Aujourd'hui", "Demain", "Hier"];
 
@@ -102,6 +102,7 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
 
   return (
     <View style={styles.colonne}>
+      <Pronostic fiche={fiche} />
       <FormeDesEquipes fiche={fiche} />
       {lignes.length > 0 ? (
         <View style={styles.section}>
