@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   titre: { fontFamily: polices.titre, fontSize: 28, color: couleurs.texte, paddingHorizontal: 16, paddingTop: 8 },
   bandeau: {
     fontFamily: polices.texteMoyen, fontSize: 12, color: couleurs.texteSecondaire,
-    backgroundColor: couleurs.fondTertiaire, paddingHorizontal: 16, paddingVertical: 6,
+    backgroundColor: couleurs.surface, paddingHorizontal: 16, paddingVertical: 6,
   },
   vide: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire, textAlign: "center" },
 });

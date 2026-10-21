@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 10,
     backgroundColor: couleurs.fond, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
   },
-  presse: { backgroundColor: couleurs.fondSecondaire },
+  presse: { backgroundColor: couleurs.surfaceHaute },
   temps: { width: 56 },
   minute: { fontFamily: polices.texteGras, fontSize: 13, color: couleurs.direct },
   heure: { fontFamily: polices.texteMoyen, fontSize: 12, color: couleurs.texteDiscret },

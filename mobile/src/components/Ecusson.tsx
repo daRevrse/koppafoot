@@ -27,6 +27,6 @@ export function Ecusson({ url, nom, taille = 22 }: { url: string | null; nom: st
 }
 
 const styles = StyleSheet.create({
-  rond: { backgroundColor: couleurs.fondTertiaire, alignItems: "center", justifyContent: "center" },
+  rond: { backgroundColor: couleurs.surfaceHaute, alignItems: "center", justifyContent: "center" },
   initiales: { fontFamily: polices.texteGras, color: couleurs.texteSecondaire },
 });

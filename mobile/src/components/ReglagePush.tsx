@@ -69,7 +69,7 @@ export function ReglagePush({ uid }: { uid: string }) {
           value={etat === "actif"}
           disabled={occupe || etat === "refuse"}
           onValueChange={(v) => void basculer(v)}
-          trackColor={{ true: couleurs.primaireClair, false: couleurs.bordure }}
+          trackColor={{ true: couleurs.primaire, false: couleurs.bordure }}
         />
       </View>
       {etat === "refuse" ? (
@@ -89,7 +89,7 @@ export function ReglagePush({ uid }: { uid: string }) {
                 value={prefs[c]}
                 disabled={occupe}
                 onValueChange={() => void basculerCategorie(c)}
-                trackColor={{ true: couleurs.primaireClair, false: couleurs.bordure }}
+                trackColor={{ true: couleurs.primaire, false: couleurs.bordure }}
               />
             </View>
           ))}

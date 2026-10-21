@@ -29,13 +29,13 @@ Hors lot : un thème clair ou qui suit le téléphone, la fiche de match native,
 | `bordure` | `#1f4a38` | séparateurs, contours |
 | `texte` | `#F2F7F4` | texte principal |
 | `texteSecondaire` | `#A9C2B4` | e-mail, phrases d'aide |
-| `texteDiscret` | `#7FA08E` | heures, sous-titres, « FIN » |
+| `texteDiscret` | `#8FB09E` | heures, sous-titres, « FIN » |
 | `primaire` | `#34D399` | onglet actif, liens, bouton plein, jour choisi |
-| `direct` | `#F87171` | minute, point et filet d'un match en cours |
+| `direct` | `#FC8181` | minute, point et filet d'un match en cours |
 | `accent` | `#FBBF24` | étoile |
 | `erreur` | `#FCA5A5` | messages et bordures d'erreur |
 
-**Un test garde les contrastes.** `theme.test.ts` liste les paires texte/fond réellement employées et exige 4,5 au moins pour chacune. Il refuse déjà une paire tentante : `texteDiscret` sur `surfaceHaute` ne fait que 3,9, on ne l'emploie donc pas là.
+**Un test garde les contrastes.** `theme.test.ts` exige 4,5 au moins pour chaque couleur de texte sur chacun des trois fonds. Il a fait éclaircir `texteDiscret` et `direct`, qui ne faisaient que 3,9 et 4,1 sur `surfaceHaute`.
 
 **Le bouton plein** a un fond `primaire` et un libellé `#0d291b` (8,1). Le blanc sur l'ancien vert n'atteignait que 3,8.
 

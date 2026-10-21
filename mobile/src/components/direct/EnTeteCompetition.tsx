@@ -43,7 +43,7 @@ export function EnTeteCompetition({ competition, suivable, suivie, onEtoile, onP
 const styles = StyleSheet.create({
   entete: {
     flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 10,
-    backgroundColor: couleurs.fondSecondaire, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
+    backgroundColor: couleurs.fond, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
   },
   titre: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
   textes: { flex: 1 },

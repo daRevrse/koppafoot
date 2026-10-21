@@ -73,7 +73,7 @@ export default function EcranAccueil() {
           <View style={{ width: taille.largeur, height: taille.hauteur }}>
             <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="cover" />
             <LinearGradient
-              colors={["transparent", "rgba(13,41,27,0.55)", couleurs.sombre]}
+              colors={["transparent", "rgba(13,41,27,0.55)", couleurs.fond]}
               locations={[0.4, 0.62, 0.9]}
               style={StyleSheet.absoluteFill}
             />
@@ -115,14 +115,14 @@ export default function EcranAccueil() {
 }
 
 const styles = StyleSheet.create({
-  ecran: { flex: 1, backgroundColor: couleurs.sombre },
+  ecran: { flex: 1, backgroundColor: couleurs.fond },
   textes: { position: "absolute", left: 24, right: 24, gap: 10 },
   titre: { fontFamily: polices.titre, fontSize: 32, lineHeight: 36, color: "#fff" },
   texte: { fontFamily: polices.texte, fontSize: 16, lineHeight: 22, color: "rgba(255,255,255,0.8)" },
   bas: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 12, gap: 8 },
   points: { flexDirection: "row", gap: 6, marginBottom: 12 },
   point: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.35)" },
-  pointActif: { width: 18, backgroundColor: couleurs.primaireClair },
+  pointActif: { width: 18, backgroundColor: couleurs.primaire },
   haut: { position: "absolute", top: 0, right: 0, padding: 16 },
   passer: {
     fontFamily: polices.texteMoyen, fontSize: 14, color: "#fff",
