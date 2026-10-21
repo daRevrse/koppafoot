@@ -6,7 +6,7 @@ import { CATEGORIES_PUSH, type PushCategory } from "@/lib/push-categories";
 import { useAuth } from "~/lib/auth";
 import { db } from "~/lib/firebase";
 import { activerPushMobile, desactiverPushMobile, etatPushMobile, type EtatPushMobile } from "~/lib/push";
-import { couleurs, polices, rayons } from "~/theme";
+import { couleurs, polices } from "~/theme";
 
 /**
  * L'interrupteur des notifications de CE téléphone, dans l'onglet Compte.
@@ -103,10 +103,10 @@ export function ReglagePush({ uid }: { uid: string }) {
 }
 
 const styles = StyleSheet.create({
-  bloc: { gap: 6, padding: 16, borderRadius: rayons.carte, backgroundColor: couleurs.surface },
+  bloc: { gap: 6, padding: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   ligne: { flexDirection: "row", alignItems: "center", gap: 12 },
   textes: { flex: 1, gap: 2 },
-  libelle: { fontFamily: polices.titreMoyen, fontSize: 16, color: couleurs.texte },
+  libelle: { fontFamily: polices.texteNoir, fontSize: 14, color: couleurs.texte },
   detail: { fontFamily: polices.texte, fontSize: 13, color: couleurs.texteSecondaire },
   note: { fontFamily: polices.texte, fontSize: 12, color: couleurs.texteSecondaire },
   categories: { gap: 8, paddingTop: 4 },

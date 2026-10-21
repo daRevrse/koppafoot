@@ -16,7 +16,7 @@ import { useSuivi } from "~/hooks/useSuivi";
 import { useAuth } from "~/lib/auth";
 import { initiales } from "~/lib/initiales";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
-import { couleurs, polices, rayons } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
 
 export default function EcranCompte() {
   const { utilisateur, profil, deconnexion } = useAuth();
@@ -26,7 +26,7 @@ export default function EcranCompte() {
     return (
       <SafeAreaView style={styles.ecran} edges={["top"]}>
         <ScrollView contentContainerStyle={styles.contenu}>
-          <Text style={styles.titre}>Compte</Text>
+          <Text style={styles.titre}>COMPTE</Text>
           <EtatVide icone="person-circle-outline" texte="Un compte pour suivre tes compétitions et les retrouver en tête du Direct.">
             <View style={styles.boutons}>
               <Bouton titre="Se connecter" onPress={() => router.push("/connexion")} />
@@ -48,7 +48,7 @@ export default function EcranCompte() {
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
       <ScrollView contentContainerStyle={styles.contenu}>
-        <Text style={styles.titre}>Compte</Text>
+        <Text style={styles.titre}>COMPTE</Text>
         {profil ? (
           <>
             <CarteProfil profil={profil} email={profil.email ?? utilisateur.email} />
@@ -113,25 +113,29 @@ function CompetitionsSuivies({ suivies }: { suivies: readonly string[] }) {
       </EtatVide>
     );
   } else {
-    contenu = competitions.map((c) => (
-      <EnTeteCompetition
-        key={c.id}
-        competition={c}
-        suivable
-        suivie={suivi.ids.has(c.id)}
-        onEtoile={() => {
-          if (suivi.ids.has(c.id)) garder(c.id);
-          void suivi.basculer(c.id);
-        }}
-        onPress={() => ouvrirSurLeSite(competitionHref(c))}
-        style={styles.ligne}
-      />
-    ));
+    contenu = (
+      <View style={styles.liste}>
+        {competitions.map((c) => (
+          <EnTeteCompetition
+            key={c.id}
+            competition={c}
+            suivable
+            suivie={suivi.ids.has(c.id)}
+            onEtoile={() => {
+              if (suivi.ids.has(c.id)) garder(c.id);
+              void suivi.basculer(c.id);
+            }}
+            onPress={() => ouvrirSurLeSite(competitionHref(c))}
+            style={styles.ligne}
+          />
+        ))}
+      </View>
+    );
   }
 
   return (
     <View style={styles.section}>
-      <Text style={styles.sectionTitre}>Compétitions suivies</Text>
+      <Text style={styles.sectionTitre}>COMPÉTITIONS SUIVIES</Text>
       {contenu}
     </View>
   );
@@ -155,28 +159,26 @@ function SqueletteLignes() {
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingHorizontal: 16, paddingBottom: 32, gap: 20 },
-  titre: { fontFamily: polices.titre, fontSize: 28, color: couleurs.texte, paddingTop: 8 },
+  // Les titres du site : font-display font-black, en capitales.
+  titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte, paddingTop: 8 },
   boutons: { alignSelf: "stretch", gap: 12 },
   carte: {
     flexDirection: "row", alignItems: "center", gap: 14, padding: 16,
-    borderRadius: rayons.carte, backgroundColor: couleurs.surface,
+    backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure,
   },
   avatar: { width: 56, height: 56, borderRadius: 28 },
-  avatarVide: { backgroundColor: couleurs.primaire, alignItems: "center", justifyContent: "center" },
-  avatarTexte: { fontFamily: polices.titreMoyen, fontSize: 20, color: couleurs.surPrimaire },
+  // L'avatar du site : rounded-full bg-emerald-50 font-black text-emerald-600, en sombre.
+  avatarVide: { backgroundColor: couleurs.primaireVoile, alignItems: "center", justifyContent: "center" },
+  avatarTexte: { fontFamily: polices.texteNoir, fontSize: 20, color: couleurs.primaire },
   identite: { flex: 1, gap: 2 },
-  nom: { fontFamily: polices.titreMoyen, fontSize: 20, color: couleurs.texte },
+  nom: { fontFamily: polices.texteNoir, fontSize: 18, color: couleurs.texte },
   texte: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire },
   ville: { flexDirection: "row", alignItems: "center", gap: 4 },
-  texteDiscret: { fontFamily: polices.texte, fontSize: 13, color: couleurs.texteDiscret },
+  texteDiscret: { fontFamily: polices.texteGras, fontSize: 12, color: couleurs.texteDiscret },
   section: { gap: 8 },
-  sectionTitre: {
-    fontFamily: polices.texteGras, fontSize: 12, letterSpacing: 0.5, textTransform: "uppercase",
-    color: couleurs.texteDiscret,
-  },
-  // paddingTop et paddingBottom, pas paddingVertical : en React Native, le
-  // côté précis l'emporte sur le raccourci, quel que soit l'ordre des styles.
-  ligne: { borderRadius: rayons.carte, backgroundColor: couleurs.surface, paddingTop: 12, paddingBottom: 12 },
-  squelette: { gap: 8 },
-  ligneSquelette: { height: 60, borderRadius: rayons.carte, backgroundColor: couleurs.surface },
+  sectionTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: couleurs.texteDiscret },
+  liste: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
+  ligne: { backgroundColor: couleurs.surface },
+  squelette: { gap: 1 },
+  ligneSquelette: { height: 50, backgroundColor: couleurs.surface },
 });
