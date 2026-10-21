@@ -6,6 +6,7 @@ import { aDesStats } from "@/lib/stats-match";
 import { Compos } from "~/components/fiche/Compos";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
 import { FilDuMatch } from "~/components/fiche/FilDuMatch";
+import { InfosMatch } from "~/components/fiche/InfosMatch";
 import { OngletsFiche } from "~/components/fiche/OngletsFiche";
 import { useMaintenant } from "~/hooks/useFiche";
 import {
@@ -49,6 +50,9 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
       break;
     case "lineups":
       panneau = <Compos fiche={fiche} />;
+      break;
+    case "infos":
+      panneau = <InfosMatch fiche={fiche} />;
       break;
     default:
       panneau = <Text style={styles.provisoire}>{actif}</Text>;
