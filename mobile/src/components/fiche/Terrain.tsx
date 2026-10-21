@@ -16,15 +16,16 @@ import { polices } from "~/theme";
 
 const HAUTEUR_SUR_LARGEUR = 104 / 100;
 const LIGNES = "rgba(255,255,255,0.5)";
+/** La largeur donnée au nom court sous une pastille (« J. Mensah », onze signes au plus). */
+const LARGEUR_ETIQUETTE = 84;
 
 /** Un trait de terrain, en unités du dessin (x, y, largeur, hauteur). */
 function Trait({ x, y, l, h }: { x: number; y: number; l: number; h: number }) {
   return (
     <View
-      pointerEvents="none"
       style={{
         position: "absolute", left: `${x}%`, top: `${y / 1.04}%`, width: `${l}%`, height: `${h / 1.04}%`,
-        borderWidth: 1, borderColor: LIGNES,
+        borderWidth: 1, borderColor: LIGNES, pointerEvents: "none",
       }}
     />
   );
@@ -76,24 +77,27 @@ export function Terrain({ titulaires, formation, photos, marques, homme }: {
       <LinearGradient colors={["#1f9d57", "#0f7a3f"]} style={StyleSheet.absoluteFill} />
       {/* Les bandes de tonte, à peine visibles. */}
       {[0, 2, 4, 6].map((n) => (
-        <View key={n} pointerEvents="none" style={[styles.bande, { top: `${(n * 13) / 1.04}%`, height: `${13 / 1.04}%` }]} />
+        <View key={n} style={[styles.bande, { top: `${(n * 13) / 1.04}%`, height: `${13 / 1.04}%` }]} />
       ))}
       <Trait x={3} y={3} l={94} h={98} />
       <Trait x={22} y={71} l={56} h={30} />
       <Trait x={36} y={89} l={28} h={12} />
       <Trait x={42} y={101} l={16} h={3} />
       {/* Le rond central, dont on ne voit que la moitié qui entre dans notre camp. */}
-      <View pointerEvents="none" style={[styles.rondCentral, { left: "34%", width: "32%", top: `${(3 - 16) / 1.04}%`, height: `${32 / 1.04}%` }]} />
+      <View style={[styles.rondCentral, { left: "34%", width: "32%", top: `${(3 - 16) / 1.04}%`, height: `${32 / 1.04}%` }]} />
 
       {largeur > 0
         ? places.map((place, i) => {
             const joueur = place.entry;
             const photo = joueur ? photos?.[joueur.playerId] ?? null : null;
             const d = rayon * 2;
+            // La place est plus large que la pastille : le nom court déborde
+            // dessous, comme l'étiquette du site.
+            const l = Math.max(d, LARGEUR_ETIQUETTE);
             return (
               <View
                 key={joueur?.playerId ?? `vide-${i}`}
-                style={[styles.place, { left: (place.x / 100) * largeur - d / 2, top: (place.y / 100) * largeur - d / 2, width: d }]}
+                style={[styles.place, { left: (place.x / 100) * largeur - l / 2, top: (place.y / 100) * largeur - d / 2, width: l }]}
               >
                 <View style={[styles.pastille, { width: d, height: d, borderRadius: rayon }, !joueur && styles.pastilleVide]}>
                   {joueur && photo ? (
@@ -118,8 +122,8 @@ export function Terrain({ titulaires, formation, photos, marques, homme }: {
 
 const styles = StyleSheet.create({
   cadre: { width: "100%", overflow: "hidden" },
-  bande: { position: "absolute", left: 0, right: 0, backgroundColor: "rgba(255,255,255,0.04)" },
-  rondCentral: { position: "absolute", borderWidth: 1, borderColor: LIGNES, borderRadius: 999 },
+  bande: { position: "absolute", left: 0, right: 0, backgroundColor: "rgba(255,255,255,0.04)", pointerEvents: "none" },
+  rondCentral: { position: "absolute", borderWidth: 1, borderColor: LIGNES, borderRadius: 999, pointerEvents: "none" },
   place: { position: "absolute", alignItems: "center" },
   pastille: { backgroundColor: "#ffffff", alignItems: "center", justifyContent: "center" },
   pastilleVide: { backgroundColor: "transparent", borderWidth: 1, borderStyle: "dashed", borderColor: "#ffffff" },
