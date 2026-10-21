@@ -29,7 +29,12 @@ function Camp({ nom, logo, score, battu, enDirect }: {
  * comp_teams et le club (useEcussons) ; pas dans ce lot — un écusson périmé
  * retombe sur les initiales.
  */
-export function LigneMatch({ entree, onPress }: { entree: Entry; onPress: () => void }) {
+export function LigneMatch({ entree, onPress, etiquette }: {
+  entree: Entry;
+  onPress: () => void;
+  /** Au-dessus des deux camps : la poule ou le tour, le jour d'un match de l'Aperçu. */
+  etiquette?: string | null;
+}) {
   const { match } = entree;
   const enDirect = match.status === "live";
   const joue = match.status === "completed";
@@ -50,7 +55,7 @@ export function LigneMatch({ entree, onPress }: { entree: Entry; onPress: () => 
   return (
     <Pressable
       accessibilityRole="link"
-      accessibilityLabel={`${match.homeTeamName} contre ${match.awayTeamName}${score}${etat}`}
+      accessibilityLabel={`${etiquette ? `${etiquette}, ` : ""}${match.homeTeamName} contre ${match.awayTeamName}${score}${etat}`}
       onPress={onPress}
       style={({ pressed }) => [styles.ligne, pressed && styles.presse]}
     >
@@ -65,6 +70,7 @@ export function LigneMatch({ entree, onPress }: { entree: Entry; onPress: () => 
         )}
       </View>
       <View style={styles.camps}>
+        {etiquette ? <Text style={styles.etiquette} numberOfLines={1}>{etiquette.toUpperCase()}</Text> : null}
         <Camp
           nom={match.homeTeamName} logo={match.homeTeamLogo} score={aScore ? domicile : null} enDirect={enDirect}
           battu={joue && aScore && domicile < exterieur}
@@ -88,6 +94,7 @@ const styles = StyleSheet.create({
   minute: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.direct },
   heure: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.texteDiscret },
   camps: { flex: 1, gap: 4 },
+  etiquette: { fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: 1, color: couleurs.texteDiscret },
   camp: { flexDirection: "row", alignItems: "center", gap: 8 },
   nom: { flex: 1, fontFamily: polices.texteGras, fontSize: 13, color: couleurs.texte },
   battu: { color: couleurs.texteDiscret },

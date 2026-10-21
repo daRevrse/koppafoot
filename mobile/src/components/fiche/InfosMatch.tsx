@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import type { ComponentProps, ReactNode } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { libelleDuJour } from "@/lib/dates";
@@ -8,7 +9,6 @@ import { FormeDesEquipes } from "~/components/fiche/Forme";
 import { Pronostic } from "~/components/fiche/Pronostic";
 import { useSuivi } from "~/hooks/useSuivi";
 import type { Fiche } from "~/lib/fiche-match";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { couleurs, espacement, polices } from "~/theme";
 
 // Les infos du site (components/match/MatchInfoList) : le pronostic, la
@@ -49,6 +49,7 @@ const icone = (nom: ComponentProps<typeof Ionicons>["name"]) => (
 );
 
 export function InfosMatch({ fiche }: { fiche: Fiche }) {
+  const router = useRouter();
   const suivi = useSuivi();
   const lignes: ReactNode[] = [];
 
@@ -80,7 +81,7 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
         label="Compétition"
         valeur={c.nom}
         note={c.sousTitre}
-        onPress={c.slug ? () => ouvrirSurLeSite(`/c/${c.slug}`) : undefined}
+        onPress={() => router.push({ pathname: "/competition/[cid]", params: { cid: c.id } })}
         action={
           <Pressable
             accessibilityRole="button"

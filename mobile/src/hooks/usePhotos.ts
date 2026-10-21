@@ -46,6 +46,25 @@ function useLecture(
 }
 
 /**
+ * Le visage de chaque ligne d'un effectif de compétition (hooks/usePhotosDesComptes
+ * du site) : le compte, la photo de la ligne, sinon celle de sa fiche au club.
+ */
+export function usePhotosDesLignes(
+  lignes: { id: string; user_id?: string | null; photo_url?: string | null; club_ghost_id?: string | null }[],
+  clubId: string | null | undefined,
+): Record<string, string | null> {
+  const parCompte = useLecture(lignes.map((l) => l.user_id), comptesConnus, "uids");
+  const sansCompte = useLecture(
+    lignes.map((l) => (l.user_id || l.photo_url ? null : cleDeLaLigne(clubId, l))),
+    lignesConnues,
+    "lignes",
+  );
+  const parLigne: Record<string, string | null> = {};
+  for (const l of lignes) parLigne[l.id] = photoDeLaLigne(l, clubId, parCompte, sansCompte);
+  return parLigne;
+}
+
+/**
  * Le visage de chaque ligne des deux feuilles, par identifiant de ligne, et
  * celui de l'homme du match : le compte, la photo posée sur la ligne
  * d'effectif, sinon celle de sa fiche au club (lib/photos-sans-compte).

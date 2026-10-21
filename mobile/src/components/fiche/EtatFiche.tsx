@@ -6,13 +6,19 @@ import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
 import { EtatVide } from "~/components/EtatVide";
 import { couleurs } from "~/theme";
 
-/** Une fiche qui n'est pas encore là : le bandeau noir et des lignes qui respirent, ou « introuvable ». */
-export function EtatFiche({ introuvable }: { introuvable: boolean }) {
+/**
+ * Une page qui n'est pas encore là (une fiche, une compétition) : le bandeau
+ * noir et des lignes qui respirent, ou « introuvable ».
+ */
+export function EtatFiche({ introuvable, texte = "Ce match n'existe pas ou n'est plus disponible." }: {
+  introuvable: boolean;
+  texte?: string;
+}) {
   const router = useRouter();
   if (introuvable) {
     return (
       <SafeAreaView style={styles.ecran}>
-        <EtatVide icone="search-outline" texte="Ce match n'existe pas ou n'est plus disponible.">
+        <EtatVide icone="search-outline" texte={texte}>
           <Bouton titre="Retour" variante="contour" onPress={() => router.back()} />
         </EtatVide>
       </SafeAreaView>

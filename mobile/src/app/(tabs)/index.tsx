@@ -23,7 +23,7 @@ import {
 } from "~/lib/direct-tableau";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { retourSelection } from "~/lib/retour";
-import { routeDuMatch } from "~/lib/routes";
+import { routeDeLaCompetition, routeDuMatch } from "~/lib/routes";
 import { couleurs, polices } from "~/theme";
 
 const heure = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -110,7 +110,12 @@ export default function EcranDirect() {
                   suivable={c.id !== FRIENDLY_COMP_ID && !isWorldComp(c.id)}
                   suivie={suivi.ids.has(c.id)}
                   onEtoile={() => void suivi.basculer(c.id)}
-                  onPress={() => ouvrirSurLeSite(competitionHref(c))}
+                  onPress={() => {
+                    // La page native ; une compétition du monde n'a que sa page du site.
+                    const route = routeDeLaCompetition(c);
+                    if (route) router.push(route);
+                    else ouvrirSurLeSite(competitionHref(c));
+                  }}
                   repli={{ nombre: section.nombre, repliee: section.repliee, onBasculer: () => basculer(c.id) }}
                 />
               );

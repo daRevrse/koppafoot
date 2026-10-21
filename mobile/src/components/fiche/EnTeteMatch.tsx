@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { avecVia } from "@/lib/audience";
@@ -13,7 +14,6 @@ import {
   additionnelEnCours, chronoAffiche, formatCompteARebours, libellePeriode, resteAvantCoupDEnvoi, texteDePartage,
   type CampDeFiche, type Fiche,
 } from "~/lib/fiche-match";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { espacement, polices } from "~/theme";
 
 // Le tableau d'affichage du site (components/match/MatchHero) : SOMBRE PAR
@@ -166,13 +166,17 @@ function ListeDeButeurs({ buteurs, droite }: { buteurs: Buteur[]; droite: boolea
 
 /** Le tableau d'affichage : la compétition, les deux camps, le score, les buteurs. */
 export function EnTeteMatch({ fiche, maintenant }: { fiche: Fiche; maintenant: number }) {
+  const router = useRouter();
   const { buteurs } = fiche;
   return (
     <View style={styles.entete}>
       <View style={styles.contexte}>
         {fiche.statut === "live" ? <PointDirect /> : null}
         {fiche.competition ? (
-          <Pressable accessibilityRole="link" onPress={() => fiche.competition?.slug && ouvrirSurLeSite(`/c/${fiche.competition.slug}`)}>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => fiche.competition && router.push({ pathname: "/competition/[cid]", params: { cid: fiche.competition.id } })}
+          >
             <Text style={styles.competition}>{fiche.competition.nom.toUpperCase()}</Text>
           </Pressable>
         ) : (
