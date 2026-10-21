@@ -11,7 +11,8 @@ export default function OngletsLayout() {
         headerShown: false,
         tabBarActiveTintColor: couleurs.primaire,
         tabBarInactiveTintColor: couleurs.texteDiscret,
-        tabBarLabelStyle: { fontFamily: polices.texteMoyen, fontSize: 11 },
+        // La barre du bas du site : text-[10px] font-semibold leading-tight.
+        tabBarLabelStyle: { fontFamily: polices.texteDemi, fontSize: 10, lineHeight: 13 },
         tabBarStyle: { backgroundColor: couleurs.fond, borderTopColor: couleurs.bordure },
       }}
     >
