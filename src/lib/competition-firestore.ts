@@ -2574,32 +2574,9 @@ export const KNOCKOUT_BRACKET_SIZES = [4, 8, 16] as const;
 
 export type KnockoutBracketSize = (typeof KNOCKOUT_BRACKET_SIZES)[number];
 
-/** "1er", "2e", "3e"…, used to label positions and repêchage indexes. */
-function ordinalFr(n: number): string {
-  return n === 1 ? "1er" : `${n}e`;
-}
-
-/** « 1st », « 2nd », « 3rd », « 11th ». */
-function ordinalEn(n: number): string {
-  const dizaine = n % 100;
-  if (dizaine >= 11 && dizaine <= 13) return `${n}th`;
-  return `${n}${({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[n % 10] ?? "th"}`;
-}
-
-/**
- * Human label for a slot source, e.g. "1er poule A" or "2e meilleur 3e"
- * ("1st Group A", "2nd best 3rd" in English).
- */
-export function describeBracketSlotSource(source: BracketSlotSource, langue: "fr" | "en" = "fr"): string {
-  if (langue === "en") {
-    return source.kind === "group_rank"
-      ? `${ordinalEn(source.rank)} Group ${source.group}`
-      : `${ordinalEn(source.index)} best ${ordinalEn(source.rank)}`;
-  }
-  return source.kind === "group_rank"
-    ? `${ordinalFr(source.rank)} poule ${source.group}`
-    : `${ordinalFr(source.index)} meilleur ${ordinalFr(source.rank)}`;
-}
+// Le libellé d'une place, « 1er poule A », vit dans lib/competition-format :
+// le PDF du calendrier, rendu sur le serveur, s'en sert sans ce SDK.
+export { describeBracketSlotSource } from "@/lib/competition-format";
 
 /** Stable key for a source, used to spot the same slot picked twice. */
 export function bracketSlotSourceKey(source: BracketSlotSource): string {

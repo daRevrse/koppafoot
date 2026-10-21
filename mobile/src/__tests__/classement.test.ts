@@ -15,6 +15,12 @@ const ligne = (playerId: string, userId: string | null, position: LineupEntry["p
   playerId, name, number: "", role: "starter", userId, position,
 });
 
+/**
+ * Le chrono d'un match suivi en console, à la fin : 90 minutes. Un match que le
+ * chrono n'a jamais vu ne note personne (lib/notes, `aEteChronometre`).
+ */
+const CHRONO_FINI = 90 * 60_000;
+
 /** Alpha (A) contre Beta (B), le jour `i` de septembre. */
 const match = (i: number, p: Partial<MatchAClasser> = {}): MatchAClasser => ({
   id: `m${i}`, competitionId: "c", status: "completed",
@@ -29,7 +35,7 @@ const match = (i: number, p: Partial<MatchAClasser> = {}): MatchAClasser => ({
   awayLineup: [ligne("X1", "U4", "forward", "Adversaire")],
   homeOnPitch: [], awayOnPitch: [],
   liveState: {
-    currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+    currentPeriod: 2, timerStartAt: null, timerOffset: CHRONO_FINI, isTimerRunning: false,
     events: [
       ev({ type: "goal", teamId: "A", playerId: "L1", minute: 20 }),
       ev({ type: "save", teamId: "A", playerId: "G1", minute: 30 }),
@@ -76,13 +82,22 @@ describe("calculerClassements", () => {
   it("n'accorde ni but ni note au but annulé par la VAR", () => {
     const annule = [1, 2, 3].map((i) => match(i, {
       liveState: {
-        currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+        currentPeriod: 2, timerStartAt: null, timerOffset: CHRONO_FINI, isTimerRunning: false,
         events: [ev({ type: "goal", teamId: "A", playerId: "L1", minute: 20, varStatus: "cancelled" })],
       },
     }));
     const { parNote, parContribution } = calculerClassements(annule);
     expect(parContribution).toHaveLength(0);
     expect(parNote.find((l) => l.cle === "uid:U1")!.note).toBe(6);
+  });
+
+  it("ne note personne sur un match que le chrono n'a jamais vu, mais garde ses buts", () => {
+    const sansChrono = [1, 2, 3].map((i) => match(i, {
+      liveState: { ...match(i).liveState!, timerOffset: 0, timerStartAt: null },
+    }));
+    const { parNote, parContribution } = calculerClassements(sansChrono);
+    expect(parNote).toHaveLength(0);
+    expect(parContribution.find((l) => l.cle === "uid:U1")!.buts).toBe(3);
   });
 
   it("compte les buts d'un match renseigné après coup, sans le noter", () => {
@@ -113,7 +128,7 @@ describe("calculerClassements", () => {
       awayTeamId: "", awayTeamName: "Les Inconnus",
       awayLineup: [ligne(`ext-a${i}-9`, null, null, "Joueur 9")],
       liveState: {
-        currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+        currentPeriod: 2, timerStartAt: null, timerOffset: CHRONO_FINI, isTimerRunning: false,
         events: [
           ev({ type: "goal", teamId: "A", playerId: "L1", minute: 20 }),
           ev({ type: "goal", teamId: "", playerId: `ext-a${i}-9`, minute: 70 }),
@@ -133,7 +148,7 @@ describe("calculerClassements", () => {
     const avec = (id: string, nom: string) => [1, 2, 3].map((i) => match(i, {
       homeLineup: [ligne("L1", "U1", "forward", "Buteur"), ligne(id, null, "forward", nom)],
       liveState: {
-        currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+        currentPeriod: 2, timerStartAt: null, timerOffset: CHRONO_FINI, isTimerRunning: false,
         events: [ev({ type: "goal", teamId: "A", playerId: id, minute: 20 })],
       },
     }));
@@ -155,7 +170,7 @@ describe("calculerClassements", () => {
         homeTeamId: i === 3 ? "A2" : "A",
         homeLineup: [ligne("L1", "U1", "forward", "Buteur"), ligne(id, null, "forward", "Kossi Owens ")],
         liveState: {
-          currentPeriod: 2, timerStartAt: null, timerOffset: 0, isTimerRunning: false,
+          currentPeriod: 2, timerStartAt: null, timerOffset: CHRONO_FINI, isTimerRunning: false,
           events: [ev({ type: "goal", teamId: i === 3 ? "A2" : "A", playerId: id, minute: 20 })],
         },
       });
