@@ -14,15 +14,20 @@
 
 ## À lire d'abord
 
-**Branche :** `claude/app-ui-sombre`, déjà créée depuis `origin/master` (c9a873b). Elle porte le design et ce plan. **Ne pas pousser ni ouvrir la PR sans l'accord de l'utilisateur.**
+**Branche :** `claude/app-ui-sombre`, rebasée le 2026-10-21 sur `origin/master` (4509cfa). Elle porte le design et ce plan. **Ne pas pousser ni ouvrir la PR sans l'accord de l'utilisateur.**
+
+**Ce que master a changé depuis l'écriture du plan** (pris en compte plus bas) :
+- les notifications push : `expo-notifications`, `lib/push.ts`, et le réglage `components/ReglagePush.tsx` dans l'onglet Compte ;
+- la minute du direct : `minuteDuDirect(entree, libellés)` remplace `liveMinute` et rend « 13′ », « 45+2′ », « MT » ou « TAB », déjà avec le prime ; libellés dans `FOOT.fr` (`@/i18n/foot`) ;
+- `_layout.tsx` ouvre la page d'une notification touchée dans le navigateur intégré.
 
 **Toutes les commandes se lancent depuis la racine du dépôt**, `C:\football-network\koppafoot`, avec `--prefix mobile`, sauf mention contraire.
 
-**La barrière des tests.** `npm --prefix mobile test` doit afficher `Tests: N passed, N total`. **« 0 total » est un échec.** Au lot 1, un `expo install` avait imbriqué `expo-modules-core` et plus aucun test ne tournait, sans aucune erreur visible. Le nombre attendu est donné à chaque étape : 28 au départ, 58 à la fin.
+**La barrière des tests.** Au 2026-10-21, master a **9 tests en échec qui ne viennent pas du mobile**, dans `classement.test.ts` et `etat-de-forme.test.ts` (signalés à part). `npm --prefix mobile test` doit donc afficher `Tests: 9 failed, N passed`, avec ces deux suites pour seuls échecs. **Un total à 0 est un échec.** Au lot 1, un `expo install` avait imbriqué `expo-modules-core` et plus aucun test ne tournait, sans erreur visible. Le nombre attendu est donné à chaque étape : 750 réussis au départ, 780 à la fin. Si les 9 échecs ont été réparés entre-temps, ils comptent parmi les réussis.
 
 **Lint et types**, avant chaque commit qui touche du code :
-- `npm --prefix mobile run lint`
-- `npm --prefix mobile run typecheck`
+- `npm --prefix mobile run lint -- --no-cache` : le cache d'`expo lint` garde des erreurs périmées, comme un `expo-notifications` introuvable après une réinstallation ;
+- `npm --prefix mobile run typecheck` : une erreur préexistante dans `__tests__/suppression-match.test.ts` (TS2352), signalée à part. Aucune autre ne doit apparaître.
 
 Le lint embarque les règles du compilateur React. Deux sont déjà tombées au lot 1 :
 - **`set-state-in-effect`** : pas de `setState` synchrone dans le corps d'un effet. Dans un `.then`, c'est permis.
@@ -130,7 +135,7 @@ export const rayons = { champ: 10, carte: 14 } as const;
 **Step 4 : le test passe**
 
 Run: `npm --prefix mobile test`
-Expected : `Tests: 51 passed, 51 total` (28 + 23).
+Expected : `Tests: 9 failed, 773 passed` (750 + 23).
 
 **Step 5 : remplacer les jetons retirés**
 
@@ -145,6 +150,7 @@ Expected : des erreurs sur `fondSecondaire`, `fondTertiaire`, `sombre` et `prima
 | `components/direct/EnTeteCompetition.tsx:46` | `fondSecondaire` | `fond` |
 | `components/direct/LigneMatch.tsx:56` | `fondSecondaire` | `surfaceHaute` |
 | `components/Ecusson.tsx:30` | `fondTertiaire` | `surfaceHaute` |
+| `components/ReglagePush.tsx` (les deux `trackColor`) | `primaireClair` | `primaire` |
 
 Run: `npm --prefix mobile run typecheck`, puis `npm --prefix mobile run lint`
 Expected : aucune erreur.
@@ -185,14 +191,10 @@ git commit -m "feat(mobile): la palette sombre, gardée par un test de contraste
 
 **Step 2 : le thème de navigation, dans `mobile/src/app/_layout.tsx`**
 
-Remplacer l'import d'`expo-router` et ajouter `couleurs` :
+Remplacer l'import d'`expo-router` (`couleurs` est déjà importé, pour les notifications) :
 
 ```tsx
 import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
-```
-
-```tsx
-import { couleurs } from "~/theme";
 ```
 
 Sous `unstable_settings`, ajouter :
@@ -371,7 +373,7 @@ Dans `styles`, remplacer `barre` et `fermer` :
 **Step 7 : vérifier**
 
 Run :
-- `npm --prefix mobile test` → `Tests: 51 passed, 51 total`
+- `npm --prefix mobile test` → `Tests: 9 failed, 773 passed`
 - `npm --prefix mobile run lint` → aucune erreur
 - `npm --prefix mobile run typecheck` → aucune erreur
 
@@ -451,7 +453,7 @@ Dans `mobile/src/components/Ecusson.tsx` :
 
 **Step 5 : vérifier**
 
-Run: `npm --prefix mobile test` → `Tests: 55 passed, 55 total`. Puis lint et typecheck, sans erreur.
+Run: `npm --prefix mobile test` → `Tests: 9 failed, 777 passed`. Puis lint et typecheck, sans erreur.
 
 **Step 6 : commit**
 
@@ -542,7 +544,7 @@ Puis `jourLePlusProche` réutilise `joursAvecMatchs`. Sa première instruction d
 
 **Step 4 : vérifier**
 
-Run: `npm --prefix mobile test` → `Tests: 58 passed, 58 total`. Puis lint et typecheck.
+Run: `npm --prefix mobile test` → `Tests: 9 failed, 780 passed`. Puis lint et typecheck.
 
 **Step 5 : commit**
 
@@ -569,7 +571,7 @@ Puis vérifier qu'aucune copie imbriquée n'est apparue :
 Run: `ls mobile/node_modules/expo-haptics/node_modules 2>/dev/null; npm --prefix mobile ls expo-modules-core`
 Expected : pas de `node_modules` sous `expo-haptics`, une seule version d'`expo-modules-core` (dédoublonnée).
 
-Run: `npm --prefix mobile test` → `Tests: 58 passed, 58 total`. **« 0 total » : régénérer le fichier de verrouillage**, comme au lot 1 (commit ab4827c).
+Run: `npm --prefix mobile test` → `Tests: 9 failed, 780 passed`. **« 0 total » : régénérer le fichier de verrouillage**, comme au lot 1 (commit ab4827c).
 
 **Step 2 : `mobile/src/lib/retour.ts`**
 
@@ -788,7 +790,7 @@ const styles = StyleSheet.create({
 
 **Step 6 : vérifier**
 
-Lint et typecheck sans erreur. Les tests restent à `58 passed` : rien n'est encore branché.
+Lint et typecheck sans erreur. Les tests restent à `780 passed` : rien n'est encore branché.
 
 **Step 7 : commit**
 
@@ -924,10 +926,14 @@ git commit -m "feat(mobile): la frise des jours"
 
 ```tsx
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { liveMinute, type Entry } from "@/lib/direct-shared";
+import { FOOT } from "@/i18n/foot";
+import { minuteDuDirect, type Entry } from "@/lib/direct-shared";
 import { Ecusson } from "~/components/Ecusson";
 import { PointDirect } from "~/components/direct/PointDirect";
 import { couleurs, polices, rayons } from "~/theme";
+
+/** Le vocabulaire du site : « MT », « TAB », « Fin », « Annulé ». */
+const f = FOOT.fr;
 
 /** « devant » en gras, à tout moment ; « derrière » estompé, une fois le match joué seulement. */
 type Rang = "devant" | "derriere" | "egal";
@@ -958,7 +964,10 @@ export function CarteMatch({ entree, onPress }: { entree: Entry; onPress: () => 
   const domicile = match.scoreHome;
   const exterieur = match.scoreAway;
   const aScore = domicile != null && exterieur != null;
-  const minute = enDirect ? liveMinute(match) : null;
+  // « 13′ », « 45+2′ », « MT », « TAB » ; vide pour un match du monde, sans horloge.
+  const minute = enDirect
+    ? minuteDuDirect(entree, { pause: f.minutePause, avant: f.minuteAvant, interrompu: f.minuteInterrompu, tirs: f.minuteTirs })
+    : "";
 
   const rang = (pour: number | null, contre: number | null): Rang => {
     if (pour == null || contre == null || pour === contre) return "egal";
@@ -967,7 +976,7 @@ export function CarteMatch({ entree, onPress }: { entree: Entry; onPress: () => 
   };
 
   const etat = enDirect
-    ? `, en direct, ${minute}e minute`
+    ? `, en direct${minute ? `, ${minute}` : ""}`
     : joue ? ", terminé" : annule ? ", annulé" : match.time ? `, à ${match.time}` : "";
   const score = aScore ? `, ${domicile} à ${exterieur}` : "";
 
@@ -982,11 +991,11 @@ export function CarteMatch({ entree, onPress }: { entree: Entry; onPress: () => 
         {enDirect ? (
           <View style={styles.minute}>
             <PointDirect />
-            <Text style={styles.minuteTexte}>{minute}′</Text>
+            <Text style={styles.minuteTexte}>{minute}</Text>
           </View>
         ) : (
           <Text style={joue || annule ? styles.fin : styles.heure}>
-            {joue ? "FIN" : annule ? "ANNULÉ" : match.time ?? "—"}
+            {joue ? f.fin.toUpperCase() : annule ? f.annule.toUpperCase() : match.time ?? "—"}
           </Text>
         )}
       </View>
@@ -1066,6 +1075,7 @@ git commit -m "feat(mobile): la carte de match façon tableau d'affichage"
 
 **Files:**
 - Create: `mobile/src/lib/navigateur.ts`
+- Modify: `mobile/src/app/_layout.tsx` (l'ouverture d'une notification)
 - Modify: `mobile/src/app/(tabs)/index.tsx` (réécrit)
 - Modify: `mobile/src/components/direct/FiltresDirect.tsx`
 - Delete: `mobile/src/components/direct/SelecteurJour.tsx`, `mobile/src/components/direct/LigneMatch.tsx`
@@ -1084,6 +1094,15 @@ export function ouvrirSurLeSite(chemin: string): void {
   void WebBrowser.openBrowserAsync(urlDuSite(chemin), { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
 }
 ```
+
+**Step 1 bis : la notification touchée passe par là aussi**
+
+Dans `mobile/src/app/_layout.tsx` :
+- `void WebBrowser.openBrowserAsync(urlDuSite(lien), { … });` devient `ouvrirSurLeSite(lien);` ;
+- retirer les imports devenus inutiles (`expo-web-browser`, `urlDuSite`) ;
+- ajouter `import { ouvrirSurLeSite } from "~/lib/navigateur";`.
+
+`couleurs` y reste importé pour le thème de navigation (Task 2).
 
 **Step 2 : `FiltresDirect.tsx`**
 
@@ -1302,7 +1321,7 @@ git rm mobile/src/components/direct/SelecteurJour.tsx mobile/src/components/dire
 
 **Step 5 : vérifier**
 
-- `npm --prefix mobile test` → `Tests: 58 passed, 58 total`
+- `npm --prefix mobile test` → `Tests: 9 failed, 780 passed`
 - lint et typecheck, sans erreur
 - `grep -rn "SelecteurJour\|LigneMatch" mobile/src` → rien
 
@@ -1321,6 +1340,7 @@ git commit -m "feat(mobile): le Direct sombre — frise, pastille en direct, car
 - Modify: `mobile/src/lib/direct-firestore.ts`
 - Create: `mobile/src/hooks/useCompetitionsSuivies.ts`
 - Modify: `mobile/src/app/(tabs)/compte.tsx` (réécrit)
+- Modify: `mobile/src/components/ReglagePush.tsx` (sur une carte)
 
 **Step 1 : `lireCompetitions`, dans `lib/direct-firestore.ts`**
 
@@ -1411,6 +1431,7 @@ import type { UserProfile } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { EnTeteCompetition } from "~/components/direct/EnTeteCompetition";
 import { EtatVide } from "~/components/EtatVide";
+import { ReglagePush } from "~/components/ReglagePush";
 import { useCompetitionsSuivies } from "~/hooks/useCompetitionsSuivies";
 import { useRespiration } from "~/hooks/useRespiration";
 import { useSuivi } from "~/hooks/useSuivi";
@@ -1458,6 +1479,7 @@ export default function EcranCompte() {
         ) : (
           <Text style={styles.texte}>Profil indisponible pour l&apos;instant. Vérifie ta connexion.</Text>
         )}
+        <ReglagePush uid={utilisateur.uid} />
         <Bouton titre="Se déconnecter" variante="contour" onPress={seDeconnecter} />
       </ScrollView>
     </SafeAreaView>
@@ -1582,9 +1604,19 @@ const styles = StyleSheet.create({
 });
 ```
 
+**Step 3 bis : le réglage des notifications sur une carte**
+
+Dans `mobile/src/components/ReglagePush.tsx`, seul le style `bloc` change. Les filets haut et bas deviennent une carte, comme le profil au-dessus :
+
+```tsx
+  bloc: { gap: 6, padding: 16, borderRadius: rayons.carte, backgroundColor: couleurs.surface },
+```
+
+Importer `rayons` avec `couleurs` et `polices`. Les deux `trackColor` sont passés à `primaire` en Task 1. Sur Android, ajouter aux deux `Switch` `thumbColor={couleurs.texte}`, sinon le curseur reste du gris système sur fond sombre.
+
 **Step 4 : vérifier**
 
-- `npm --prefix mobile test` → `Tests: 58 passed, 58 total`
+- `npm --prefix mobile test` → `Tests: 9 failed, 780 passed`
 - lint et typecheck, sans erreur
 
 **Step 5 : commit**
@@ -1638,7 +1670,7 @@ Chaque écart trouvé : corriger, relancer les tests, le lint et le typecheck, f
 
 ## Task 12 : le build de développement EAS, puis le téléphone
 
-`expo-haptics` et `userInterfaceStyle` sont natifs : **l'ancien build planterait au lancement**.
+`expo-haptics` et `userInterfaceStyle` sont natifs : **l'ancien build planterait au lancement**. `expo-notifications` est déjà dans l'application : le nouveau build le reprend tel quel.
 
 **Step 1 : lancer le build**
 
