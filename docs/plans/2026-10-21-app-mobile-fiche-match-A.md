@@ -29,7 +29,7 @@
 
 ---
 
-## Task A1 (site) : `toMatch` dans un module sans SDK (TDD)
+## Task 1 — A1 (site) : `toMatch` dans un module sans SDK (TDD)
 
 **Files :** Create `src/lib/match-mappers.ts` · Modify `src/lib/firestore.ts` · Test `mobile/src/__tests__/match-mappers.test.ts`
 
@@ -89,7 +89,7 @@ describe("toMatch", () => {
 
 ---
 
-## Task A2 (site) : la composition du fil dans `lib/fil-du-match` (TDD)
+## Task 2 — A2 (site) : la composition du fil dans `lib/fil-du-match` (TDD)
 
 **Files :** Create `src/lib/fil-du-match.ts` · Modify `src/components/match/MatchTimeline.tsx` · Test `mobile/src/__tests__/fil-du-match.test.ts`
 
@@ -135,7 +135,7 @@ describe("composerFil", () => {
 
 ---
 
-## Task A3 (app) : la fiche, en logique pure (TDD)
+## Task 3 — A3 (app) : la fiche, en logique pure (TDD)
 
 **Files :** Create `mobile/src/lib/fiche-match.ts` · Test `mobile/src/__tests__/fiche-match.test.ts`
 
@@ -232,7 +232,7 @@ export interface Fiche {
 
 ---
 
-## Task A4 (app) : les données en temps réel
+## Task 4 — A4 (app) : les données en temps réel
 
 **Files :** Create `mobile/src/lib/fiche-firestore.ts`, `mobile/src/hooks/useFiche.ts`
 
@@ -261,7 +261,7 @@ Pas de test jest : ce sont des écoutes. La vérification se fait à l'écran (A
 
 ---
 
-## Task A5 (app) : les routes, et le Direct qui y mène
+## Task 5 — A5 (app) : les routes, et le Direct qui y mène
 
 **Files :** Create `mobile/src/app/match/[cid]/[mid].tsx`, `mobile/src/app/amical/[id].tsx` · Modify `mobile/src/app/_layout.tsx`, `mobile/src/app/(tabs)/index.tsx`, `mobile/src/lib/navigateur.ts`
 
@@ -278,7 +278,7 @@ Commit `feat(mobile): toucher un match ouvre sa fiche native`.
 
 ---
 
-## Task A6 (app) : l'en-tête, le bandeau noir du site
+## Task 6 — A6 (app) : l'en-tête, le bandeau noir du site
 
 **Files :** Create `mobile/src/components/fiche/EnTeteMatch.tsx` · **Source :** `src/components/match/MatchHero.tsx`
 
@@ -305,7 +305,7 @@ Commit `feat(mobile): l'en-tête de la fiche, le tableau d'affichage du site`.
 
 ---
 
-## Task A7 (app) : les onglets et l'écran
+## Task 7 — A7 (app) : les onglets et l'écran
 
 **Files :** Create `mobile/src/components/fiche/OngletsFiche.tsx`, `mobile/src/components/fiche/EcranFiche.tsx` · **Source :** `MatchTabs.tsx`
 
@@ -325,7 +325,7 @@ Commit `feat(mobile): les onglets de la fiche`.
 
 ---
 
-## Task A8 (app) : le Fil
+## Task 8 — A8 (app) : le Fil
 
 **Files :** Create `mobile/src/components/fiche/FilDuMatch.tsx` · **Source :** `MatchTimeline.tsx`
 
@@ -358,7 +358,7 @@ Commit `feat(mobile): le fil du match`.
 
 ---
 
-## Task A9 (app) : les Compos et le terrain
+## Task 9 — A9 (app) : les Compos et le terrain
 
 **Files :** Create `mobile/src/components/fiche/Compos.tsx`, `mobile/src/components/fiche/Terrain.tsx` · **Sources :** `MatchLineups.tsx`, `TerrainCompo.tsx`
 
@@ -379,7 +379,7 @@ Commit `feat(mobile): les compositions, sur le terrain`.
 
 ---
 
-## Task A10 (app) : des Infos réduites
+## Task 10 — A10 (app) : des Infos réduites
 
 **Files :** Create `mobile/src/components/fiche/InfosMatch.tsx` · **Source :** `MatchInfoList.tsx`
 
@@ -392,7 +392,7 @@ Commit `feat(mobile): les infos du match`.
 
 ---
 
-## Task A11 : vérifier, puis rendre compte
+## Task 11 — A11 : vérifier, puis rendre compte
 
 1. Tests, lint et typecheck mobile ; `npx tsc --noEmit` et `npm run lint` côté site.
 2. Metro `--clear`, puis le Chrome sans fenêtre :
