@@ -6,40 +6,29 @@ import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bouton } from "~/components/Bouton";
 import { useAccueil } from "~/lib/accueil";
-import { couleurs, polices } from "~/theme";
+import { couleurs, espacement, polices } from "~/theme";
+
+/**
+ * La photo de la page de connexion du site (public/branding/login_side.jpg) :
+ * un ballon sur un terrain en terre, le but au fond. L'application parle
+ * d'abord au football d'ici, pas aux stades d'Europe.
+ */
+const FOND = require("../../assets/accueil/fond.jpg");
 
 // Le registre de la campagne d'affiches : montrer le match, cacher la
-// machine. Et rien qui ne soit pas déjà dans l'application — donc pas encore
-// de notifications.
+// machine. Et rien qui ne soit pas déjà dans l'application.
 const DIAPOS = [
-  {
-    cle: "direct",
-    image: require("../../assets/accueil/scores.jpg"),
-    titre: "Le football d'ici, en direct",
-    texte: "Les matchs de ta ville, minute par minute.",
-  },
-  {
-    cle: "suivre",
-    image: require("../../assets/accueil/matchs.jpg"),
-    titre: "Suis tes compétitions",
-    texte: "Une étoile, et elles passent en tête.",
-  },
-  {
-    cle: "monde",
-    image: require("../../assets/accueil/terrain.jpg"),
-    titre: "Le monde aussi",
-    texte: "Le football mondial du jour, au même endroit.",
-  },
+  { cle: "direct", titre: "Le football d'ici, en direct", texte: "Les matchs de ta ville, minute par minute." },
+  { cle: "suivre", titre: "Suis tes compétitions", texte: "Une étoile, et elles passent en tête." },
+  { cle: "monde", titre: "Le monde aussi", texte: "Le football mondial du jour, au même endroit." },
 ];
 
 /**
- * L'IMAGE PREND TOUT L'ÉCRAN, le texte et les boutons se posent dessus.
- *
- * Un dégradé vers le vert de la marque, sur la moitié basse, garde le texte
- * lisible quelle que soit la photo. Les dimensions viennent de la mise en
- * page réelle (onLayout) : sur Android, selon les versions, la fenêtre compte
- * ou non la barre de navigation. La fenêtre sert de valeur de départ, pour
- * que la première image ne soit pas vide en attendant la mesure.
+ * LA PHOTO RESTE, LES TEXTES DÉFILENT. Une seule image, fixe, plein écran,
+ * sous un dégradé vers le noir de l'application ; seuls les titres glissent
+ * d'un écran à l'autre. Les dimensions viennent de la mise en page réelle
+ * (onLayout) : sur Android, selon les versions, la fenêtre compte ou non la
+ * barre de navigation. La fenêtre sert de valeur de départ.
  */
 export default function EcranAccueil() {
   const { terminer } = useAccueil();
@@ -56,8 +45,13 @@ export default function EcranAccueil() {
       style={styles.ecran}
       onLayout={(e) => setMesure({ largeur: e.nativeEvent.layout.width, hauteur: e.nativeEvent.layout.height })}
     >
-      {/* Texte clair sur la photo ; le layout racine repasse en sombre après. */}
       <StatusBar style="light" />
+      <Image source={FOND} style={StyleSheet.absoluteFill} contentFit="cover" accessibilityIgnoresInvertColors />
+      <LinearGradient
+        colors={["transparent", "rgba(8,13,11,0.6)", couleurs.fond]}
+        locations={[0.35, 0.58, 0.86]}
+        style={StyleSheet.absoluteFill}
+      />
 
       <FlatList
         ref={liste}
@@ -71,14 +65,8 @@ export default function EcranAccueil() {
         onMomentumScrollEnd={(e) => setIndex(Math.round(e.nativeEvent.contentOffset.x / taille.largeur))}
         renderItem={({ item }) => (
           <View style={{ width: taille.largeur, height: taille.hauteur }}>
-            <Image source={item.image} style={StyleSheet.absoluteFill} contentFit="cover" />
-            <LinearGradient
-              colors={["transparent", "rgba(13,41,27,0.55)", couleurs.fond]}
-              locations={[0.4, 0.62, 0.9]}
-              style={StyleSheet.absoluteFill}
-            />
             <View style={[styles.textes, { bottom: hauteurBas + 16 }]}>
-              <Text style={styles.titre}>{item.titre}</Text>
+              <Text style={styles.titre}>{item.titre.toUpperCase()}</Text>
               <Text style={styles.texte}>{item.texte}</Text>
             </View>
           </View>
@@ -107,7 +95,7 @@ export default function EcranAccueil() {
 
       <SafeAreaView edges={["top"]} style={styles.haut}>
         <Pressable accessibilityRole="button" onPress={() => terminer()} hitSlop={12}>
-          <Text style={styles.passer}>Passer</Text>
+          <Text style={styles.passer}>PASSER</Text>
         </Pressable>
       </SafeAreaView>
     </View>
@@ -116,16 +104,17 @@ export default function EcranAccueil() {
 
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
-  textes: { position: "absolute", left: 24, right: 24, gap: 10 },
-  titre: { fontFamily: polices.titre, fontSize: 32, lineHeight: 36, color: "#fff" },
-  texte: { fontFamily: polices.texte, fontSize: 16, lineHeight: 22, color: "rgba(255,255,255,0.8)" },
+  textes: { position: "absolute", left: 24, right: 24, gap: 12 },
+  // L'affiche du site (CadreAuth) : font-display font-black, capitales, interlignage 0,9.
+  titre: { fontFamily: polices.titre, fontSize: 36, lineHeight: 34, letterSpacing: espacement(36, -0.02), color: "#fff" },
+  texte: { fontFamily: polices.texte, fontSize: 15, lineHeight: 22, color: "rgba(255,255,255,0.75)" },
   bas: { position: "absolute", left: 0, right: 0, bottom: 0, paddingHorizontal: 24, paddingBottom: 12, gap: 8 },
   points: { flexDirection: "row", gap: 6, marginBottom: 12 },
   point: { width: 6, height: 6, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.35)" },
-  pointActif: { width: 18, backgroundColor: couleurs.primaire },
+  pointActif: { width: 18, backgroundColor: "#10b981" },
   haut: { position: "absolute", top: 0, right: 0, padding: 16 },
   passer: {
-    fontFamily: polices.texteMoyen, fontSize: 14, color: "#fff",
+    fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: "#fff",
     textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 4,
   },
 });
