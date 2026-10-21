@@ -70,7 +70,7 @@ export function TexteDeSegment({ children, vert = false }: { children: ReactNode
 const styles = StyleSheet.create({
   barre: { flexDirection: "row", overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   segment: {
-    flexBasis: 0, minWidth: 76, paddingHorizontal: 12, paddingVertical: 10, gap: 12,
+    flexBasis: 0, minWidth: 92, paddingHorizontal: 12, paddingVertical: 10, gap: 12,
     justifyContent: "space-between", backgroundColor: couleurs.surface,
   },
   separe: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: couleurs.bordure },
