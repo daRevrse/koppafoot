@@ -83,10 +83,11 @@ export function Apercu({ competition, matchs, equipes, onOuvrir, onOnglet }: {
       />
     ));
 
-  // Les leaders, une fois qu'une poule a joué : le premier de chacune.
-  const leaders = joues.length > 0
-    ? computeStandings(matchs, equipes, competition.format).filter((p) => p.rows[0]?.played > 0)
-    : [];
+  // Les leaders, une fois qu'une poule a joué : le premier de chacune. La
+  // lettre de la poule se lit dès qu'il y en a plusieurs, même si une seule a joué.
+  const poules = joues.length > 0 ? computeStandings(matchs, equipes, competition.format) : [];
+  const leaders = poules.filter((p) => p.rows[0]?.played > 0);
+  const plusieursPoules = poules.length > 1;
   const buteurs = computeTopScorers(matchs).slice(0, 3);
   const parId = new Map(equipes.map((e) => [e.id, e]));
   const rienAJouer = enDirect.length === 0 && aVenir.length === 0 && joues.length === 0;
@@ -106,12 +107,12 @@ export function Apercu({ competition, matchs, equipes, onOuvrir, onOnglet }: {
       ) : null}
 
       {leaders.length > 0 ? (
-        <Bloc titre={leaders.length > 1 ? "En tête des poules" : "En tête"} action={{ libelle: "Classement", onPress: () => onOnglet("classement") }}>
+        <Bloc titre={plusieursPoules ? "En tête des poules" : "En tête"} action={{ libelle: "Classement", onPress: () => onOnglet("classement") }}>
           {leaders.map((p) => {
             const tete = p.rows[0];
             return (
               <View key={p.group} style={stylesBloc.ligne}>
-                {leaders.length > 1 ? <Text style={styles.poule}>{p.group}</Text> : null}
+                {plusieursPoules ? <Text style={styles.poule}>{p.group}</Text> : null}
                 <Ecusson url={tete.team.logoUrl} nom={tete.team.name} taille={22} />
                 <Text style={styles.nom} numberOfLines={1}>{tete.team.name}</Text>
                 <Text style={styles.points}>{`${tete.points} PTS`}</Text>

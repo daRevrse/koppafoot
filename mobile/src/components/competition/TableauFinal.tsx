@@ -10,6 +10,9 @@ import { couleurs, espacement, polices } from "~/theme";
 
 const f = FOOT.fr;
 
+/** La largeur d'un tour : deux tiennent côte à côte sur un téléphone de 390 points. */
+const LARGEUR_TOUR = 168;
+
 function Camp({ equipeId, nom, logo, score, montrerScore, gagnant, estompe, place }: {
   equipeId: string | null;
   nom: string;
@@ -110,7 +113,7 @@ const styles = StyleSheet.create({
   chargement: { paddingVertical: 40 },
   colonne: { gap: 24 },
   tours: { gap: 16, paddingHorizontal: 16 },
-  tour: { width: 210, gap: 12 },
+  tour: { width: LARGEUR_TOUR, gap: 12 },
   titreTour: {
     textAlign: "center", fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11, 0.1), color: couleurs.texte,
   },
@@ -121,10 +124,10 @@ const styles = StyleSheet.create({
   matchDirect: { borderColor: couleurs.direct },
   presse: { backgroundColor: couleurs.surfaceHaute },
   separation: { height: StyleSheet.hairlineWidth, backgroundColor: couleurs.bordure },
-  camp: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  camp: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 8 },
   campGagnant: { backgroundColor: couleurs.primaireVoile },
   estompe: { opacity: 0.5 },
-  nom: { flex: 1, fontFamily: polices.texteGras, fontSize: 13, color: couleurs.texteSecondaire },
+  nom: { flex: 1, fontFamily: polices.texteGras, fontSize: 12, color: couleurs.texteSecondaire },
   nomGagnant: { fontFamily: polices.texteNoir, color: couleurs.texte },
   place: { fontFamily: polices.texteMoyen, fontStyle: "italic", color: couleurs.primaire },
   inconnu: {
@@ -138,5 +141,5 @@ const styles = StyleSheet.create({
     backgroundColor: couleurs.directVoile,
   },
   texteDirect: { fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: 1, color: couleurs.direct },
-  petiteFinale: { alignSelf: "center", width: 210, gap: 12 },
+  petiteFinale: { alignSelf: "center", width: LARGEUR_TOUR, gap: 12 },
 });

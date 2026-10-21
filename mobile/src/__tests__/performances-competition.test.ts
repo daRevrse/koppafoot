@@ -45,6 +45,13 @@ describe("computeTopAssisters", () => {
     ]);
     expect(passeurs.map((p) => [p.playerName, p.assists])).toEqual([["Ama", 2]]);
   });
+
+  it("ne classe pas un dossard que personne n'a nommé, comme le classement des buteurs", () => {
+    const passeurs = computeTopAssisters([
+      match("m1", [but({ assistPlayerId: "dos-10", assistPlayerName: "N°10" }), but({ assistPlayerName: "Ama" })]),
+    ]);
+    expect(passeurs.map((p) => p.playerName)).toEqual(["Ama"]);
+  });
 });
 
 describe("computeForm", () => {

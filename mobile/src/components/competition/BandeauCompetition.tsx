@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
 
   entete: { backgroundColor: "#000", paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20, overflow: "hidden" },
   banniere: { opacity: 0.35 },
-  voile: { backgroundColor: "rgba(0,0,0,0.55)" },
+  voile: { backgroundColor: "rgba(0,0,0,0.7)" },
   identite: { flexDirection: "row", alignItems: "center", gap: 14 },
   logo: {
     width: 56, height: 56, borderWidth: 1, borderColor: blanc(0.15), backgroundColor: blanc(0.05),

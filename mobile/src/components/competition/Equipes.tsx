@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { matchDuration } from "@/lib/competition-format";
+import { estLigneDossard } from "@/lib/dossards";
 import { computeSquadStats } from "@/lib/player-stats";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 import { stylesBloc } from "~/components/competition/Bloc";
@@ -41,18 +42,21 @@ function Effectif({ competition, equipe, matchs, feminin }: {
           </View>
           {lignes.map(({ player, stats }) => {
             const photo = photos[player.id];
+            // Une ligne au dossard s'appelle déjà « N°10 » : son numéro ne se répète pas.
+            const dossard = estLigneDossard(player.id);
             return (
               <View key={player.id} style={[styles.rangee, styles.ligneJoueur]}>
                 <View style={[styles.colJoueur, styles.joueur]}>
                   {photo ? (
                     <Image source={{ uri: photo }} style={styles.visage} contentFit="cover" />
                   ) : (
+                    // Sans photo, la pastille garde son numéro, comme sur le terrain de la fiche.
                     <View style={[styles.visage, styles.sansVisage]}>
-                      <Text style={styles.initiales}>{initiales(player.name)}</Text>
+                      <Text style={styles.initiales}>{player.number || initiales(player.name)}</Text>
                     </View>
                   )}
                   <Text style={styles.nomJoueur} numberOfLines={1}>{player.name}</Text>
-                  {player.number ? <Text style={styles.numero}>{`#${player.number}`}</Text> : null}
+                  {player.number && !dossard ? <Text style={styles.numero}>{`#${player.number}`}</Text> : null}
                 </View>
                 <Text style={[styles.colChiffre, styles.chiffre]}>{stats.matchesPlayed}</Text>
                 <Text style={[styles.colChiffre, styles.chiffre, stats.goals > 0 && styles.buts]}>{stats.goals}</Text>
@@ -97,7 +101,7 @@ export function Equipes({ competition, matchs, equipes }: {
           <View key={e.id}>
             <Pressable
               accessibilityRole="button"
-              accessibilityState={{ expanded: ouvert }}
+              aria-expanded={ouvert}
               onPress={() => setOuverte(ouvert ? null : e.id)}
               style={({ pressed }) => [stylesBloc.ligne, i === 0 && styles.premiere, pressed && styles.presse]}
             >

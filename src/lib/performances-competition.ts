@@ -90,6 +90,9 @@ export function computeTopAssisters(matches: CompMatch[]): Assister[] {
       if (event.type !== "goal") continue;
       // Un but annulé par la vidéo n'a jamais eu lieu, passe comprise.
       if (event.varStatus === "cancelled") continue;
+      // Un dossard que personne n'a nommé n'est personne (lib/dossards) :
+      // « N°10 » en tête des passeurs ne nommerait aucun joueur.
+      if (estLigneDossard(event.assistPlayerId)) continue;
       const name = event.assistPlayerName?.trim();
       if (!name) continue;
 
