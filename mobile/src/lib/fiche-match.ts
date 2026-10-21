@@ -273,3 +273,39 @@ export function derouleDeLaFiche(fiche: Fiche): Deroule {
     dureeProlongation: fiche.dureeProlongation,
   };
 }
+
+/**
+ * Le texte qui accompagne le lien partagé : le rendez-vous avant, le score
+ * pendant et après (pages du site, `partagerLeMatch`).
+ */
+export function texteDePartage(fiche: Fiche): string {
+  const affiche = `${fiche.domicile.nom} — ${fiche.exterieur.nom}`;
+  const score = `${fiche.domicile.score ?? 0}-${fiche.exterieur.score ?? 0}`;
+  const comp = fiche.competition ? ` — ${fiche.competition.nom}` : "";
+  if (fiche.statut === "live") return `${affiche}, ${score} en direct${comp}`;
+  if (fiche.statut === "completed") return `${affiche}, score final ${score}${comp}`;
+  const quand = [fiche.date, fiche.heure].filter(Boolean).join(" à ");
+  return `${affiche}${quand ? `, le ${quand}` : ""}${comp}`;
+}
+
+const VINGT_QUATRE_HEURES = 24 * 3_600_000;
+
+/**
+ * Le temps qui reste avant le coup d'envoi, dans les dernières vingt-quatre
+ * heures seulement : au-delà, le jour suffit (MatchHero, `useCompteARebours`).
+ */
+export function resteAvantCoupDEnvoi(fiche: Fiche, maintenant: number = Date.now()): number | null {
+  if (fiche.statut !== "scheduled" || !fiche.date || !fiche.heure) return null;
+  const coupDEnvoi = new Date(`${fiche.date}T${fiche.heure}:00`).getTime();
+  if (Number.isNaN(coupDEnvoi)) return null;
+  const reste = coupDEnvoi - maintenant;
+  return reste > 0 && reste <= VINGT_QUATRE_HEURES ? reste : null;
+}
+
+/** « 01:30:05 » (hooks/useCompteARebours du site, `formatCompteARebours`). */
+export function formatCompteARebours(ms: number): string {
+  const secondes = Math.floor(ms / 1000);
+  return [Math.floor(secondes / 3600), Math.floor((secondes % 3600) / 60), secondes % 60]
+    .map((n) => String(n).padStart(2, "0"))
+    .join(":");
+}

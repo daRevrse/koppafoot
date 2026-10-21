@@ -1,7 +1,7 @@
 import type { Competition, CompMatch, CompTeam, Match } from "@/types";
 import {
-  additionnelEnCours, chronoAffiche, ficheDepuisAmical, ficheDepuisCompetition, libellePeriode, ongletAffiche,
-  ongletParDefaut, ongletsDeLaFiche, type Fiche,
+  additionnelEnCours, chronoAffiche, ficheDepuisAmical, ficheDepuisCompetition, formatCompteARebours, libellePeriode,
+  ongletAffiche, ongletParDefaut, ongletsDeLaFiche, resteAvantCoupDEnvoi, texteDePartage, type Fiche,
 } from "~/lib/fiche-match";
 
 type LiveState = NonNullable<CompMatch["liveState"]>;
@@ -116,5 +116,25 @@ describe("la période et le chrono", () => {
     expect(additionnelEnCours(fiche({ status: "live", liveState: enDirect({ addedTime: { first: 3 } } as Partial<LiveState>) }))).toBe(3);
     expect(additionnelEnCours(fiche({ status: "live", liveState: enDirect({ currentPeriod: 3, addedTime: { first: 3 } } as Partial<LiveState>) })))
       .toBeNull();
+  });
+});
+
+describe("le partage et le compte à rebours", () => {
+  it("dit le rendez-vous avant, le score pendant et après", () => {
+    const avant = ficheDepuisCompetition(rencontre(), competition, []);
+    expect(texteDePartage(avant)).toBe("Alpha — Beta, le 2026-10-21 à 16:00 — Miabé CAN");
+    const direct = ficheDepuisCompetition(rencontre({ status: "live", scoreHome: 1, scoreAway: 0, liveState: enDirect() }), competition, []);
+    expect(texteDePartage(direct)).toBe("Alpha — Beta, 1-0 en direct — Miabé CAN");
+    const fini = ficheDepuisAmical(amical({ status: "completed", scoreHome: 2, scoreAway: 2 }));
+    expect(texteDePartage(fini)).toBe("Alpha — Beta, score final 2-2");
+  });
+
+  it("compte les dernières vingt-quatre heures, et rien au-delà", () => {
+    const f = ficheDepuisCompetition(rencontre({ date: "2026-10-21", time: "18:00" }), competition, []);
+    const coupDEnvoi = new Date("2026-10-21T18:00:00").getTime();
+    expect(resteAvantCoupDEnvoi(f, coupDEnvoi - 90 * 60_000)).toBe(90 * 60_000);
+    expect(resteAvantCoupDEnvoi(f, coupDEnvoi - 25 * 3_600_000)).toBeNull();
+    expect(resteAvantCoupDEnvoi(f, coupDEnvoi + 1000)).toBeNull();
+    expect(formatCompteARebours(90 * 60_000 + 5_000)).toBe("01:30:05");
   });
 });
