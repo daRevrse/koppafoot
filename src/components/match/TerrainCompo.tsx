@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  disposerSurTerrain, rayonPastille, RAYON_MAX_RANGS, type Emplacement, type PlaceTerrain,
+  disposerSurTerrain, nomCourt, rayonPastille, RAYON_MAX_RANGS, type Emplacement, type PlaceTerrain,
 } from "@/lib/terrain";
 import { versFormation } from "@/lib/formations";
 import type { MarquesJoueur } from "@/lib/recit-du-match";
@@ -105,23 +105,9 @@ const T = textes(
 // terrain defile comme n'importe quelle image.
 // ============================================
 
-/**
- * « Jean-Baptiste Mensah » → « J. Mensah ». Un nom entier ne tient pas sous une
- * pastille de terrain ; l'initiale plus le nom de famille, si.
- *
- * `max` coupe ce qui reste trop long : un texte SVG ne se tronque pas tout
- * seul, il déborde sur son voisin ou hors du cadre. L'écart entre deux
- * pastilles dépend du rang le plus chargé (voir lib/terrain), donc la limite
- * est prise au plus serré.
- */
-export function nomCourt(nom: string, max = 11): string {
-  const bouts = nom.trim().split(/\s+/).filter(Boolean);
-  if (bouts.length === 0) return "";
-  const court = bouts.length === 1
-    ? bouts[0]
-    : `${bouts[0][0]}. ${bouts[bouts.length - 1]}`;
-  return court.length > max ? `${court.slice(0, max - 1)}…` : court;
-}
+// nomCourt vit dans lib/terrain, partagé avec l'application mobile ; ré-exporté
+// ici pour ses importeurs (MatchHero, MatchLineups, LiveMatchConsole).
+export { nomCourt };
 
 type Variante = "clair" | "sombre";
 
