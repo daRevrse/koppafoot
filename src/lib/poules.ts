@@ -148,3 +148,23 @@ export function computeStandings(
     }));
 }
 
+/**
+ * La poule qui contient les deux équipes, ou `null`.
+ *
+ * On exige les DEUX : une poule qui ne contiendrait qu'un des deux camps ne
+ * répond pas à la question posée depuis cette page.
+ */
+export function pouleDuMatch(
+  groups: GroupStanding[],
+  homeTeamId: string | null,
+  awayTeamId: string | null,
+): GroupStanding | null {
+  if (!homeTeamId || !awayTeamId) return null;
+  return (
+    groups.find(
+      (g) =>
+        g.rows.some((r) => r.team.id === homeTeamId) &&
+        g.rows.some((r) => r.team.id === awayTeamId),
+    ) ?? null
+  );
+}

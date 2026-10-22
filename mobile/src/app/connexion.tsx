@@ -8,6 +8,7 @@ import { Champ } from "~/components/Champ";
 import { ConnexionGoogle } from "~/components/ConnexionGoogle";
 import { EcranAuth, stylesAuth } from "~/components/EcranAuth";
 import { useAuth } from "~/lib/auth";
+import { phraseDeRaison } from "~/lib/raisons-auth";
 
 export default function EcranConnexion() {
   const { raison } = useLocalSearchParams<{ raison?: string }>();
@@ -37,7 +38,7 @@ export default function EcranConnexion() {
   return (
     <EcranAuth
       titre={CONTEXTE_AUTH_DEFAUT.titreConnexion}
-      phrase={raison === "suivre" ? "Crée un compte pour suivre cette compétition." : CONTEXTE_AUTH_DEFAUT.phraseConnexion}
+      phrase={phraseDeRaison(raison, CONTEXTE_AUTH_DEFAUT.phraseConnexion)}
     >
       <ConnexionGoogle onErreur={setErreur} />
       <Champ etiquette="Email" value={email} onChangeText={setEmail} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress" />

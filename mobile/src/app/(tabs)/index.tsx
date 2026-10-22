@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { LayoutAnimation, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,6 +23,7 @@ import {
 } from "~/lib/direct-tableau";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { retourSelection } from "~/lib/retour";
+import { routeDuMatch } from "~/lib/routes";
 import { couleurs, polices } from "~/theme";
 
 const heure = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -31,6 +33,7 @@ const AUCUN_JOUR: ReadonlySet<string> = new Set();
 export default function EcranDirect() {
   const { feed, majA, horsLigne, chargement, rafraichir } = useDirect();
   const suivi = useSuivi();
+  const router = useRouter();
   const [aujourdhui] = useState(() => cleDuJour(new Date()));
   const [jour, setJour] = useState(aujourdhui);
   const [filtre, setFiltre] = useState<FiltreDirect>("tous");
@@ -112,7 +115,17 @@ export default function EcranDirect() {
                 />
               );
             }}
-            renderItem={({ item }) => <LigneMatch entree={item} onPress={() => ouvrirSurLeSite(matchHref(item))} />}
+            renderItem={({ item }) => (
+              <LigneMatch
+                entree={item}
+                onPress={() => {
+                  // La fiche native ; un match du monde n'en a pas, il ouvre sa compétition sur le site.
+                  const route = routeDuMatch(item);
+                  if (route) router.push(route);
+                  else ouvrirSurLeSite(matchHref(item));
+                }}
+              />
+            )}
             refreshControl={
               <RefreshControl
                 refreshing={chargement}

@@ -1,6 +1,6 @@
 import { pointsDeCartons } from "@/lib/cartons";
 import { DETAIL_SECOND_JAUNE } from "@/lib/retrait-evenement";
-import { comparerLignes, computeStandings } from "@/lib/poules";
+import { comparerLignes, computeStandings, pouleDuMatch, type GroupStanding } from "@/lib/poules";
 import type { CompMatch, CompTeam, CompetitionFormat } from "@/types";
 
 const FORMAT = { points: { win: 3, draw: 1, loss: 0 } } as unknown as CompetitionFormat;
@@ -79,5 +79,20 @@ describe("computeStandings, les cartons départagent", () => {
       ({ team: equipe(name, name), points: 4, goalDiff: 0, goalsFor: 3, cartons } as never);
     const lignes = [ligne("Alpha", 4), ligne("Zulu", 1)].sort(comparerLignes);
     expect(lignes.map((l: { team: CompTeam }) => l.team.name)).toEqual(["Zulu", "Alpha"]);
+  });
+});
+
+describe("pouleDuMatch", () => {
+  const poule = (group: string, ids: string[]) =>
+    ({ group, rows: ids.map((id) => ({ team: { id } })) }) as unknown as GroupStanding;
+  const poules = [poule("A", ["a1", "a2", "a3"]), poule("B", ["b1", "b2"])];
+
+  it("rend la poule qui contient les deux équipes", () => {
+    expect(pouleDuMatch(poules, "a3", "a1")?.group).toBe("A");
+  });
+
+  it("rien quand une équipe manque, ou qu'elles ne sont pas dans la même poule", () => {
+    expect(pouleDuMatch(poules, "a1", null)).toBeNull();
+    expect(pouleDuMatch(poules, "a1", "b1")).toBeNull();
   });
 });
