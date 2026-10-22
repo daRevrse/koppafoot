@@ -394,6 +394,22 @@ export function partenairesDeLAffiche<
       || b.debut.localeCompare(a.debut));
 }
 
+/**
+ * Qui paraît au pied de l'affiche du programme d'une compétition (« Journée
+ * X », « Matchs du jour »), sous « PRÉSENTÉ PAR » : SES partenaires — pas les
+ * généraux, pas les annonces —, à l'affiche `jour`, quels que soient leurs
+ * emplacements, et seulement s'ils ont un logo (`logoDe`). Deux au plus, le
+ * plus récent d'abord. Décidé le 2026-10-22.
+ */
+export function partenairesDuProgramme<
+  P extends Pick<FirestorePartenariat, "competition_id" | "type" | "actif" | "debut" | "fin" | "format" | "image_url" | "logo_url">,
+>(candidats: P[], cid: string, jour: string): P[] {
+  return candidats
+    .filter((p) => p.competition_id === cid && typeDe(p) === "partenaire" && aLAffiche(p, jour) && logoDe(p) !== null)
+    .sort((a, b) => b.debut.localeCompare(a.debut))
+    .slice(0, 2);
+}
+
 export function lienValide(lien: string | null | undefined): string | null {
   const brut = (lien ?? "").trim();
   if (!brut) return null;

@@ -7,7 +7,8 @@
  */
 import assert from "node:assert/strict";
 import {
-  ANNONCE_EN_LOGO, SANS_LOGO, SANS_VISUEL, avisLogo, choisirAffiches, logoDe, ordreDuTirage, refusDuPartenariat,
+  ANNONCE_EN_LOGO, SANS_LOGO, SANS_VISUEL, avisLogo, choisirAffiches, logoDe, ordreDuTirage, partenairesDuProgramme,
+  refusDuPartenariat,
   type FirestorePartenariat,
 } from "@/lib/partenaires";
 
@@ -165,6 +166,35 @@ cas("un logo assez large ne demande rien", () => {
 
 cas("un logo trop étroit est signalé", () => {
   assert.match(avisLogo(200, 200) ?? "", /200 px/);
+});
+
+console.log("partenairesDuProgramme");
+
+cas("le partenaire de la compétition, avec un logo, à l'affiche ; deux au plus, le plus récent d'abord", () => {
+  const p = (id: string, champs: Partial<FirestorePartenariat> = {}) => ({
+    id, competition_id: "c1", type: "partenaire" as const, format: "logo" as const, image_url: `https://x/${id}.png`,
+    logo_url: null, actif: true, debut: "2026-10-01", fin: "2026-12-31", ...champs,
+  });
+  const r = partenairesDuProgramme([
+    p("ancien", { debut: "2026-09-01" }),
+    p("recent", { debut: "2026-10-15" }),
+    p("milieu", { debut: "2026-10-05" }),
+    p("annonce", { type: "annonce", format: "banniere" }),
+    p("general", { competition_id: null }),
+    p("autre", { competition_id: "c2" }),
+    p("sans-logo", { format: "banniere", logo_url: null }),
+    p("fini", { fin: "2026-10-01" }),
+    p("eteint", { actif: false }),
+  ], "c1", "2026-10-22");
+  assert.deepEqual(r.map((x) => x.id), ["recent", "milieu"]);
+});
+
+cas("une bannière avec son logo à part compte", () => {
+  const r = partenairesDuProgramme([{
+    id: "b", competition_id: "c1", type: "partenaire" as const, format: "banniere" as const, image_url: "https://x/b.png",
+    logo_url: "https://x/logo.png", actif: true, debut: "2026-10-01", fin: "2026-12-31",
+  }], "c1", "2026-10-22");
+  assert.deepEqual(r.map((x) => x.id), ["b"]);
 });
 
 if (echecs) {
