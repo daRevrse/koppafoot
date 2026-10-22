@@ -41,26 +41,26 @@ console.log("choisirAffiches");
 
 cas("un partenaire ne fait plus taire les annonces de son emplacement", () => {
   const r = choisirAffiches([
-    marque("hope", { type: "partenaire" }),
-    marque("cydje"),
-    marque("flowkraft"),
+    marque("hibiscus", { type: "partenaire" }),
+    marque("cedre"),
+    marque("figuier"),
   ], null);
-  assert.deepEqual(ids(r).sort(), ["cydje", "flowkraft", "hope"]);
+  assert.deepEqual(ids(r).sort(), ["cedre", "figuier", "hibiscus"]);
 });
 
 cas("deux partenaires du même emplacement sont tous deux renvoyés", () => {
-  const r = choisirAffiches([marque("wakhen", { type: "partenaire" }), marque("hope", { type: "partenaire" })], null);
-  assert.deepEqual(ids(r).sort(), ["hope", "wakhen"]);
+  const r = choisirAffiches([marque("wassa", { type: "partenaire" }), marque("hibiscus", { type: "partenaire" })], null);
+  assert.deepEqual(ids(r).sort(), ["hibiscus", "wassa"]);
 });
 
 cas("un partenariat d'avant les annonces (type absent) compte comme partenaire", () => {
-  const r = choisirAffiches([marque("ancien", { type: undefined, format: undefined }), marque("cydje")], null);
-  assert.deepEqual(ids(r).sort(), ["ancien", "cydje"]);
+  const r = choisirAffiches([marque("ancien", { type: undefined, format: undefined }), marque("cedre")], null);
+  assert.deepEqual(ids(r).sort(), ["ancien", "cedre"]);
 });
 
 cas("une annonce sans visuel est écartée", () => {
-  const r = choisirAffiches([marque("cydje"), marque("vide", { image_url: null })], null);
-  assert.deepEqual(ids(r), ["cydje"]);
+  const r = choisirAffiches([marque("cedre"), marque("vide", { image_url: null })], null);
+  assert.deepEqual(ids(r), ["cedre"]);
 });
 
 cas("sur la page d'une compétition, ses propres marques passent avant les générales", () => {
@@ -73,17 +73,17 @@ cas("sur la page d'une compétition, ses propres marques passent avant les gén�
 });
 
 cas("une compétition sans marque propre montre les générales", () => {
-  const r = choisirAffiches([marque("general", { type: "partenaire" }), marque("cydje")], "c1");
-  assert.deepEqual(ids(r).sort(), ["cydje", "general"]);
+  const r = choisirAffiches([marque("general", { type: "partenaire" }), marque("cedre")], "c1");
+  assert.deepEqual(ids(r).sort(), ["cedre", "general"]);
 });
 
 console.log("ordreDuTirage");
 
 const melange = [
-  marque("cydje"),
-  marque("wakhen", { type: "partenaire" }),
-  marque("flowkraft"),
-  marque("hope", { type: "partenaire" }),
+  marque("cedre"),
+  marque("wassa", { type: "partenaire" }),
+  marque("figuier"),
+  marque("hibiscus", { type: "partenaire" }),
 ];
 
 cas("les partenaires passent en tête, quel que soit le tirage", () => {
@@ -96,12 +96,12 @@ cas("les partenaires passent en tête, quel que soit le tirage", () => {
 
 cas("l'ordre des partenaires entre eux dépend du tirage", () => {
   const premiers = new Set([0, 0.99].map((v) => ordreDuTirage(melange, hasard(v))[0].id));
-  assert.deepEqual([...premiers].sort(), ["hope", "wakhen"]);
+  assert.deepEqual([...premiers].sort(), ["hibiscus", "wassa"]);
 });
 
 cas("l'ordre des annonces entre elles dépend du tirage", () => {
   const troisiemes = new Set([0, 0.99].map((v) => ordreDuTirage(melange, hasard(v))[2].id));
-  assert.deepEqual([...troisiemes].sort(), ["cydje", "flowkraft"]);
+  assert.deepEqual([...troisiemes].sort(), ["cedre", "figuier"]);
 });
 
 cas("la liste reçue n'est pas modifiée", () => {
