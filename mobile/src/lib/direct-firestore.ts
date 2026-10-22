@@ -1,13 +1,13 @@
 import {
-  arrayRemove, arrayUnion, collection, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where,
+  arrayRemove, arrayUnion, collection, doc, getDoc, onSnapshot, orderBy, query, serverTimestamp, updateDoc, where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { toCompMatch } from "@/lib/competition-mappers";
+import { toCompetition, toCompMatch } from "@/lib/competition-mappers";
 import { amicalVersCompMatch } from "@/lib/friendlies-shared";
-import type { CompMatch, FirestoreCompMatch } from "@/types";
+import type { Competition, CompMatch, FirestoreCompetition, FirestoreCompMatch } from "@/types";
 import { db } from "~/lib/firebase";
 
-// Les trois lectures/écritures Firestore du lot. Les versions du site
+// Les lectures et écritures Firestore de l'application. Les versions du site
 // (lib/competition-firestore, lib/firestore) lisent l'initialisation du site
 // et ne traversent pas ; celles-ci en sont la réplique exacte — même requête,
 // même mapper partagé.
@@ -43,4 +43,17 @@ export async function suivreCompetition(uid: string, cid: string, suivre: boolea
     followed_competition_ids: suivre ? arrayUnion(cid) : arrayRemove(cid),
     updated_at: serverTimestamp(),
   });
+}
+
+/**
+ * Des compétitions par identifiant, triées par nom. Une compétition supprimée
+ * depuis qu'on la suit est ignorée. Un `getDoc` chacune : la lecture est
+ * publique, et une requête `in` s'arrête à trente identifiants.
+ */
+export async function lireCompetitions(ids: readonly string[]): Promise<Competition[]> {
+  const snaps = await Promise.all(ids.map((cid) => getDoc(doc(db, "competitions", cid))));
+  return snaps
+    .filter((s) => s.exists())
+    .map((s) => toCompetition(s.id, s.data() as FirestoreCompetition))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }

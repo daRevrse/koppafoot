@@ -69,7 +69,8 @@ export function ReglagePush({ uid }: { uid: string }) {
           value={etat === "actif"}
           disabled={occupe || etat === "refuse"}
           onValueChange={(v) => void basculer(v)}
-          trackColor={{ true: couleurs.primaireClair, false: couleurs.bordure }}
+          trackColor={{ true: couleurs.primaire, false: couleurs.bordure }}
+          thumbColor={couleurs.texte}
         />
       </View>
       {etat === "refuse" ? (
@@ -89,7 +90,8 @@ export function ReglagePush({ uid }: { uid: string }) {
                 value={prefs[c]}
                 disabled={occupe}
                 onValueChange={() => void basculerCategorie(c)}
-                trackColor={{ true: couleurs.primaireClair, false: couleurs.bordure }}
+                trackColor={{ true: couleurs.primaire, false: couleurs.bordure }}
+                thumbColor={couleurs.texte}
               />
             </View>
           ))}
@@ -101,10 +103,10 @@ export function ReglagePush({ uid }: { uid: string }) {
 }
 
 const styles = StyleSheet.create({
-  bloc: { gap: 6, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: couleurs.bordure },
+  bloc: { gap: 6, padding: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   ligne: { flexDirection: "row", alignItems: "center", gap: 12 },
   textes: { flex: 1, gap: 2 },
-  libelle: { fontFamily: polices.titreMoyen, fontSize: 16, color: couleurs.texte },
+  libelle: { fontFamily: polices.texteNoir, fontSize: 14, color: couleurs.texte },
   detail: { fontFamily: polices.texte, fontSize: 13, color: couleurs.texteSecondaire },
   note: { fontFamily: polices.texte, fontSize: 12, color: couleurs.texteSecondaire },
   categories: { gap: 8, paddingTop: 4 },

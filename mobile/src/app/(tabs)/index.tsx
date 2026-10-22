@@ -1,118 +1,162 @@
-import * as WebBrowser from "expo-web-browser";
+import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
+import { LayoutAnimation, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cleDuJour, libelleDuJour } from "@/lib/dates";
 import { competitionHref, entryKey, matchHref, type Entry } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import { isWorldComp } from "@/lib/world-board-shared";
-import type { Competition } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { EnTeteCompetition } from "~/components/direct/EnTeteCompetition";
 import { FiltresDirect } from "~/components/direct/FiltresDirect";
+import { FriseDesJours } from "~/components/direct/FriseDesJours";
 import { LigneMatch } from "~/components/direct/LigneMatch";
-import { SelecteurJour } from "~/components/direct/SelecteurJour";
+import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
+import { EtatVide } from "~/components/EtatVide";
 import { useDirect } from "~/hooks/useDirect";
+import { useMouvementReduit } from "~/hooks/useMouvementReduit";
 import { useSuivi } from "~/hooks/useSuivi";
-import { urlDuSite } from "~/lib/config";
-import { compterEnDirect, groupesDuTableau, jourLePlusProche, type FiltreDirect } from "~/lib/direct-tableau";
+import {
+  basculerRepli, compterEnDirect, groupesDuTableau, jourLePlusProche, joursAvecMatchs, joursDeLaFrise, sectionsDuDirect,
+  type FiltreDirect, type SectionDuDirect,
+} from "~/lib/direct-tableau";
+import { ouvrirSurLeSite } from "~/lib/navigateur";
+import { retourSelection } from "~/lib/retour";
 import { couleurs, polices } from "~/theme";
-
-/** La page web, dans le navigateur intégré, jusqu'à la fiche native du lot suivant. */
-function ouvrirSurLeSite(chemin: string) {
-  void WebBrowser.openBrowserAsync(urlDuSite(chemin), { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
-}
 
 const heure = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-type Section = { key: string; competition: Competition; data: Entry[] };
+const AUCUN_JOUR: ReadonlySet<string> = new Set();
 
 export default function EcranDirect() {
   const { feed, majA, horsLigne, chargement, rafraichir } = useDirect();
   const suivi = useSuivi();
-  const [jour, setJour] = useState(() => cleDuJour(new Date()));
+  const [aujourdhui] = useState(() => cleDuJour(new Date()));
+  const [jour, setJour] = useState(aujourdhui);
   const [filtre, setFiltre] = useState<FiltreDirect>("tous");
+  // Les compétitions repliées. Pas mémorisées d'une ouverture à l'autre :
+  // c'est le comportement du Direct du site.
+  const [replies, setReplies] = useState<ReadonlySet<string>>(() => new Set());
+  const mouvementReduit = useMouvementReduit();
 
-  const sections = useMemo<Section[]>(
-    () =>
-      feed
-        ? groupesDuTableau(feed, { jour, filtre, suivies: suivi.ids }).map((g) => ({
-            key: g.competition.id,
-            competition: g.competition,
-            data: g.entries,
-          }))
-        : [],
-    [feed, jour, filtre, suivi.ids],
+  const sections = useMemo<SectionDuDirect[]>(
+    () => (feed ? sectionsDuDirect(groupesDuTableau(feed, { jour, filtre, suivies: suivi.ids }), replies) : []),
+    [feed, jour, filtre, suivi.ids, replies],
   );
+  const jours = useMemo(() => joursDeLaFrise(aujourdhui, jour), [aujourdhui, jour]);
+  const avecMatchs = useMemo(() => (feed ? joursAvecMatchs(feed) : AUCUN_JOUR), [feed]);
+  const enDirect = feed ? compterEnDirect(feed) : 0;
   const proche = feed && sections.length === 0 && filtre === "tous" ? jourLePlusProche(feed, jour) : null;
 
-  if (!feed) {
-    return (
-      <SafeAreaView style={[styles.ecran, styles.centre]}>
-        {horsLigne ? (
-          <>
-            <Text style={styles.vide}>Impossible de charger le Direct.</Text>
-            <Bouton titre="Réessayer" variante="contour" onPress={rafraichir} occupe={chargement} />
-          </>
-        ) : (
-          <ActivityIndicator color={couleurs.primaire} />
-        )}
-      </SafeAreaView>
-    );
+  function choisirJour(j: string) {
+    if (j === jour) return;
+    retourSelection();
+    setJour(j);
+  }
+
+  function basculer(cid: string) {
+    retourSelection();
+    if (!mouvementReduit) LayoutAnimation.configureNext(LayoutAnimation.create(180, "easeInEaseOut", "opacity"));
+    setReplies((r) => basculerRepli(r, cid));
+  }
+
+  function choisirFiltre(f: FiltreDirect) {
+    if (f === filtre) return;
+    retourSelection();
+    setFiltre(f);
   }
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
-      <Text style={styles.titre}>Direct</Text>
-      <SelecteurJour jour={jour} onChange={setJour} />
-      <FiltresDirect filtre={filtre} enDirect={compterEnDirect(feed)} onChange={setFiltre} />
-      {horsLigne && majA ? (
-        <Text style={styles.bandeau}>Pas de connexion — mis à jour à {heure(majA)}</Text>
-      ) : null}
-      <SectionList<Entry, Section>
-        sections={sections}
-        keyExtractor={entryKey}
-        stickySectionHeadersEnabled
-        renderSectionHeader={({ section }) => {
-          const c = section.competition;
-          return (
-            <EnTeteCompetition
-              competition={c}
-              suivable={c.id !== FRIENDLY_COMP_ID && !isWorldComp(c.id)}
-              suivie={suivi.ids.has(c.id)}
-              onEtoile={() => void suivi.basculer(c.id)}
-              onPress={() => ouvrirSurLeSite(competitionHref(c))}
-            />
-          );
-        }}
-        renderItem={({ item }) => <LigneMatch entree={item} onPress={() => ouvrirSurLeSite(matchHref(item))} />}
-        refreshControl={<RefreshControl refreshing={chargement} onRefresh={rafraichir} colors={[couleurs.primaire]} />}
-        ListEmptyComponent={
-          <View style={styles.centre}>
-            <Text style={styles.vide}>
-              {filtre === "favoris"
-                ? "Touche l'étoile d'une compétition pour la retrouver ici."
-                : filtre === "direct"
-                  ? "Aucun match en cours."
-                  : "Aucun match ce jour-là."}
-            </Text>
-            {proche ? (
-              <Bouton titre={`Voir ${libelleDuJour(proche).toLowerCase()}`} variante="contour" onPress={() => setJour(proche)} />
-            ) : null}
-          </View>
-        }
+      <Text style={styles.titre}>DIRECT</Text>
+      <FriseDesJours
+        jours={jours}
+        jour={jour}
+        aujourdhui={aujourdhui}
+        avecMatchs={avecMatchs}
+        actif={filtre === "tous"}
+        onChange={choisirJour}
       />
+      <FiltresDirect filtre={filtre} enDirect={enDirect} onChange={choisirFiltre} />
+      {!feed ? (
+        horsLigne ? (
+          <EtatVide icone="cloud-offline-outline" texte="Impossible de charger le Direct.">
+            <Bouton titre="Réessayer" variante="contour" onPress={rafraichir} occupe={chargement} />
+          </EtatVide>
+        ) : (
+          <SqueletteDirect />
+        )
+      ) : (
+        <>
+          {horsLigne && majA ? (
+            <View style={styles.bandeau}>
+              <Ionicons name="cloud-offline-outline" size={16} color={couleurs.texteSecondaire} />
+              <Text style={styles.bandeauTexte}>Pas de connexion — mis à jour à {heure(majA)}</Text>
+            </View>
+          ) : null}
+          <SectionList<Entry, SectionDuDirect>
+            sections={sections}
+            keyExtractor={entryKey}
+            stickySectionHeadersEnabled
+            contentContainerStyle={styles.liste}
+            renderSectionHeader={({ section }) => {
+              const c = section.competition;
+              return (
+                <EnTeteCompetition
+                  competition={c}
+                  suivable={c.id !== FRIENDLY_COMP_ID && !isWorldComp(c.id)}
+                  suivie={suivi.ids.has(c.id)}
+                  onEtoile={() => void suivi.basculer(c.id)}
+                  onPress={() => ouvrirSurLeSite(competitionHref(c))}
+                  repli={{ nombre: section.nombre, repliee: section.repliee, onBasculer: () => basculer(c.id) }}
+                />
+              );
+            }}
+            renderItem={({ item }) => <LigneMatch entree={item} onPress={() => ouvrirSurLeSite(matchHref(item))} />}
+            refreshControl={
+              <RefreshControl
+                refreshing={chargement}
+                onRefresh={rafraichir}
+                tintColor={couleurs.primaire}
+                colors={[couleurs.primaire]}
+                progressBackgroundColor={couleurs.surface}
+              />
+            }
+            ListEmptyComponent={
+              <EtatVide
+                icone={filtre === "favoris" ? "star-outline" : filtre === "direct" ? "pulse-outline" : "calendar-outline"}
+                texte={
+                  filtre === "favoris"
+                    ? "Touche l'étoile d'une compétition pour la retrouver ici."
+                    : filtre === "direct"
+                      ? "Aucun match en cours."
+                      : "Aucun match ce jour-là."
+                }
+              >
+                {proche ? (
+                  <Bouton
+                    titre={`Voir ${libelleDuJour(proche).toLowerCase()}`}
+                    variante="contour"
+                    onPress={() => choisirJour(proche)}
+                  />
+                ) : null}
+              </EtatVide>
+            }
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
-  centre: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 16 },
-  titre: { fontFamily: polices.titre, fontSize: 28, color: couleurs.texte, paddingHorizontal: 16, paddingTop: 8 },
+  // Les titres du site : font-display font-black, en capitales.
+  titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte, paddingHorizontal: 16, paddingTop: 8 },
   bandeau: {
-    fontFamily: polices.texteMoyen, fontSize: 12, color: couleurs.texteSecondaire,
-    backgroundColor: couleurs.fondTertiaire, paddingHorizontal: 16, paddingVertical: 6,
+    flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: couleurs.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
   },
-  vide: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire, textAlign: "center" },
+  bandeauTexte: { flex: 1, fontFamily: polices.texteGras, fontSize: 12, color: couleurs.texteSecondaire },
+  liste: { paddingBottom: 24 },
 });

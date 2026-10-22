@@ -1,14 +1,15 @@
-import { DMSans_400Regular, DMSans_500Medium, DMSans_700Bold } from "@expo-google-fonts/dm-sans";
-import { Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
-import { useLastNotificationResponse } from "expo-notifications";
-import { Stack, useRouter } from "expo-router";
+import {
+  DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
+} from "@expo-google-fonts/dm-sans";
+import { Outfit_700Bold, Outfit_900Black, useFonts } from "@expo-google-fonts/outfit";
+import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import * as WebBrowser from "expo-web-browser";
 import { useEffect, useRef } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
-import { urlDuSite } from "~/lib/config";
+import { ouvrirSurLeSite } from "~/lib/navigateur";
+import { useNotificationTouchee } from "~/lib/notification-touchee";
 import { lienDeLaNotification, suivreLeJeton } from "~/lib/push";
 import { couleurs } from "~/theme";
 
@@ -17,15 +18,32 @@ void SplashScreen.preventAutoHideAsync();
 // Les fenêtres de connexion s'ouvrent PAR-DESSUS les onglets.
 export const unstable_settings = { anchor: "(tabs)" };
 
+/** Le fond des écrans et des transitions : sans lui, un éclair blanc entre deux écrans. */
+const THEME_NAVIGATION: Theme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: couleurs.primaire,
+    background: couleurs.fond,
+    card: couleurs.fond,
+    text: couleurs.texte,
+    border: couleurs.bordure,
+    notification: couleurs.direct,
+  },
+};
+
 export default function RacineLayout() {
   const [policesPretes] = useFonts({
-    Outfit_700Bold, Outfit_800ExtraBold, DMSans_400Regular, DMSans_500Medium, DMSans_700Bold,
+    Outfit_700Bold, Outfit_900Black,
+    DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
   });
   return (
     <AuthProvider>
       <AccueilProvider>
-        <StatusBar style="dark" />
-        <Navigation policesPretes={policesPretes} />
+        <ThemeProvider value={THEME_NAVIGATION}>
+          <StatusBar style="light" />
+          <Navigation policesPretes={policesPretes} />
+        </ThemeProvider>
       </AccueilProvider>
     </AuthProvider>
   );
@@ -71,7 +89,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
   // UN TOUCHER SUR UNE NOTIFICATION ouvre la page qu'elle annonce, dans le
   // navigateur intégré, comme les fiches du Direct — y compris quand c'est ce
   // toucher qui a lancé l'application. Une réponse n'est ouverte qu'une fois.
-  const reponse = useLastNotificationResponse();
+  const reponse = useNotificationTouchee();
   const dejaOuverte = useRef<string | null>(null);
   useEffect(() => {
     if (!pret || !reponse) return;
@@ -79,7 +97,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
     const lien = lienDeLaNotification(reponse);
     if (!lien || dejaOuverte.current === id) return;
     dejaOuverte.current = id;
-    void WebBrowser.openBrowserAsync(urlDuSite(lien), { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
+    ouvrirSurLeSite(lien);
   }, [pret, reponse]);
 
   if (!pret) return null;
