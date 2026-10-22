@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { notifierCompte } from "@/lib/notifier-serveur";
+import { lireRattachement } from "@/lib/rattachement-equipe";
+import { appliquerRattachement, verifierRattachement } from "@/lib/rattachement-serveur";
 
 /**
  * Invitee side of the team-manager invitation.
@@ -9,7 +11,8 @@ import { notifierCompte } from "@/lib/notifier-serveur";
  * GET , public: what the accept page needs to render (team/competition
  *        names, inviter, status). The doc id is the unguessable token;
  *        the invited email is only returned masked.
- * POST, accept (Bearer token). The caller's verified email must match
+ * POST { rattacher? }, accept (Bearer token). `rattacher` : « nouvelle » ou
+ *        l'identifiant d'une de ses équipes (lib/rattachement-equipe). The caller's verified email must match
  *        the invited email; the team must still be unclaimed. On success
  *        the caller becomes owner+manager of the team and their account
  *        flips to the manager role.
@@ -89,6 +92,16 @@ export async function POST(
       );
     }
 
+    // LE RATTACHEMENT (lib/rattachement-equipe) : lier l'équipe à une des
+    // siennes, ou la créer dans les siennes. Vérifié avant d'accepter : un
+    // refus laisse l'invitation en attente. Sans choix (un ancien écran),
+    // l'équipe reste celle du tournoi seul, comme avant.
+    const corps = (await req.json().catch(() => ({}))) as { rattacher?: unknown };
+    const rattachement = lireRattachement(corps?.rattacher);
+    if (!rattachement) return NextResponse.json({ error: "Choix d'équipe illisible" }, { status: 400 });
+    const refus = await verifierRattachement(callerUid, rattachement);
+    if (refus) return NextResponse.json({ error: refus.error }, { status: refus.status });
+
     const teamRef = adminDb
       .collection("competitions").doc(invite.competition_id)
       .collection("comp_teams").doc(invite.team_id);
@@ -144,7 +157,16 @@ export async function POST(
       console.warn("[team-manager-invites/[id]] notification failed:", e);
     }
 
-    return NextResponse.json({ ok: true });
+    // L'invitation est acceptée quoi qu'il arrive ici : un rattachement raté
+    // se rattrape depuis la page de l'équipe de compétition.
+    let equipeId: string | null = null;
+    try {
+      equipeId = await appliquerRattachement(callerUid, invite.competition_id, invite.team_id, rattachement);
+    } catch (e) {
+      console.error("[team-manager-invites/[id]] rattachement échoué:", e);
+    }
+
+    return NextResponse.json({ ok: true, cid: invite.competition_id, teamId: invite.team_id, equipeId });
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_CLAIMED") {
       return NextResponse.json({ error: "Cette équipe a déjà un manager." }, { status: 409 });
