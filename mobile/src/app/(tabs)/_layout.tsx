@@ -2,7 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { couleurs, polices } from "~/theme";
 
-// Trois onglets : on ne montre que ce qui existe. La Tribune viendra avec son lot.
+// Deux onglets : on ne montre que ce qui existe. Le compte et la cloche sont
+// en haut, dans l'en-tête de chaque onglet (EnTeteOnglet) ; la Tribune
+// viendra avec son lot.
 export default function OngletsLayout() {
   return (
     <Tabs
@@ -22,10 +24,6 @@ export default function OngletsLayout() {
       <Tabs.Screen
         name="competitions"
         options={{ title: "Compétitions", tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" color={color} size={size} /> }}
-      />
-      <Tabs.Screen
-        name="compte"
-        options={{ title: "Compte", tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={color} size={size} /> }}
       />
     </Tabs>
   );

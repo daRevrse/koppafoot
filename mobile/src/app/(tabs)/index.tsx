@@ -13,6 +13,7 @@ import { FiltresDirect } from "~/components/direct/FiltresDirect";
 import { FriseDesJours } from "~/components/direct/FriseDesJours";
 import { LigneMatch } from "~/components/direct/LigneMatch";
 import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
+import { EnTeteOnglet } from "~/components/EnTeteOnglet";
 import { EtatVide } from "~/components/EtatVide";
 import { useDirect } from "~/hooks/useDirect";
 import { useMouvementReduit } from "~/hooks/useMouvementReduit";
@@ -71,7 +72,7 @@ export default function EcranDirect() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
-      <Text style={styles.titre}>DIRECT</Text>
+      <EnTeteOnglet titre="Direct" />
       <FriseDesJours
         jours={jours}
         jour={jour}
@@ -170,7 +171,6 @@ export default function EcranDirect() {
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   // Les titres du site : font-display font-black, en capitales.
-  titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte, paddingHorizontal: 16, paddingTop: 8 },
   bandeau: {
     flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8,
     backgroundColor: couleurs.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,

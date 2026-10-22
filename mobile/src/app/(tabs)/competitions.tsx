@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { Competition } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { CarteAnnuaire } from "~/components/CarteAnnuaire";
+import { EnTeteOnglet } from "~/components/EnTeteOnglet";
 import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
 import { EtatVide } from "~/components/EtatVide";
 import { useSuivi } from "~/hooks/useSuivi";
@@ -92,6 +93,7 @@ export default function EcranAnnuaire() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
+      <EnTeteOnglet surTitre="Tournois et championnats" titre="Compétitions" />
       <ScrollView
         contentContainerStyle={styles.contenu}
         keyboardShouldPersistTaps="handled"
@@ -108,11 +110,6 @@ export default function EcranAnnuaire() {
           />
         }
       >
-        <View>
-          <Text style={styles.surTitre}>TOURNOIS ET CHAMPIONNATS</Text>
-          <Text style={styles.titre} accessibilityRole="header">COMPÉTITIONS</Text>
-        </View>
-
         <View style={styles.recherche}>
           <Ionicons name="search" size={16} color={couleurs.texteDiscret} />
           <TextInput
@@ -155,9 +152,7 @@ export default function EcranAnnuaire() {
 
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
-  contenu: { paddingHorizontal: 16, paddingBottom: 32, gap: 20 },
-  surTitre: { paddingTop: 8, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.22), color: couleurs.primaire },
-  titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte },
+  contenu: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 20 },
   recherche: {
     flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12,
     backgroundColor: couleurs.surface, borderWidth: 1, borderColor: couleurs.bordure,
