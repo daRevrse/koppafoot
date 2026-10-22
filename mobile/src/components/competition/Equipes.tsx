@@ -46,7 +46,13 @@ function Effectif({ competition, equipe, matchs, feminin }: {
             // Une ligne au dossard s'appelle déjà « N°10 » : son numéro ne se répète pas.
             const dossard = estLigneDossard(player.id);
             return (
-              <View key={player.id} style={[styles.rangee, styles.ligneJoueur]}>
+              <Pressable
+                key={player.id}
+                disabled={!player.user_id}
+                accessibilityRole={player.user_id ? "link" : undefined}
+                onPress={() => player.user_id && router.push({ pathname: "/joueur/[uid]", params: { uid: player.user_id } })}
+                style={({ pressed }) => [styles.rangee, styles.ligneJoueur, pressed && styles.presse]}
+              >
                 <View style={[styles.colJoueur, styles.joueur]}>
                   {photo ? (
                     <Image source={{ uri: photo }} style={styles.visage} contentFit="cover" />
@@ -56,7 +62,7 @@ function Effectif({ competition, equipe, matchs, feminin }: {
                       <Text style={styles.initiales}>{player.number || initiales(player.name)}</Text>
                     </View>
                   )}
-                  <Text style={styles.nomJoueur} numberOfLines={1}>{player.name}</Text>
+                  <Text style={[styles.nomJoueur, player.user_id && styles.nomLien]} numberOfLines={1}>{player.name}</Text>
                   {player.number && !dossard ? <Text style={styles.numero}>{`#${player.number}`}</Text> : null}
                 </View>
                 <Text style={[styles.colChiffre, styles.chiffre]}>{stats.matchesPlayed}</Text>
@@ -64,7 +70,7 @@ function Effectif({ competition, equipe, matchs, feminin }: {
                 {[stats.assists, stats.yellowCards, stats.redCards].map((n, i) => (
                   <Text key={i} style={[styles.colChiffre, styles.chiffre, n === 0 && styles.zero]}>{n}</Text>
                 ))}
-              </View>
+              </Pressable>
             );
           })}
         </>
@@ -152,6 +158,8 @@ const styles = StyleSheet.create({
   sansVisage: { backgroundColor: couleurs.surfaceHaute, alignItems: "center", justifyContent: "center" },
   initiales: { fontFamily: polices.texteGras, fontSize: 10, color: couleurs.texteSecondaire },
   nomJoueur: { flexShrink: 1, fontFamily: polices.texteGras, fontSize: 13, color: couleurs.texte },
+  // Un joueur qui a un compte ouvre sa fiche : son nom se souligne.
+  nomLien: { textDecorationLine: "underline", textDecorationColor: couleurs.bordureForte },
   numero: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
   chiffre: { fontFamily: polices.texteDemi, fontSize: 12, color: couleurs.texteSecondaire },
   buts: { fontFamily: polices.texteNoir, color: couleurs.primaire },

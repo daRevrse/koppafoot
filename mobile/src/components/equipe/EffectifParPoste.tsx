@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { estLigneDossard } from "@/lib/dossards";
 import { effectifParPoste } from "@/lib/fiche-club";
 import type { CompPlayer } from "@/types";
@@ -21,6 +22,7 @@ export function EffectifParPoste({ joueurs, clubId, feminin }: {
   feminin: boolean;
 }) {
   const { utilisateur } = useAuth();
+  const router = useRouter();
   const photos = usePhotosDesLignes(joueurs, clubId);
   const lignes = joueurs.map((p) => ({ ...p, nom: p.name, numero: p.number, poste: p.position ?? null }));
   const groupes = effectifParPoste(lignes, "fr", feminin);
@@ -39,7 +41,14 @@ export function EffectifParPoste({ joueurs, clubId, feminin }: {
               const photo = photos[j.id];
               const toi = !!j.user_id && j.user_id === utilisateur?.uid;
               return (
-                <View key={j.id} style={[styles.ligne, i > 0 && styles.separee]}>
+                <Pressable
+                  key={j.id}
+                  // Un joueur qui a un compte a sa fiche ; une ligne sans compte, non.
+                  disabled={!j.user_id}
+                  accessibilityRole={j.user_id ? "link" : undefined}
+                  onPress={() => j.user_id && router.push({ pathname: "/joueur/[uid]", params: { uid: j.user_id } })}
+                  style={({ pressed }) => [styles.ligne, i > 0 && styles.separee, pressed && styles.presse]}
+                >
                   <Text style={styles.numero}>{j.number?.trim() || "–"}</Text>
                   {photo ? (
                     <Image source={{ uri: photo }} style={styles.visage} contentFit="cover" />
@@ -53,7 +62,8 @@ export function EffectifParPoste({ joueurs, clubId, feminin }: {
                   )}
                   <Text style={styles.nom} numberOfLines={1}>{j.name}</Text>
                   {toi ? <Text style={styles.toi}>TOI</Text> : null}
-                </View>
+                  {j.user_id ? <Ionicons name="chevron-forward" size={14} color={couleurs.texteDiscret} /> : null}
+                </Pressable>
               );
             })}
           </View>
@@ -70,6 +80,7 @@ const styles = StyleSheet.create({
   cadre: { backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   ligne: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 10 },
   separee: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
+  presse: { backgroundColor: couleurs.surfaceHaute },
   numero: { width: 24, textAlign: "right", fontFamily: polices.texteNoir, fontSize: 12, color: couleurs.texteDiscret },
   visage: { width: 30, height: 30, borderRadius: 15 },
   sansVisage: { backgroundColor: couleurs.surfaceHaute, alignItems: "center", justifyContent: "center" },

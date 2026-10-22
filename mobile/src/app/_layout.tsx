@@ -122,6 +122,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="amical/[id]" />
         <Stack.Screen name="competition/[cid]" />
         <Stack.Screen name="equipe/[cid]/[tid]" />
+        <Stack.Screen name="joueur/[uid]" />
         {/* L'en-tête des onglets les ouvre : le compte, la cloche. */}
         <Stack.Screen name="compte" />
         <Stack.Screen name="notifications" />
