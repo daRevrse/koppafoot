@@ -99,6 +99,7 @@ export async function getWorldBoard(): Promise<WorldGroup[]> {
         penaltyHome: null,
         penaltyAway: null,
         winnerTeamId: null,
+        journee: null,
         forfeitByTeamId: null,
         feedsIntoMatchId: null,
         feedsIntoSlot: null,

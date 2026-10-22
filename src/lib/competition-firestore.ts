@@ -39,7 +39,7 @@ import type {
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { estExhibition } from "./exhibition";
-import { toursDuCercle } from "./journees";
+import { rencontresAvecJournee, toursDuCercle } from "./journees";
 import { listGrantedCompetitionIds } from "./staff-access";
 import {
   OWN_GOAL_DETAIL, nouvelIdEvenement, type IssuePenalty, type TypeEvenement,
@@ -1167,12 +1167,10 @@ export async function generateGroupFixtures(cid: string): Promise<void> {
   let pairCount = 0;
 
   for (const [groupLetter, groupTeams] of groups) {
-    const pairs = roundRobinPairs(groupTeams.map((t) => t.id));
-    // Aller-retour: replay every pairing with the venues swapped.
-    const legs: [string, string][] = competition.format.double_round
-      ? [...pairs, ...pairs.map(([h, a]) => [a, h] as [string, string])]
-      : pairs;
-    for (const [homeId, awayId] of legs) {
+    // Round after round, each with its journée. Aller-retour replays every
+    // pairing with the venues swapped, the journées carrying on (lib/journees).
+    const legs = rencontresAvecJournee(groupTeams.map((t) => t.id), Boolean(competition.format.double_round));
+    for (const { home: homeId, away: awayId, journee } of legs) {
       const home = byId.get(homeId);
       const away = byId.get(awayId);
       if (!home || !away) continue; // defensive; pairs come from team ids
@@ -1199,6 +1197,7 @@ export async function generateGroupFixtures(cid: string): Promise<void> {
         penalty_home: null,
         penalty_away: null,
         winner_team_id: null,
+        journee,
         feeds_into_match_id: null,
         feeds_into_slot: null,
         live_state: null,
@@ -1261,6 +1260,25 @@ export async function updateCompMatch(
     ...patch,
     updated_at: serverTimestamp(),
   });
+}
+
+/**
+ * Les journées acceptées par l'organisateur (voir lib/journees,
+ * `proposerJournees`), en une écriture. Rien d'autre ne change sur ces
+ * matchs.
+ */
+export async function poserJournees(cid: string, journees: Map<string, number>): Promise<void> {
+  if (journees.size === 0) return;
+  const batch = writeBatch(db);
+  for (const [mid, journee] of journees) {
+    batch.update(doc(db, "competitions", cid, "comp_matches", mid), { journee, updated_at: serverTimestamp() });
+  }
+  await batch.commit();
+}
+
+/** La journée d'un match, corrigée à la main ; `null` la retire. */
+export async function poserJournee(cid: string, mid: string, journee: number | null): Promise<void> {
+  await updateCompMatch(cid, mid, { journee });
 }
 
 /**
