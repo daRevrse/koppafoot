@@ -28,6 +28,7 @@ import { filtreDeJournee } from "@/lib/journees";
 import { CHAUDS_PAR_COMPETITION, estAVenir, peutMarquerChaud, suggererChocs } from "@/lib/chauds";
 import { jourDeLome } from "@/lib/jour";
 import AfficheProgramme from "@/components/competition/AfficheProgramme";
+import VideoAnnonce from "@/components/competition/VideoAnnonce";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
 import { getVenues } from "@/lib/firestore";
 import { dureeEnCompetition, horsHoraires } from "@/lib/terrains";
@@ -1860,6 +1861,10 @@ export default function CompetitionSchedulePage() {
 
       {numerotation && (
         <NumeroterJournees cid={cid} matchs={groupMatches} onFini={() => setNumerotation(false)} />
+      )}
+
+      {videoMatch && competition?.slug && (
+        <VideoAnnonce cid={cid} slug={competition.slug} match={videoMatch} onFermer={() => setVideoMatch(null)} />
       )}
 
       {afficheOuverte && competition?.slug && (

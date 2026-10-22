@@ -13,7 +13,7 @@
 // ============================================
 
 import { BufferTarget, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, canEncodeVideo } from "mediabunny";
-import { DUREE, FPS, etatDuCalque } from "@/lib/video-joueur-semaine";
+import { DUREE, FPS, etatDuCalque, type EtatCalque, type PlaceDuCalque } from "@/lib/video-joueur-semaine";
 import type { CalqueVideo } from "@/lib/og-joueur-semaine";
 
 const W = 1080;
@@ -38,10 +38,21 @@ async function enImage(dataUri: string): Promise<ImageBitmap> {
   return createImageBitmap(blob);
 }
 
-/** La vidéo, en MP4. `onProgres` reçoit la part faite, de 0 à 1. */
+/** Comment chaque calque bouge, et combien de temps : par défaut, la vidéo du joueur de la semaine. */
+export interface AnimationVideo {
+  etat: (c: PlaceDuCalque, t: number, largeur: number) => EtatCalque;
+  duree: number;
+}
+
+/**
+ * La vidéo, en MP4. `onProgres` reçoit la part faite, de 0 à 1. `animation` :
+ * celle du joueur de la semaine par défaut ; l'annonce d'un match chaud passe
+ * la sienne (lib/video-annonce).
+ */
 export async function fabriquerLaVideo(
   calques: CalqueVideo[],
   onProgres: (part: number) => void,
+  animation: AnimationVideo = { etat: etatDuCalque, duree: DUREE },
 ): Promise<Blob> {
   const images = await Promise.all(calques.map(async (c) => ({ c, img: await enImage(c.png) })));
   const canvas = new OffscreenCanvas(W, H);
@@ -54,7 +65,7 @@ export async function fabriquerLaVideo(
   output.addVideoTrack(source, { frameRate: FPS });
   await output.start();
 
-  const total = FPS * DUREE;
+  const total = FPS * animation.duree;
   try {
     for (let n = 0; n < total; n++) {
       const t = n / FPS;
@@ -62,7 +73,7 @@ export async function fabriquerLaVideo(
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, W, H);
       for (const { c, img } of images) {
-        const e = etatDuCalque(c, t, W);
+        const e = animation.etat(c, t, W);
         if (e.opacite <= 0 || e.devoile <= 0) continue;
         ctx.globalAlpha = e.opacite;
         // Le zoom, centré : on prend au centre du calque une part de 1/zoom,
