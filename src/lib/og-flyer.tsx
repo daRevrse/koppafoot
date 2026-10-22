@@ -181,14 +181,16 @@ export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promis
     imageDistante(match.awayTeamLogo, 640),
   ]);
   const finale = officiel && match.tour === "final";
+  // « Groupe A · Journée 2 » : la journée suit l'étape, sur les images du match seulement.
+  const etape = officiel ? [match.etape, match.journee != null ? `Journée ${match.journee}` : ""].filter(Boolean).join(" · ") : "";
   const m: FlyerMatch = {
     titre: finale ? "LA FINALE" : "MATCHDAY",
     // Pas « FINALE » au surtitre d'une finale : son titre le dit déjà.
     surtitre: !officiel
       ? ""
       : logoCompetition
-        ? finale ? "" : match.etape
-        : [match.competition, finale ? "" : match.etape].filter(Boolean).join(" · "),
+        ? finale ? "" : etape
+        : [match.competition, finale ? "" : etape].filter(Boolean).join(" · "),
     amical: !officiel,
     logoCompetition,
     home: { nom: match.homeTeamName || "À déterminer", logo: logoHome },

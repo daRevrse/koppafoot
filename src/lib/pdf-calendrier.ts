@@ -119,9 +119,11 @@ function hauteurDeLaLigne(l: LigneDuCalendrier, p: Polices): number {
 function dessinerLigne(page: PDFPage, p: Polices, l: LigneDuCalendrier, haut: number) {
   const base = haut - 8 - 9;
 
-  // L'heure, puis la phase dessous.
+  // L'heure, puis la phase dessous. La journée en abrégé, « POULE B · J2 » :
+  // en toutes lettres, elle ne tenait pas dans la colonne et finissait coupée.
   page.drawText(l.heure ?? "—", { x: MARGE, y: base, size: 9, font: p.grasse, color: ENCRE });
-  page.drawText(tenir(l.phase.toLocaleUpperCase("fr-FR"), p.moyenne, 6.5, L_HEURE - 4), {
+  const phase = l.phase.replace(" · Journée ", " · J").toLocaleUpperCase("fr-FR");
+  page.drawText(tenir(phase, p.moyenne, 6.5, L_HEURE - 4), {
     x: MARGE, y: base - 9, size: 6.5, font: p.moyenne, color: GRIS_CLAIR,
   });
 

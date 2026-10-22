@@ -72,6 +72,7 @@ const T = textes(
     avantMatch: "Coup d'envoi imminent",
     interrompu: "Match interrompu",
     poule: (g: string) => `Poule ${g}`,
+    journee: (n: number) => `Journée ${n}`,
     connexion: "Connexion au direct...",
     introuvable: "Match introuvable",
     introuvableTexte: "Ce match n'existe pas ou n'est plus disponible.",
@@ -109,6 +110,7 @@ const T = textes(
     avantMatch: "Kick-off soon",
     interrompu: "Match suspended",
     poule: (g: string) => `Group ${g}`,
+    journee: (n: number) => `Matchday ${n}`,
     connexion: "Connecting to live...",
     introuvable: "Match not found",
     introuvableTexte: "This match doesn't exist or is no longer available.",
@@ -386,7 +388,8 @@ export default function PublicCompMatchView() {
     : match.round
       ? f.tour(match.round)
       : match.group
-        ? t.poule(match.group)
+        // La journée suit la poule, « Poule A · Journée 2 » (lib/journees).
+        ? match.journee != null ? `${t.poule(match.group)} · ${t.journee(match.journee)}` : t.poule(match.group)
         : null;
 
   /**

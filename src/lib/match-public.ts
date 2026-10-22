@@ -67,6 +67,13 @@ export interface CompMatchPublic extends MatchPublic {
   etape: string;
   /** Le tour d'un match de phase finale, `null` ailleurs : la finale a sa propre affiche. */
   tour: CompMatchRound | null;
+  /**
+   * La journée d'un match de poule (lib/journees), `null` ailleurs. À part
+   * d'`etape`, que la page d'une équipe, l'administration et la liste des
+   * matchs d'un club réutilisent telle quelle : seules la fiche et les images
+   * du match l'ajoutent.
+   */
+  journee: number | null;
 }
 
 type EvenementBrut = NonNullable<FirestoreMatch["live_state"]>["events"][number];
@@ -214,6 +221,7 @@ export const getCompMatchPublic = cache(
           ? "Match d'exhibition"
           : d.group ? `Groupe ${d.group}` : d.round ? (TOURS[d.round as CompMatchRound] ?? "") : "",
         tour: d.stage === "knockout" && d.round && d.round in TOURS ? (d.round as CompMatchRound) : null,
+        journee: d.stage === "group" && typeof d.journee === "number" ? d.journee : null,
         homeTeamName: d.home_team_name ?? "",
         awayTeamName: d.away_team_name ?? "",
         status: d.status ?? "scheduled",

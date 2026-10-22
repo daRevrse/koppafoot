@@ -270,9 +270,10 @@ export async function imageDuMatch(match: MatchPublic | CompMatchPublic | null):
   const joue = match.status === "live" || match.status === "completed";
 
   // Le nom de la compétition quand son logo ne le dit pas déjà (même règle
-  // que le flyer), puis l'étape ; « Match amical » pour un amical.
+  // que le flyer), puis l'étape et la journée ; « Match amical » pour un amical.
   const contexte = officiel
-    ? [logoCompetition ? "" : match.competition, match.etape].filter(Boolean).join(" · ")
+    ? [logoCompetition ? "" : match.competition, match.etape, match.journee != null ? `Journée ${match.journee}` : ""]
+      .filter(Boolean).join(" · ")
     : "Match amical";
 
   return rendre(
