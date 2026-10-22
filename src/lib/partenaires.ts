@@ -78,10 +78,13 @@ export const LIBELLE_FORMAT: Record<FormatPartenaire, string> = {
 /**
  * CE QUE LA MARQUE A ACHETÉ : deux formules, deux prix.
  *
- * `partenaire` : la plus chère. L'emplacement lui revient à lui seul, il ne
- * défile pas, et il est annoncé « Partenaire » (« Présenté par » sur la
- * compétition qu'il sponsorise). Tant qu'un partenaire est à l'affiche
- * quelque part, aucune annonce n'y paraît.
+ * TOUT LE MONDE DÉFILE, décidé le 2026-10-22. Les marques d'un même
+ * emplacement se relaient d'elles-mêmes, une toutes les `DUREE_ANNONCE_MS`,
+ * dans un ordre tiré au hasard à chaque affichage (voir `ordreDuTirage`).
+ * Avant, un partenaire faisait taire les annonces de sa place : posé sur
+ * tous les emplacements, il avait effacé du site les deux annonces en cours,
+ * et deux partenaires d'une même place ne tournaient que toutes les cinq
+ * minutes, au rythme du cache.
  *
  * `annonce` : moins chère, parce que partagée. Les annonces d'un même
  * emplacement défilent d'elles-mêmes, dans un ordre tiré au hasard à chaque
@@ -258,8 +261,10 @@ export function choisirPartenaire<P extends Pick<FirestorePartenariat, "competit
 }
 
 /**
- * Ce qu'un emplacement montre : un partenaire seul, ou les annonces qui s'y
- * relaient.
+ * Les marques qu'un emplacement fait défiler, partenaires et annonces
+ * ensemble, sans ordre : le navigateur le tire à chaque affichage (voir
+ * `ordreDuTirage`). Le hasard ne peut pas venir du serveur, sa réponse est
+ * en cache cinq minutes et servie à tout le monde.
  *
  * Même règle de priorité que `choisirPartenaire` pour la compétition (ses
  * propres marques d'abord). Puis le partenaire, qui a payé l'exclusivité :
@@ -271,16 +276,27 @@ export function choisirPartenaire<P extends Pick<FirestorePartenariat, "competit
 export function choisirAffiches<P extends Pick<FirestorePartenariat, "competition_id" | "type" | "format" | "image_url">>(
   candidats: P[],
   cid: string | null,
-  tirage: number,
-): { partenaire: P | null; annonces: P[] } {
+): P[] {
   const propres = cid ? candidats.filter((c) => c.competition_id === cid) : [];
   const generaux = candidats.filter((c) => !c.competition_id);
   const pool = propres.length ? propres : generaux;
-  const partenaires = pool.filter((c) => typeDe(c) === "partenaire");
-  if (partenaires.length) {
-    return { partenaire: partenaires[Math.min(partenaires.length - 1, Math.floor(tirage * partenaires.length))], annonces: [] };
-  }
-  return { partenaire: null, annonces: pool.filter((c) => typeDe(c) === "annonce" && formatDe(c) === "banniere") };
+  return pool.filter((c) => typeDe(c) === "partenaire" || formatDe(c) === "banniere");
+}
+
+/**
+ * L'ordre de défilement d'un affichage : les partenaires en tête, dans un
+ * ordre tiré au hasard, puis les annonces, tirées de même. Un partenaire est
+ * donc toujours le premier visuel qu'on voit, et deux partenaires d'une même
+ * place ont chacun leur chance d'ouvrir.
+ */
+export function ordreDuTirage<P extends Pick<FirestorePartenariat, "type">>(
+  affiches: readonly P[],
+  aleatoire: () => number = Math.random,
+): P[] {
+  return [
+    ...melanger(affiches.filter((a) => typeDe(a) === "partenaire"), aleatoire),
+    ...melanger(affiches.filter((a) => typeDe(a) === "annonce"), aleatoire),
+  ];
 }
 
 /** Un ordre au hasard (Fisher-Yates), sans toucher à la liste reçue. */

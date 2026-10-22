@@ -380,8 +380,8 @@ function FormulairePartenaire({ form, setForm }: {
                 <span className="block text-sm font-black">{LIBELLE_TYPE[ty]}</span>
                 <span className={`mt-0.5 block text-[11px] leading-snug ${choisi ? "text-gray-300" : "text-gray-400"}`}>
                   {ty === "partenaire"
-                    ? "Seul dans ses emplacements, ne défile pas. Mention « Partenaire ». La formule la plus chère."
-                    : `Partage l'emplacement avec les autres annonces, qui défilent au hasard toutes les ${DUREE_ANNONCE_MS / 1000} s. Mention « Annonce ». Toujours une bannière.`}
+                    ? "Passe en tête du défilement, avant les annonces, dans un ordre tiré à chaque visite. Mention « Partenaire ». Bannière ou logo. La formule la plus chère."
+                    : `Défile après les partenaires, au hasard, une marque toutes les ${DUREE_ANNONCE_MS / 1000} s. Mention « Annonce ». Toujours une bannière.`}
                 </span>
               </button>
             );

@@ -27,7 +27,7 @@ interface Champs {
   annonceur?: string;
   accroche?: string | null;
   format?: string;
-  /** « partenaire » (exclusif) ou « annonce » (en rotation). */
+  /** « partenaire » (en tête du défilement) ou « annonce » (après les partenaires). */
   type?: string;
   lien?: string | null;
   emplacements?: string[];
