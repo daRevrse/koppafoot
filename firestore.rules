@@ -1000,8 +1000,13 @@ service cloud.firestore {
         allow delete: if configureLaCompetition(cid);
         // Updating is what covering a match means (score, clock, events), so
         // it also opens to a live, in-scope access-code holder.
-        allow update: if (configureLaCompetition(cid) || hasStaffGrantFor(cid, mid))
-                      && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['venue_booking']);
+        // `chaud` (lib/chauds) met un match en tête de l'accueil Direct : le
+        // décider revient à l'organisateur et à ses modérateurs, pas au
+        // détenteur d'un code de scoreur, qui ne couvre que le jeu.
+        allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['venue_booking'])
+                      && (configureLaCompetition(cid)
+                          || (hasStaffGrantFor(cid, mid)
+                              && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['chaud'])));
       }
 
       // Access-code grants. Written by the API only: the admin SDK bypasses
