@@ -1,8 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { arrayRemove, arrayUnion, doc, updateDoc } from "firebase/firestore";
 import { Platform } from "react-native";
+import { cidDuSlug } from "~/lib/fiche-firestore";
 import { db } from "~/lib/firebase";
+import { destinationDuLien, ecranDeLaDestination } from "~/lib/lien-notification";
+import { ouvrirSurLeSite } from "~/lib/navigateur";
 
 // ============================================
 // Le push, dans l'application.
@@ -96,4 +100,24 @@ export function suivreLeJeton(uid: string): () => void {
 export function lienDeLaNotification(r: Notifications.NotificationResponse | null): string | null {
   const lien = r?.notification.request.content.data?.link;
   return typeof lien === "string" && lien.startsWith("/") && !lien.startsWith("//") ? lien : null;
+}
+
+/**
+ * Ouvrir ce qu'annonce une notification touchée : un match, une compétition,
+ * une équipe ou un amical dans leur écran ; le reste (une réservation, un
+ * espace d'organisateur) sur le site, dans le navigateur intégré. `natif` :
+ * les écrans de l'application sont ouverts (l'accueil est passé, le profil
+ * existe) — sinon, le site.
+ */
+export async function ouvrirLaNotification(lien: string, natif: boolean): Promise<void> {
+  const destination = destinationDuLien(lien);
+  if (natif && destination.genre !== "site") {
+    const cid = "slug" in destination ? await cidDuSlug(destination.slug).catch(() => null) : null;
+    const ecran = ecranDeLaDestination(destination, cid);
+    if (ecran) {
+      router.push(ecran);
+      return;
+    }
+  }
+  ouvrirSurLeSite(lien);
 }
