@@ -51,11 +51,18 @@ const ecussonFictif = async (lettre: string, couleur: string) => {
   return `data:image/png;base64,${(await sharp(Buffer.from(svg)).png().toBuffer()).toString("base64")}`;
 };
 
-const banniere = async (texte: string, fond: string) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300">
-    <rect width="1200" height="300" fill="${fond}"/>
-    <text x="600" y="190" font-size="120" font-family="Arial" font-weight="bold" fill="#fff" text-anchor="middle">${texte}</text>
-  </svg>`;
+/** Un logo fictif : rond (carré) ou en longueur, sur fond transparent, comme ceux qu'on reçoit. */
+const logoFictif = async (texte: string, fond: string, forme: "carre" | "long") => {
+  const svg = forme === "carre"
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">
+        <circle cx="200" cy="200" r="190" fill="${fond}"/>
+        <text x="200" y="235" font-size="120" font-family="Arial" font-weight="bold" fill="#fff" text-anchor="middle">${texte}</text>
+      </svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="240">
+        <rect x="0" y="40" width="160" height="160" rx="24" fill="${fond}"/>
+        <text x="80" y="150" font-size="90" font-family="Arial" font-weight="bold" fill="#fff" text-anchor="middle">${texte[0]}</text>
+        <text x="190" y="155" font-size="104" font-family="Arial" font-weight="bold" fill="#111">${texte}</text>
+      </svg>`;
   return `data:image/png;base64,${(await sharp(Buffer.from(svg)).png().toBuffer()).toString("base64")}`;
 };
 
@@ -98,8 +105,8 @@ async function main() {
     ],
     ecussons: [{ equipe: "LIONS FC", logo: lions }, { equipe: "AS BÈ", logo: be }],
     partenaires: [
-      { annonceur: "Marque A", image: await banniere("MARQUE A", "#c0392b") },
-      { annonceur: "Marque B", image: null },
+      { annonceur: "Marque A", image: await logoFictif("MA", "#c0392b", "carre") },
+      { annonceur: "Marque B", image: await logoFictif("MARQUEB", "#2c3e50", "long") },
     ],
   });
 
@@ -123,8 +130,8 @@ async function main() {
     })),
     ecussons: ["A", "B", "C", "D", "E"].map((l) => ({ equipe: `${l} FC`, logo: null })),
     partenaires: [
-      { annonceur: "Marque A", image: await banniere("MARQUE A", "#c0392b") },
-      { annonceur: "Marque B", image: await banniere("MARQUE B", "#2c3e50") },
+      { annonceur: "Marque A", image: await logoFictif("MARQUEA", "#c0392b", "long") },
+      { annonceur: "Marque B", image: await logoFictif("MB", "#2c3e50", "carre") },
     ],
   });
 
@@ -136,7 +143,9 @@ async function main() {
       photo: brut.photo && existsSync(brut.photo) ? await preparerPhoto(await readFile(brut.photo)) : brut.photo,
       lignes: await Promise.all(brut.lignes.map(async (l) => ({ ...l, ecusson: await image(l.ecusson) }))),
       ecussons: await Promise.all(brut.ecussons.map(async (e) => ({ ...e, logo: await image(e.logo) }))),
-      partenaires: await Promise.all(brut.partenaires.map(async (p) => ({ ...p, image: await image(p.image) }))),
+      // Comme sur le serveur : un logo introuvable retire le partenaire du pied.
+      partenaires: (await Promise.all(brut.partenaires.map(async (p) => ({ ...p, image: await image(p.image) }))))
+        .filter((p): p is { annonceur: string; image: string } => p.image !== null),
     });
   }
   process.exit(0);

@@ -11,7 +11,7 @@ import {
 } from "@/components/admin/ui";
 import {
   BANNIERE_CONSEILLEE, DUREE_ANNONCE_MS, EMPLACEMENTS, FORMATS, LIBELLE_EMPLACEMENT, LIBELLE_FORMAT, LIBELLE_TYPE, TYPES,
-  VERTICALE_CONSEILLEE, aLAffiche, avisBanniere, avisVerticale, jourDeLome,
+  LOGO_LARGEUR_MIN, SANS_LOGO, VERTICALE_CONSEILLEE, aLAffiche, avisBanniere, avisLogo, avisVerticale, jourDeLome,
   type EmplacementPartenaire, type FormatPartenaire, type TypePartenariat,
 } from "@/lib/partenaires";
 
@@ -37,6 +37,8 @@ interface Partenaire {
   type: TypePartenariat;
   imageUrl: string | null;
   imageVerticaleUrl: string | null;
+  /** Le logo à part d'une bannière (voir lib/partenaires, `logoDe`). */
+  logoUrl: string | null;
   lien: string | null;
   emplacements: EmplacementPartenaire[];
   competitionId: string | null;
@@ -71,6 +73,17 @@ interface Formulaire {
   fichierVerticale: File | null;
   apercuVerticale: string | null;
   retirerImageVerticale: boolean;
+  /** Le logo d'une bannière, facultatif : l'affiche « Joueur de la semaine » l'exige. */
+  logoUrl: string | null;
+  fichierLogo: File | null;
+  apercuLogo: string | null;
+  retirerLogo: boolean;
+}
+
+/** A-t-il un logo, une fois le formulaire enregistré ? Au format logo, c'est son visuel. */
+function aUnLogo(form: Formulaire): boolean {
+  if (form.format === "logo") return Boolean(form.fichier || (form.imageUrl && !form.retirerImage));
+  return Boolean(form.fichierLogo || (form.logoUrl && !form.retirerLogo));
 }
 
 /** Dans un mois, jour pour jour : la durée par défaut d'une campagne. */
@@ -84,6 +97,7 @@ const VIDE: Formulaire = {
   id: null, annonceur: "", accroche: "", format: "logo", type: "partenaire", lien: "", emplacements: ["competition"], competition: "", competitionNom: null,
   debut: "", fin: "", actif: true, imageUrl: null, fichier: null, apercu: null, retirerImage: false,
   imageVerticaleUrl: null, fichierVerticale: null, apercuVerticale: null, retirerImageVerticale: false,
+  logoUrl: null, fichierLogo: null, apercuLogo: null, retirerLogo: false,
 };
 
 /** Retire le préfixe `data:<type>;base64,` : la route attend la charge seule. */
@@ -157,7 +171,7 @@ export default function AdminPartenairesPage() {
       ...VIDE,
       id: p.id, annonceur: p.annonceur, accroche: p.accroche ?? "", format: p.format, type: p.type, lien: p.lien ?? "",
       emplacements: p.emplacements, competition: p.competitionId ?? "", competitionNom: p.competitionNom, debut: p.debut, fin: p.fin,
-      actif: p.actif, imageUrl: p.imageUrl, imageVerticaleUrl: p.imageVerticaleUrl,
+      actif: p.actif, imageUrl: p.imageUrl, imageVerticaleUrl: p.imageVerticaleUrl, logoUrl: p.logoUrl,
     } : { ...VIDE, debut: jour, fin: dansUnMois() });
   };
 
@@ -183,6 +197,10 @@ export default function AdminPartenairesPage() {
           ? { data: await enBase64(form.fichierVerticale), contentType: form.fichierVerticale.type }
           : null,
         retirerImageVerticale: form.retirerImageVerticale,
+        logo: form.format === "banniere" && form.fichierLogo
+          ? { data: await enBase64(form.fichierLogo), contentType: form.fichierLogo.type }
+          : null,
+        retirerLogo: form.retirerLogo,
       };
       await appel(form.id ? "PATCH" : "POST", corps);
       toast.success(form.id ? "Partenaire mis à jour" : "Partenaire créé");
@@ -271,6 +289,11 @@ export default function AdminPartenairesPage() {
                     <Pastille ton={p.type === "annonce" ? "bleu" : "noir"}>{LIBELLE_TYPE[p.type]}</Pastille>
                     {p.format === "banniere" && <Pastille ton="gris">{LIBELLE_FORMAT.banniere}</Pastille>}
                     {p.format === "banniere" && p.imageVerticaleUrl && <Pastille ton="gris">+ vertical</Pastille>}
+                    {p.format === "banniere" && p.logoUrl && <Pastille ton="gris">+ logo</Pastille>}
+                    {/* Enregistré avant que l'affiche n'exige un logo : il n'y paraît plus. */}
+                    {p.emplacements.includes("affiche_semaine") && !(p.format === "logo" ? p.imageUrl : p.logoUrl) && (
+                      <Pastille ton="ambre">Sans logo : absent de l&apos;affiche</Pastille>
+                    )}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {p.emplacements.map((e) => LIBELLE_EMPLACEMENT[e]).join(" · ")}
@@ -335,9 +358,10 @@ function FormulairePartenaire({ form, setForm }: {
     const img = e.currentTarget;
     if (visuel) setDimensions({ src: visuel, largeur: img.naturalWidth, hauteur: img.naturalHeight });
   };
-  const avis = form.format === "banniere" && visuel && dimensions?.src === visuel
-    ? avisBanniere(dimensions.largeur, dimensions.hauteur)
+  const avis = visuel && dimensions?.src === visuel
+    ? (form.format === "banniere" ? avisBanniere : avisLogo)(dimensions.largeur, dimensions.hauteur)
     : null;
+  const logoPresent = aUnLogo(form);
 
   return (
     <div className="space-y-4">
@@ -439,7 +463,7 @@ function FormulairePartenaire({ form, setForm }: {
             </span>
           </>
         ) : (
-          <span className={ETIQUETTE}>Logo (2 Mo au plus)</span>
+          <span className={ETIQUETTE}>Logo ({LOGO_LARGEUR_MIN} px de large au moins, PNG à fond transparent, 2 Mo au plus)</span>
         )}
         <div className="flex items-center gap-3">
           {form.format === "logo" && (
@@ -472,16 +496,29 @@ function FormulairePartenaire({ form, setForm }: {
       </div>
 
       {form.format === "banniere" && <VisuelVertical form={form} maj={maj} />}
+      {form.format === "banniere" && <LogoAPart form={form} maj={maj} />}
 
       <div>
         <span className={ETIQUETTE}>Emplacements</span>
         <div className="space-y-1.5">
-          {EMPLACEMENTS.map((e) => (
-            <label key={e} className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.emplacements.includes(e)} onChange={() => basculerEmplacement(e)} />
-              {LIBELLE_EMPLACEMENT[e]}
-            </label>
-          ))}
+          {EMPLACEMENTS.map((e) => {
+            const coche = form.emplacements.includes(e);
+            // L'affiche ne montre que des logos : sans logo, on ne peut que
+            // décocher (un partenariat enregistré avant la règle).
+            const sansLogo = e === "affiche_semaine" && !logoPresent;
+            return (
+              <div key={e}>
+                <label className={`flex items-center gap-2 text-sm ${sansLogo && !coche ? "text-gray-400" : ""}`}>
+                  <input type="checkbox" checked={coche} disabled={sansLogo && !coche} onChange={() => basculerEmplacement(e)} />
+                  {LIBELLE_EMPLACEMENT[e]}
+                  {sansLogo && !coche && <span className="text-[11px]">(ajoute d&apos;abord un logo)</span>}
+                </label>
+                {sansLogo && coche && (
+                  <p className="ml-6 mt-0.5 text-[11px] font-semibold leading-snug text-amber-700">{SANS_LOGO}</p>
+                )}
+              </div>
+            );
+          })}
         </div>
         <p className="mt-1 text-[11px] text-gray-400">
           Jamais dans la console, les notifications, les paiements ni les fiches de joueurs.
@@ -515,6 +552,61 @@ function FormulairePartenaire({ form, setForm }: {
         <input type="checkbox" checked={form.actif} onChange={(e) => maj({ actif: e.target.checked })} />
         Actif (décoché : jamais affiché, quelles que soient les dates)
       </label>
+    </div>
+  );
+}
+
+/**
+ * Le logo d'une bannière, facultatif : le pied de l'affiche « Joueur de la
+ * semaine » n'en montre pas d'autre. Le pied est blanc : l'aperçu l'est aussi,
+ * un logo blanc s'y voit (ou ne s'y voit pas) comme sur l'affiche.
+ */
+function LogoAPart({ form, maj }: { form: Formulaire; maj: (patch: Partial<Formulaire>) => void }) {
+  const visuel = form.apercuLogo ?? (form.retirerLogo ? null : form.logoUrl);
+  const [dimensions, setDimensions] = useState<{ src: string; largeur: number; hauteur: number } | null>(null);
+  const avis = visuel && dimensions?.src === visuel ? avisLogo(dimensions.largeur, dimensions.hauteur) : null;
+  return (
+    <div>
+      <span className={ETIQUETTE}>
+        Logo, facultatif ({LOGO_LARGEUR_MIN} px de large au moins, PNG à fond transparent)
+      </span>
+      <div className="flex items-start gap-3">
+        <span className="relative flex h-14 w-28 shrink-0 items-center justify-center border border-gray-200/70 bg-white">
+          {visuel ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={visuel}
+              src={visuel}
+              alt=""
+              onLoad={(e) => setDimensions({ src: visuel, largeur: e.currentTarget.naturalWidth, hauteur: e.currentTarget.naturalHeight })}
+              className="max-h-full max-w-full object-contain p-1"
+            />
+          ) : (
+            <Handshake size={18} className="text-gray-300" />
+          )}
+        </span>
+        <div className="min-w-0 flex-1 space-y-1.5">
+          <p className="text-[11px] leading-snug text-gray-500">
+            Pour l&apos;affiche « Joueur de la semaine », qui ne montre que des logos : la bannière, réduite à cette taille, ne se lirait plus.
+          </p>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              maj({ fichierLogo: f, apercuLogo: f ? URL.createObjectURL(f) : null, retirerLogo: false });
+            }}
+            className="block min-w-0 text-xs"
+          />
+          {avis && <p className="text-[11px] font-semibold leading-snug text-amber-700">{avis}</p>}
+          {(form.logoUrl || form.fichierLogo) && !form.retirerLogo && (
+            <button type="button" onClick={() => maj({ fichierLogo: null, apercuLogo: null, retirerLogo: true })}
+              className="text-[11px] font-bold text-red-600 hover:underline">
+              Retirer le logo
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

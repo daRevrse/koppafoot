@@ -129,7 +129,7 @@ export default function AdminJoueurSemainePage() {
       const premier = data.classement.candidats[0] ?? null;
       setChoisi(premier?.cle ?? null);
       setNom(premier?.nom.toUpperCase() ?? "");
-      setPartenaires(data.partenaires.slice(0, 2).map((p) => p.id));
+      setPartenaires(data.partenaires.filter((p) => p.logoUrl).slice(0, 2).map((p) => p.id));
       setApercu((ancien) => {
         if (ancien) URL.revokeObjectURL(ancien);
         return null;
@@ -365,14 +365,23 @@ export default function AdminJoueurSemainePage() {
                     ) : (
                       <div className="flex flex-wrap gap-3">
                         {donnees.partenaires.map((p) => (
-                          <label key={p.id} className="flex cursor-pointer items-center gap-2 border border-gray-200/70 px-3 py-2 text-sm">
+                          // Le pied ne montre que des logos : sans logo, grisé, et on dit pourquoi.
+                          <label
+                            key={p.id}
+                            className={`flex items-center gap-2 border border-gray-200/70 px-3 py-2 text-sm ${p.logoUrl ? "cursor-pointer" : "cursor-not-allowed text-gray-400"}`}
+                          >
                             <input
                               type="checkbox"
                               checked={partenaires.includes(p.id)}
-                              disabled={!partenaires.includes(p.id) && partenaires.length >= 2}
+                              disabled={!p.logoUrl || (!partenaires.includes(p.id) && partenaires.length >= 2)}
                               onChange={() => basculerPartenaire(p.id)}
                             />
+                            {p.logoUrl && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={p.logoUrl} alt="" className="h-6 max-w-16 object-contain" />
+                            )}
                             {p.annonceur}
+                            {!p.logoUrl && <span className="text-[11px]">(pas de logo : à ajouter dans Partenaires)</span>}
                           </label>
                         ))}
                       </div>

@@ -41,7 +41,9 @@
 //   · `competition`, `match` : la page d'une compétition, la fiche d'un match.
 //   · `affiche_semaine` : le pied de l'affiche et de la vidéo « Joueur de la
 //     semaine », que l'administration publie sur les réseaux (voir
-//     lib/joueur-semaine). Deux places au plus.
+//     lib/joueur-semaine). Deux places au plus, LE LOGO SEUL : une bannière
+//     réduite à cette taille ne se lisait plus. Pas de logo, pas d'affiche
+//     (voir `logoDe`, `refusDuPartenariat`), décidé le 2026-10-22.
 export const EMPLACEMENTS = [
   "direct", "direct_affiche", "direct_vide", "tribune", "actus", "competition", "match", "affiche_semaine",
 ] as const;
@@ -86,10 +88,12 @@ export const LIBELLE_FORMAT: Record<FormatPartenaire, string> = {
  * et deux partenaires d'une même place ne tournaient que toutes les cinq
  * minutes, au rythme du cache.
  *
- * `annonce` : moins chère, parce que partagée. Les annonces d'un même
- * emplacement défilent d'elles-mêmes, dans un ordre tiré au hasard à chaque
- * affichage, une toutes les `DUREE_ANNONCE_MS`, sous la mention « Annonce ».
- * Une annonce est toujours une bannière : des visuels de même proportion se
+ * `partenaire` : la plus chère. Il passe EN TÊTE du tirage, avant toute
+ * annonce, et il est annoncé « Partenaire » (« Présenté par » sur la
+ * compétition qu'il sponsorise). Bannière ou logo.
+ *
+ * `annonce` : moins chère, elle suit les partenaires, sous la mention
+ * « Annonce ». Toujours une bannière : des visuels de même proportion se
  * relaient sans faire bouger la page.
  *
  * Absent (les partenariats d'avant les annonces) : partenaire, ce qu'ils ont
@@ -148,6 +152,11 @@ export interface FirestorePartenariat {
    * Absent : le rail de droite montre la bannière 4:1.
    */
   image_verticale_url?: string | null;
+  /**
+   * Le logo d'une bannière, facultatif (`partenaires/{id}/logo-…`). Au format
+   * logo, `image_url` l'est déjà : ce champ reste vide. Voir `logoDe`.
+   */
+  logo_url?: string | null;
   /** Où mène un clic. https seulement ; absent = le visuel ne mène nulle part. */
   lien: string | null;
   emplacements: EmplacementPartenaire[];
@@ -236,6 +245,67 @@ export function avisVerticale(largeur: number, hauteur: number): string | null {
   return null;
 }
 
+/**
+ * Le logo, en dessous duquel il est flou au pied d'une affiche (1080 px de
+ * large, la zone d'un partenaire en fait le quart) et sur un écran dense.
+ */
+export const LOGO_LARGEUR_MIN = 400;
+
+/** Comme `avisBanniere`, pour un logo : n'importe quelle proportion, mais assez large. */
+export function avisLogo(largeur: number, hauteur: number): string | null {
+  if (!(largeur > 0 && hauteur > 0)) return null;
+  if (largeur < LOGO_LARGEUR_MIN) {
+    return `Ce logo ne fait que ${largeur} px de large : il sera flou sur l'affiche. ${LOGO_LARGEUR_MIN} px au moins, en PNG à fond transparent.`;
+  }
+  return null;
+}
+
+/**
+ * Le logo d'un partenaire, ou `null`.
+ *
+ * Au format logo, c'est son visuel. Une bannière a le sien à part, envoyé en
+ * plus : jamais la bannière elle-même, qui réduite au pied d'une affiche ne
+ * se lit plus.
+ */
+export function logoDe(p: Pick<FirestorePartenariat, "format" | "image_url" | "logo_url">): string | null {
+  return formatDe(p) === "logo" ? p.image_url ?? null : p.logo_url ?? null;
+}
+
+/** Une bannière sans image n'a rien à montrer. */
+export const SANS_VISUEL = "Une bannière a besoin de son visuel : ajoute l'image, ou choisis le format « Logo et nom ».";
+
+/**
+ * Une annonce défile avec les autres : toujours une bannière, pour que des
+ * visuels de même proportion se relaient sans faire bouger la page.
+ */
+export const ANNONCE_EN_LOGO = "Une annonce est une bannière : choisis le format « Bannière », avec son visuel.";
+
+/** L'affiche « Joueur de la semaine » ne montre que des logos. */
+export const SANS_LOGO = "L'affiche « Joueur de la semaine » ne montre que des logos : ajoute celui de la marque, ou décoche cet emplacement.";
+
+/**
+ * Ce qu'il faut refuser à l'enregistrement d'un partenariat, ou `null`.
+ *
+ * Jugé sur ce qu'il sera APRÈS l'enregistrement : un changement de format, un
+ * visuel retiré, un emplacement ajouté. Vérifié avant d'envoyer quoi que ce
+ * soit à Storage : un refus ne laisse pas de fichier orphelin.
+ */
+export function refusDuPartenariat(e: {
+  type: TypePartenariat;
+  format: FormatPartenaire;
+  emplacements: readonly EmplacementPartenaire[];
+  /** Le visuel principal (la bannière, ou le logo au format logo). */
+  visuel: boolean;
+  /** Le logo à part d'une bannière. */
+  logo: boolean;
+}): string | null {
+  if (e.type === "annonce" && e.format !== "banniere") return ANNONCE_EN_LOGO;
+  if (e.format === "banniere" && !e.visuel) return SANS_VISUEL;
+  const unLogo = e.format === "logo" ? e.visuel : e.logo;
+  if (e.emplacements.includes("affiche_semaine") && !unLogo) return SANS_LOGO;
+  return null;
+}
+
 /** Le partenariat est-il à l'affiche ce jour-là ? */
 export function aLAffiche(p: Pick<FirestorePartenariat, "actif" | "debut" | "fin">, jour: string): boolean {
   return p.actif && p.debut <= jour && jour <= p.fin;
@@ -266,12 +336,9 @@ export function choisirPartenaire<P extends Pick<FirestorePartenariat, "competit
  * `ordreDuTirage`). Le hasard ne peut pas venir du serveur, sa réponse est
  * en cache cinq minutes et servie à tout le monde.
  *
- * Même règle de priorité que `choisirPartenaire` pour la compétition (ses
- * propres marques d'abord). Puis le partenaire, qui a payé l'exclusivité :
- * s'il y en a un, les annonces se taisent. Sinon, toutes les annonces de
- * l'emplacement, l'ordre étant tiré par le navigateur à chaque affichage (la
- * réponse est en cache, le hasard ne peut pas venir du serveur). Une annonce
- * sans visuel n'a rien à faire défiler : elle est écartée.
+ * Même règle de priorité que `choisirPartenaire` pour la compétition : sur
+ * ses pages, ses propres marques d'abord, c'est ce qu'elle a vendu. Une
+ * annonce sans visuel n'a rien à faire défiler : elle est écartée.
  */
 export function choisirAffiches<P extends Pick<FirestorePartenariat, "competition_id" | "type" | "format" | "image_url">>(
   candidats: P[],

@@ -6,7 +6,10 @@
  *   npx tsx scripts/test-partenaires.ts
  */
 import assert from "node:assert/strict";
-import { choisirAffiches, ordreDuTirage, type FirestorePartenariat } from "@/lib/partenaires";
+import {
+  ANNONCE_EN_LOGO, SANS_LOGO, SANS_VISUEL, avisLogo, choisirAffiches, logoDe, ordreDuTirage, refusDuPartenariat,
+  type FirestorePartenariat,
+} from "@/lib/partenaires";
 
 let echecs = 0;
 function cas(nom: string, fn: () => void) {
@@ -104,6 +107,64 @@ cas("la liste reçue n'est pas modifiée", () => {
   const avant = ids(melange);
   ordreDuTirage(melange, hasard(0.5));
   assert.deepEqual(ids(melange), avant);
+});
+
+console.log("logoDe");
+
+cas("un partenaire au format logo : son visuel est son logo", () => {
+  assert.equal(logoDe({ format: "logo", image_url: "https://x/logo.png", logo_url: null }), "https://x/logo.png");
+});
+
+cas("une bannière : le logo envoyé à part, jamais la bannière", () => {
+  assert.equal(logoDe({ format: "banniere", image_url: "https://x/banniere.png", logo_url: "https://x/logo.png" }), "https://x/logo.png");
+  assert.equal(logoDe({ format: "banniere", image_url: "https://x/banniere.png", logo_url: null }), null);
+  assert.equal(logoDe({ format: "banniere", image_url: "https://x/banniere.png" }), null);
+});
+
+cas("un partenariat d'avant les formats (format absent) : son visuel est un logo", () => {
+  assert.equal(logoDe({ image_url: "https://x/logo.png" }), "https://x/logo.png");
+});
+
+console.log("refusDuPartenariat");
+
+const base = {
+  type: "partenaire" as const, format: "banniere" as const, emplacements: ["direct" as const], visuel: true, logo: false,
+};
+
+cas("une bannière avec son visuel, hors affiche : acceptée sans logo", () => {
+  assert.equal(refusDuPartenariat(base), null);
+});
+
+cas("une bannière sur l'affiche du joueur de la semaine sans logo : refusée", () => {
+  assert.equal(refusDuPartenariat({ ...base, emplacements: ["direct", "affiche_semaine"] }), SANS_LOGO);
+});
+
+cas("une bannière sur l'affiche avec son logo : acceptée", () => {
+  assert.equal(refusDuPartenariat({ ...base, emplacements: ["affiche_semaine"], logo: true }), null);
+});
+
+cas("un partenaire au format logo sur l'affiche : son visuel suffit", () => {
+  assert.equal(refusDuPartenariat({ ...base, format: "logo", emplacements: ["affiche_semaine"] }), null);
+});
+
+cas("un partenaire au format logo sans image, sur l'affiche : refusé", () => {
+  assert.equal(refusDuPartenariat({ ...base, format: "logo", emplacements: ["affiche_semaine"], visuel: false }), SANS_LOGO);
+});
+
+cas("les refus d'avant tiennent toujours", () => {
+  assert.equal(refusDuPartenariat({ ...base, type: "annonce", format: "logo" }), ANNONCE_EN_LOGO);
+  assert.equal(refusDuPartenariat({ ...base, visuel: false }), SANS_VISUEL);
+});
+
+console.log("avisLogo");
+
+cas("un logo assez large ne demande rien", () => {
+  assert.equal(avisLogo(600, 600), null);
+  assert.equal(avisLogo(900, 240), null);
+});
+
+cas("un logo trop étroit est signalé", () => {
+  assert.match(avisLogo(200, 200) ?? "", /200 px/);
 });
 
 if (echecs) {

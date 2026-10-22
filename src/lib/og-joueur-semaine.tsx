@@ -36,8 +36,12 @@ export interface DonneesAffiche {
   lignes: { jour: string; competition: string; equipe: string; ecusson: string | null; affiche: string; detail: string }[];
   /** Ses équipes de la semaine, la plus récente d'abord. */
   ecussons: { equipe: string; logo: string | null }[];
-  /** Deux au plus, en data URI. */
-  partenaires: { annonceur: string; image: string | null }[];
+  /**
+   * Deux au plus : leur LOGO, en data URI. Sans logo, pas de place au pied
+   * (voir lib/partenaires, `logoDe`) : une bannière réduite à cette taille ne
+   * se lisait plus.
+   */
+  partenaires: { annonceur: string; image: string }[];
 }
 
 /** Un calque de la vidéo : un élément seul, recadré sur ce qu'il occupe, et sa place. */
@@ -224,7 +228,10 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
   const blocNoir = camo(280, 600, "#141414", TACHES_NOIRES, 37);
   const nom = tailleDuNom(d.nom.toUpperCase(), 700);
   const partenaires = d.partenaires.slice(0, MAX_PARTENAIRES);
-  const zonePartenaire = { width: vertical ? 260 : 240, height: 76 };
+  // Toute la hauteur du pied : un logo carré tient par sa hauteur, et à 76 px
+  // il paraissait minuscule à côté d'un logo en longueur. En vertical, le pied
+  // ne descend pas plus bas : TikTok recouvre le bas de l'image.
+  const zonePartenaire = { width: vertical ? 260 : 240, height: vertical ? 76 : 90 };
 
   return (
     <div style={{ position: "relative", display: "flex", width: W, height: g.H, backgroundColor: voir("fond") ? BLANC : "transparent" }}>
@@ -314,14 +321,8 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
           <div style={{ display: "flex", gap: 40 }}>
             {partenaires.map((pa, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "center", ...zonePartenaire }}>
-                {pa.image ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={pa.image} alt="" width={zonePartenaire.width} height={zonePartenaire.height} style={{ objectFit: "contain" }} />
-                ) : (
-                  <div style={{ display: "flex", fontFamily: "Outfit", fontWeight: 900, fontSize: 24, color: "#1b1b1b", whiteSpace: "nowrap" }}>
-                    {raccourcir(pa.annonceur.toUpperCase(), 16)}
-                  </div>
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={pa.image} alt="" width={zonePartenaire.width} height={zonePartenaire.height} style={{ objectFit: "contain" }} />
               </div>
             ))}
           </div>
