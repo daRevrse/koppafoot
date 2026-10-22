@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { PointDirect } from "~/components/direct/PointDirect";
 import type { FiltreDirect } from "~/lib/direct-tableau";
@@ -8,10 +9,12 @@ import { couleurs, polices } from "~/theme";
  * direct (n) » porte son point, qui ne pulse que s'il y a un match en cours ;
  * active, elle se teinte de rouge, les autres de vert.
  */
-export function FiltresDirect({ filtre, enDirect, onChange }: {
+export function FiltresDirect({ filtre, enDirect, onChange, fin }: {
   filtre: FiltreDirect;
   enDirect: number;
   onChange: (f: FiltreDirect) => void;
+  /** Calé à droite, hors du défilement des pastilles : l'entrée vers l'annuaire. */
+  fin?: ReactNode;
 }) {
   const puces: { cle: FiltreDirect; libelle: string }[] = [
     { cle: "tous", libelle: "Tous" },
@@ -19,8 +22,9 @@ export function FiltresDirect({ filtre, enDirect, onChange }: {
     { cle: "favoris", libelle: "Favoris" },
   ];
   return (
-    // flexGrow: 0 : une ScrollView horizontale dans une colonne prend sinon
-    // toute la hauteur libre ; flexShrink: 0 : la liste en dessous l'écrasait.
+    // La bande ne grandit ni ne rétrécit : une ScrollView horizontale dans une
+    // colonne prenait sinon toute la hauteur libre, et la liste en dessous l'écrasait.
+    <View style={styles.bande}>
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.defilement} contentContainerStyle={styles.rangee}>
       {puces.map((p) => {
         const actif = p.cle === filtre;
@@ -41,11 +45,18 @@ export function FiltresDirect({ filtre, enDirect, onChange }: {
         );
       })}
     </ScrollView>
+    {fin ? <View style={styles.fin}>{fin}</View> : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  defilement: { flexGrow: 0, flexShrink: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure },
+  bande: {
+    flexDirection: "row", alignItems: "center", flexGrow: 0, flexShrink: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
+  },
+  defilement: { flex: 1 },
+  fin: { paddingRight: 12 },
   rangee: { gap: 6, paddingHorizontal: 12, paddingVertical: 8, alignItems: "center" },
   puce: {
     flexDirection: "row", alignItems: "center", gap: 6,

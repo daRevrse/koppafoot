@@ -125,6 +125,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         {/* L'en-tête des onglets les ouvre : le compte, la cloche. */}
         <Stack.Screen name="compte" />
         <Stack.Screen name="notifications" />
+        <Stack.Screen name="competitions" />
       </Stack.Protected>
       <Stack.Protected guard={accueil.vu && !profilManquant && !utilisateur}>
         <Stack.Screen name="connexion" options={fenetre} />

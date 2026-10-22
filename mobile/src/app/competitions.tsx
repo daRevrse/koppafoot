@@ -6,7 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { Competition } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { CarteAnnuaire } from "~/components/CarteAnnuaire";
-import { EnTeteOnglet } from "~/components/EnTeteOnglet";
+import { EnTetePage } from "~/components/EnTetePage";
 import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
 import { EtatVide } from "~/components/EtatVide";
 import { useSuivi } from "~/hooks/useSuivi";
@@ -16,7 +16,8 @@ import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { couleurs, espacement, polices } from "~/theme";
 
 /**
- * L'annuaire des compétitions (/competitions du site) : une recherche, puis
+ * L'annuaire des compétitions (/competitions du site), ouvert depuis le bout
+ * des filtres du Direct : une recherche, puis
  * en cours, à venir, terminées. Les grands championnats du monde restent sur
  * le site : ils n'ont pas d'écran ici.
  */
@@ -93,7 +94,7 @@ export default function EcranAnnuaire() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
-      <EnTeteOnglet surTitre="Tournois et championnats" titre="Compétitions" />
+      <EnTetePage titre="Compétitions" />
       <ScrollView
         contentContainerStyle={styles.contenu}
         keyboardShouldPersistTaps="handled"
