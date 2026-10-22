@@ -195,6 +195,7 @@ export function amicalVersCompMatch(id: string, d: Row): CompMatch | null {
     penaltyAway: num(d.penalty_away),
     winnerTeamId: null,
     journee: null,
+    chaud: false,
     mvpPlayerId: str(d.mvp_player_id),
     mvpUserId: str(d.mvp_user_id),
     mvpPlayerName: str(d.mvp_player_name),

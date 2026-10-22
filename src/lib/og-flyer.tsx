@@ -176,6 +176,27 @@ export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promis
     return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 
+  const m = await donneesDuFlyer(match);
+  if (match.status !== "completed") return flyerMatchDay(m);
+
+  return flyerScoreFinal({
+    ...m,
+    scoreHome: match.scoreHome ?? 0,
+    scoreAway: match.scoreAway ?? 0,
+    tirsAuBut:
+      match.penaltyHome != null && match.penaltyAway != null
+        ? { home: match.penaltyHome, away: match.penaltyAway }
+        : null,
+    buteurs: match.buteurs,
+  });
+}
+
+/**
+ * Ce que le flyer d'un match montre, logos téléchargés : partagé avec la
+ * vidéo d'annonce d'un match chaud (lib/og-annonce), qui est le même flyer en
+ * vertical.
+ */
+export async function donneesDuFlyer(match: MatchPublic | CompMatchPublic): Promise<FlyerMatch> {
   const officiel = "competition" in match;
   const [logoCompetition, logoHome, logoAway] = await Promise.all([
     officiel ? imageDistante(match.competitionLogo, 640) : null,
@@ -185,7 +206,7 @@ export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promis
   const finale = officiel && match.tour === "final";
   // « Groupe A · Journée 2 » : la journée suit l'étape, sur les images du match seulement.
   const etape = officiel ? [match.etape, match.journee != null ? `Journée ${match.journee}` : ""].filter(Boolean).join(" · ") : "";
-  const m: FlyerMatch = {
+  return {
     titre: finale ? "LA FINALE" : "MATCHDAY",
     // Pas « FINALE » au surtitre d'une finale : son titre le dit déjà.
     surtitre: !officiel
@@ -201,19 +222,6 @@ export async function flyerDuMatch(match: MatchPublic | CompMatchPublic): Promis
     time: match.time,
     lieu: [match.venueName, match.venueCity].filter(Boolean).join(", "),
   };
-
-  if (match.status !== "completed") return flyerMatchDay(m);
-
-  return flyerScoreFinal({
-    ...m,
-    scoreHome: match.scoreHome ?? 0,
-    scoreAway: match.scoreAway ?? 0,
-    tirsAuBut:
-      match.penaltyHome != null && match.penaltyAway != null
-        ? { home: match.penaltyHome, away: match.penaltyAway }
-        : null,
-    buteurs: match.buteurs,
-  });
 }
 
 /** AVANT : l'affiche qui fait venir du monde. */

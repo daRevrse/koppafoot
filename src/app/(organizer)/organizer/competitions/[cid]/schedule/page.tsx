@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "motion/react";
 import {
   Calendar, ArrowLeft, Loader2, Sparkles, Save, ChevronRight, ChevronLeft, MapPin, Upload,
   Image as ImageIcon, X, AlertTriangle, Plus, Trophy, CalendarClock, Check, Clock, Goal,
-  GitBranch, ChevronsDownUp, ChevronsUpDown, Trash2, FileDown,
+  GitBranch, ChevronsDownUp, ChevronsUpDown, Trash2, FileDown, Flame, Clapperboard,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -25,7 +25,10 @@ import {
 } from "@/lib/competition-firestore";
 import NumeroterJournees from "@/components/competition/NumeroterJournees";
 import { filtreDeJournee } from "@/lib/journees";
+import { CHAUDS_PAR_COMPETITION, estAVenir, peutMarquerChaud, suggererChocs } from "@/lib/chauds";
+import { jourDeLome } from "@/lib/jour";
 import AfficheProgramme from "@/components/competition/AfficheProgramme";
+import VideoAnnonce from "@/components/competition/VideoAnnonce";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
 import { getVenues } from "@/lib/firestore";
 import { dureeEnCompetition, horsHoraires } from "@/lib/terrains";
@@ -409,6 +412,20 @@ export default function CompetitionSchedulePage() {
   const [journeeFiltre, setJourneeFiltre] = useState<number | null>(null);
   const [numerotation, setNumerotation] = useState(false);
   const [afficheOuverte, setAfficheOuverte] = useState(false);
+
+  // LES MATCHS CHAUDS (lib/chauds) : la flamme d'un match à venir le met en
+  // tête de l'accueil Direct, deux par compétition au plus ; les suggestions
+  // sont les matchs où les deux équipes arrivent le plus en forme.
+  const [videoMatch, setVideoMatch] = useState<CompMatch | null>(null);
+  const suggestions = useMemo(() => suggererChocs(matches, jourDeLome()), [matches]);
+  const basculerChaud = async (m: CompMatch) => {
+    try {
+      await updateCompMatch(cid, m.id, { chaud: !m.chaud });
+      toast.success(m.chaud ? "Le match n'est plus chaud" : "Match chaud : il passe en tête de l'accueil Direct");
+    } catch {
+      toast.error("La flamme n'a pas pu être enregistrée");
+    }
+  };
   const journeesPosees = useMemo(
     () => [...new Set(groupMatches.map((m) => m.journee).filter((j): j is number => j != null))].sort((a, b) => a - b),
     [groupMatches],
@@ -925,6 +942,39 @@ export default function CompetitionSchedulePage() {
               <ImageIcon size={14} />
               Bannière
             </button>
+            {/* La flamme : un match chaud passe en tête de l'accueil Direct (lib/chauds). */}
+            {(estAVenir(match) || match.chaud) && (
+              <button
+                type="button"
+                onClick={() => void basculerChaud(match)}
+                disabled={!peutMarquerChaud(matches, match)}
+                aria-pressed={match.chaud}
+                title={
+                  match.chaud
+                    ? "Match chaud : en tête de l'accueil Direct. Cliquer pour l'éteindre."
+                    : peutMarquerChaud(matches, match)
+                      ? "Marquer comme match chaud : il passe en tête de l'accueil Direct"
+                      : `Déjà ${CHAUDS_PAR_COMPETITION} matchs chauds à venir dans cette compétition`
+                }
+                className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  match.chaud ? "text-orange-600 hover:bg-orange-50" : "text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                }`}
+              >
+                <Flame size={14} />
+                Chaud
+              </button>
+            )}
+            {match.chaud && estAVenir(match) && (
+              <button
+                type="button"
+                onClick={() => setVideoMatch(match)}
+                title="La vidéo d'annonce du match, en vertical, pour les statuts et TikTok"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-orange-600 transition-colors hover:bg-orange-50"
+              >
+                <Clapperboard size={14} />
+                Vidéo
+              </button>
+            )}
             <Link
               href={`/organizer/competitions/${cid}/matches/${match.id}/live`}
               target="_blank"
@@ -1338,6 +1388,44 @@ export default function CompetitionSchedulePage() {
               >
                 <ChevronRight size={18} />
               </button>
+            </div>
+          )}
+
+          {/* Les suggestions de matchs chauds : l'organisateur garde le dernier mot. */}
+          {suggestions.length > 0 && (
+            <div className="border border-orange-200 bg-orange-50/40 px-4 py-3">
+              <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-orange-700">
+                <Flame size={13} />
+                Matchs chauds suggérés
+              </p>
+              <p className="mt-0.5 text-xs text-gray-500">
+                Les matchs à venir où les deux équipes arrivent le plus en forme sur leurs derniers matchs.
+                Un match chaud passe en tête de l&apos;accueil Direct, {CHAUDS_PAR_COMPETITION} à la fois au plus.
+              </p>
+              <ul className="mt-2 divide-y divide-orange-100">
+                {suggestions.map(({ match: s, forme }) => (
+                  <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                    <span className="min-w-0">
+                      <span className="font-bold text-gray-900">{s.homeTeamName} – {s.awayTeamName}</span>
+                      <span className="ml-2 text-xs text-gray-500">
+                        {s.date ? formatDateLisible(s.date) : "Date à fixer"}
+                        {" · "}
+                        {forme.toFixed(1).replace(".", ",")} pt par match pour la moins en forme
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void basculerChaud(s)}
+                      disabled={!peutMarquerChaud(matches, s)}
+                      title={peutMarquerChaud(matches, s) ? undefined : `Déjà ${CHAUDS_PAR_COMPETITION} matchs chauds à venir`}
+                      className="flex shrink-0 items-center gap-1 bg-orange-500 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Flame size={13} />
+                      Marquer chaud
+                    </button>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -1773,6 +1861,10 @@ export default function CompetitionSchedulePage() {
 
       {numerotation && (
         <NumeroterJournees cid={cid} matchs={groupMatches} onFini={() => setNumerotation(false)} />
+      )}
+
+      {videoMatch && competition?.slug && (
+        <VideoAnnonce cid={cid} slug={competition.slug} match={videoMatch} onFermer={() => setVideoMatch(null)} />
       )}
 
       {afficheOuverte && competition?.slug && (

@@ -37,12 +37,12 @@ export interface PlaceDuCalque {
 }
 
 const borne = (x: number) => Math.max(0, Math.min(1, x));
-const avance = (t: number, debut: number, duree: number) => borne((t - debut) / duree);
-const sortieCubique = (x: number) => 1 - Math.pow(1 - x, 3);
+export const avance = (t: number, debut: number, duree: number) => borne((t - debut) / duree);
+export const sortieCubique = (x: number) => 1 - Math.pow(1 - x, 3);
 const entreeSortieCubique = (x: number) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
 
 /** Dépasse un peu, puis revient : le bandeau qui « claque ». */
-function sortieRetour(x: number): number {
+export function sortieRetour(x: number): number {
   const c1 = 1.70158;
   const c3 = c1 + 1;
   return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
@@ -59,7 +59,7 @@ function sortieRebond(x: number): number {
 }
 
 /** Un zéro est un zéro : pas de −0 ni de 1e-17 qui fasse trembler un calque au repos. */
-const net = (x: number) => (Math.abs(x) < 1e-9 ? 0 : x);
+export const net = (x: number) => (Math.abs(x) < 1e-9 ? 0 : x);
 
 /**
  * Où en est un calque à l'instant `t`, en secondes. `largeur` : celle de

@@ -32,7 +32,7 @@ function match(id: string, m: Partial<CompMatch> = {}): CompMatch {
     homeTeamLogo: null, awayTeamLogo: null, bannerUrl: null,
     date: "2026-10-18", time: "16:30", venueName: null, venueCity: null, venueId: null, venueBooking: null,
     status: "scheduled", scoreHome: null, scoreAway: null, penaltyHome: null, penaltyAway: null,
-    winnerTeamId: null, journee: null, forfeitByTeamId: null, feedsIntoMatchId: null, feedsIntoSlot: null,
+    winnerTeamId: null, journee: null, chaud: false, forfeitByTeamId: null, feedsIntoMatchId: null, feedsIntoSlot: null,
     homeLineup: [], awayLineup: [], homeLineupReady: true, awayLineupReady: true,
     homeOnPitch: [], awayOnPitch: [], liveState: null, createdAt: "", updatedAt: "",
     ...m,

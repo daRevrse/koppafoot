@@ -36,7 +36,7 @@ function match(id: string, m: Partial<CompMatch> & { events?: Evt[] } = {}): Com
     homeTeamLogo: null, awayTeamLogo: null, bannerUrl: null,
     date: "2026-10-16", time: "16:30", venueName: null, venueCity: null, venueId: null, venueBooking: null,
     status: "scheduled", scoreHome: null, scoreAway: null, penaltyHome: null, penaltyAway: null,
-    winnerTeamId: null, journee: null, forfeitByTeamId: null, feedsIntoMatchId: null, feedsIntoSlot: null,
+    winnerTeamId: null, journee: null, chaud: false, forfeitByTeamId: null, feedsIntoMatchId: null, feedsIntoSlot: null,
     homeLineup: feuille, awayLineup: feuille, homeLineupReady: true, awayLineupReady: true,
     homeOnPitch: [], awayOnPitch: [],
     liveState: events ? ({ events } as unknown as CompMatch["liveState"]) : null,
