@@ -1,7 +1,7 @@
 import type { Entry } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
 import type { Competition, CompMatch } from "@/types";
-import { routeDuMatch } from "~/lib/routes";
+import { routeDeLaCompetition, routeDuMatch } from "~/lib/routes";
 
 const entree = (cid: string, mid: string): Entry => ({
   competition: { id: cid, slug: cid, name: cid } as Competition,
@@ -19,5 +19,16 @@ describe("routeDuMatch", () => {
 
   it("un match du monde n'a pas de fiche", () => {
     expect(routeDuMatch(entree("__monde__PL", "w1"))).toBeNull();
+  });
+});
+
+describe("routeDeLaCompetition", () => {
+  it("une compétition ouvre sa page native", () => {
+    expect(routeDeLaCompetition({ id: "c1" })).toEqual({ pathname: "/competition/[cid]", params: { cid: "c1" } });
+  });
+
+  it("les amicaux et les compétitions du monde n'en ont pas", () => {
+    expect(routeDeLaCompetition({ id: FRIENDLY_COMP_ID })).toBeNull();
+    expect(routeDeLaCompetition({ id: "__monde__PL" })).toBeNull();
   });
 });

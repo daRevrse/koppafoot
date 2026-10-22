@@ -16,6 +16,7 @@ import { useSuivi } from "~/hooks/useSuivi";
 import { useAuth } from "~/lib/auth";
 import { initiales } from "~/lib/initiales";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
+import { routeDeLaCompetition } from "~/lib/routes";
 import { couleurs, espacement, polices } from "~/theme";
 
 export default function EcranCompte() {
@@ -125,7 +126,11 @@ function CompetitionsSuivies({ suivies }: { suivies: readonly string[] }) {
               if (suivi.ids.has(c.id)) garder(c.id);
               void suivi.basculer(c.id);
             }}
-            onPress={() => ouvrirSurLeSite(competitionHref(c))}
+            onPress={() => {
+              const route = routeDeLaCompetition(c);
+              if (route) router.push(route);
+              else ouvrirSurLeSite(competitionHref(c));
+            }}
             style={styles.ligne}
           />
         ))}

@@ -15,3 +15,13 @@ export function routeDuMatch(e: Entry): Href | null {
   if (isWorldComp(e.competition.id)) return null;
   return { pathname: "/match/[cid]/[mid]", params: { cid: e.competition.id, mid: e.match.id } };
 }
+
+/**
+ * La page native d'une compétition, ou `null` quand elle n'en a pas : les
+ * amicaux ne forment pas une compétition, et une compétition du monde n'a
+ * que sa page du site (voir `competitionHref` dans lib/direct-shared).
+ */
+export function routeDeLaCompetition(c: { id: string }): Href | null {
+  if (c.id === FRIENDLY_COMP_ID || isWorldComp(c.id)) return null;
+  return { pathname: "/competition/[cid]", params: { cid: c.id } };
+}
