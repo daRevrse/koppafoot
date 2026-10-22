@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import {
-  datesDisponibles, journeesDisponibles, lireChoix, paginer, selectionnerProgramme, titreDuProgramme,
+  datesDisponibles, intertitresVisibles, journeesDisponibles, lireChoix, paginer, selectionnerProgramme, titreDuProgramme,
 } from "@/lib/programme";
 import { lignesDuNom } from "@/lib/og-programme";
 import type { JourDuCalendrier, LigneDuCalendrier } from "@/lib/calendrier-competition";
@@ -129,6 +129,17 @@ cas("un jour trop long pour une page neuve finit la page en cours, dans l'ordre"
   assert.deepEqual(pages.flat().flatMap((j) => j.lignes.map((l) => l.id)), [
     ...jour("d1", 10).lignes, ...jour("d2", 15).lignes,
   ].map((l) => l.id));
+});
+
+console.log("intertitresVisibles");
+
+cas("une journée ou plusieurs dates : chaque date a son intertitre, même seule sur une page", () => {
+  assert.equal(intertitresVisibles({ journee: 2 }), true);
+  assert.equal(intertitresVisibles({ dates: ["2026-10-25", "2026-11-01"] }), true);
+});
+
+cas("une seule date : elle est déjà dans le surtitre", () => {
+  assert.equal(intertitresVisibles({ dates: ["2026-10-25"] }), false);
 });
 
 console.log("lignesDuNom (lib/og-programme)");

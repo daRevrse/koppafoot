@@ -24,6 +24,7 @@ import {
   poserJournee,
 } from "@/lib/competition-firestore";
 import NumeroterJournees from "@/components/competition/NumeroterJournees";
+import { filtreDeJournee } from "@/lib/journees";
 import AfficheProgramme from "@/components/competition/AfficheProgramme";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
 import { getVenues } from "@/lib/firestore";
@@ -415,7 +416,9 @@ export default function CompetitionSchedulePage() {
   const journeeMax = journeesPosees[journeesPosees.length - 1] ?? 0;
   const sansJournee = groupMatches.some((m) => m.journee == null);
   // Le filtre ne vaut que pour les poules : un bloc de phase finale l'efface.
-  const filtreActif = journeeFiltre != null && (selectedSection === "ALL" || selectedSection.startsWith("G:"));
+  // Une journée qui n'existe plus lâche le filtre (lib/journees).
+  const filtre = filtreDeJournee(journeeFiltre, journeesPosees);
+  const filtreActif = filtre != null && (selectedSection === "ALL" || selectedSection.startsWith("G:"));
 
   const changerJournee = async (m: CompMatch, valeur: string) => {
     try {
@@ -434,9 +437,9 @@ export default function CompetitionSchedulePage() {
     if (!filtreActif) return blocs;
     return blocs
       .filter((s) => s.kind === "group")
-      .map((s) => ({ ...s, matches: s.matches.filter((m) => m.journee === journeeFiltre) }))
+      .map((s) => ({ ...s, matches: s.matches.filter((m) => m.journee === filtre) }))
       .filter((s) => s.matches.length > 0);
-  }, [sections, sectionIds, selectedSection, filtreActif, journeeFiltre]);
+  }, [sections, sectionIds, selectedSection, filtreActif, filtre]);
 
   const updateRow = (id: string, key: keyof RowState, value: string) => {
     setRows((prev) => ({
@@ -1349,9 +1352,9 @@ export default function CompetitionSchedulePage() {
                       key={j ?? "toutes"}
                       type="button"
                       onClick={() => setJourneeFiltre(j)}
-                      aria-pressed={journeeFiltre === j}
+                      aria-pressed={filtre === j}
                       className={`shrink-0 px-3 py-1.5 text-xs font-bold transition-colors ${
-                        journeeFiltre === j ? "bg-primary-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                        filtre === j ? "bg-primary-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
                       }`}
                     >
                       {j == null ? "Toutes" : `J${j}`}

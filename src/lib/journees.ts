@@ -61,6 +61,15 @@ export function journeesAttendues(nEquipes: number, allerRetour: boolean): numbe
   return allerRetour ? 2 * tours : tours;
 }
 
+/**
+ * Le filtre par journée du calendrier, s'il vaut encore : une journée qui
+ * n'existe plus (son dernier match changé de journée) le lâche, plutôt que
+ * laisser un calendrier vide sans bouton pour en sortir.
+ */
+export function filtreDeJournee(filtre: number | null, posees: readonly number[]): number | null {
+  return filtre != null && posees.includes(filtre) ? filtre : null;
+}
+
 /** Ce qu'il faut d'un match pour le numéroter. */
 export interface MatchANumeroter {
   id: string;

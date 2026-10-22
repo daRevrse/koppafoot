@@ -65,7 +65,9 @@ async function main() {
   const joue = (i: number, s: [number, number], l: Partial<LigneDuCalendrier> = {}) => ligne(i, { etat: "joue", score: s, ...l });
   const jour = (date: string | null, titre: string, lignes: LigneDuCalendrier[]): JourDuCalendrier => ({ date, titre, lignes });
 
-  const base = { titre: "MATCHS DU JOUR", surtitre: "SAMEDI 17 OCTOBRE 2026", logoCompetition: null, page: null, partenaires: [] };
+  const base = {
+    titre: "MATCHS DU JOUR", surtitre: "SAMEDI 17 OCTOBRE 2026", logoCompetition: null, page: null, partenaires: [], intertitres: false,
+  };
   const rendre = async (nom: string, d: DonneesProgramme) => {
     const r = await afficheDuProgramme(d);
     await writeFile(`${DIR}/${nom}.png`, Buffer.from(await r.arrayBuffer()));
@@ -79,8 +81,17 @@ async function main() {
   await rendre("2-matchs", { ...base, jours: unJour(2) });
   await rendre("3-matchs", { ...base, jours: unJour(3) });
   await rendre("4-matchs", { ...base, jours: unJour(4) });
+  // Une journée sur deux pages, la seconde d'un seul jour : son intertitre dit encore la date.
+  const journeeLongue = paginer([
+    jour("2026-10-18", "Dimanche 18 octobre", Array.from({ length: 8 }, (_, i) => joue(i, [1, 0]))),
+    jour("2026-10-25", "Dimanche 25 octobre", Array.from({ length: 6 }, (_, i) => ligne(8 + i))),
+  ]);
+  await rendre("journee-page-2-un-jour", {
+    ...base, titre: "JOURNÉE 4", surtitre: "PHASE DE POULES", intertitres: true,
+    jours: journeeLongue[1], page: { n: 2, total: journeeLongue.length },
+  });
   await rendre("6-matchs-3-dates", {
-    ...base, titre: "JOURNÉE 2", surtitre: "TOURNOI DES QUARTIERS · PHASE DE POULES",
+    ...base, titre: "JOURNÉE 2", surtitre: "TOURNOI DES QUARTIERS · PHASE DE POULES", intertitres: true,
     jours: [
       jour("2026-10-18", "Dimanche 18 octobre", [joue(0, [2, 1]), joue(1, [0, 0])]),
       jour("2026-10-25", "Dimanche 25 octobre", [ligne(2), ligne(3)]),
@@ -113,7 +124,7 @@ async function main() {
     ])],
   });
   await rendre("date-a-fixer", {
-    ...base, titre: "JOURNÉE 3", surtitre: "PHASE DE POULES",
+    ...base, titre: "JOURNÉE 3", surtitre: "PHASE DE POULES", intertitres: true,
     jours: [jour("2026-11-08", "Dimanche 8 novembre", [ligne(0), ligne(1), ligne(2)]), jour(null, "Date à fixer", [ligne(3, { heure: null }), ligne(4, { heure: null })])],
   });
   await rendre("tab-forfait-en-cours", {

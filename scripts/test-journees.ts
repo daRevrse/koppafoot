@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import {
-  journeesAttendues, proposerJournees, rencontresAvecJournee, toursDuCercle, type MatchANumeroter,
+  filtreDeJournee, journeesAttendues, proposerJournees, rencontresAvecJournee, toursDuCercle, type MatchANumeroter,
 } from "@/lib/journees";
 
 let echecs = 0;
@@ -189,6 +189,18 @@ cas("une poule de 6 mal datée qui déborde lève depassement", () => {
   assert.equal(journees.size, 15);
   assert.equal(depassement, true);
   verifierJournees(matchs, journees);
+});
+
+console.log("filtreDeJournee");
+
+cas("le filtre tient tant que sa journée existe", () => {
+  assert.equal(filtreDeJournee(2, [1, 2, 3]), 2);
+  assert.equal(filtreDeJournee(null, [1, 2]), null);
+});
+
+cas("une journée qui disparaît lâche le filtre, plutôt qu'un calendrier vide", () => {
+  assert.equal(filtreDeJournee(3, [1, 2]), null);
+  assert.equal(filtreDeJournee(1, []), null);
 });
 
 if (echecs) {

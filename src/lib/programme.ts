@@ -59,6 +59,16 @@ export function titreDuProgramme(choix: ChoixDuProgramme): string {
   return choix.dates.length === 1 ? "MATCHS DU JOUR" : "AU PROGRAMME";
 }
 
+/**
+ * Chaque date a-t-elle son intertitre ? Oui dès que le choix peut couvrir
+ * plusieurs dates — une journée, plusieurs dates —, même quand une page n'en
+ * montre qu'une : sans lui, la page 2 d'une journée ne disait pas quel jour.
+ * Une seule date est déjà dans le surtitre.
+ */
+export function intertitresVisibles(choix: ChoixDuProgramme): boolean {
+  return "journee" in choix || choix.dates.length > 1;
+}
+
 const joues = (m: CompMatch) => m.status !== "cancelled";
 const datesTriees = (matchs: CompMatch[]) =>
   [...new Set(matchs.map((m) => m.date).filter((d): d is string => !!d))].sort();

@@ -37,6 +37,8 @@ export interface DonneesProgramme {
   jours: JourDuCalendrier[];
   /** « 1/2 » quand le programme tient sur plusieurs affiches. */
   page: { n: number; total: number } | null;
+  /** Un intertitre par date, même seule sur la page (lib/programme, `intertitresVisibles`). */
+  intertitres: boolean;
   /** Leurs logos en data URI ; vide : le pied ne montre que l'adresse. */
   partenaires: { annonceur: string; logo: string }[];
 }
@@ -224,7 +226,8 @@ function placeDesMatchs(d: DonneesProgramme): number {
 
 function Affiche({ d, logo }: { d: DonneesProgramme; logo: string }) {
   const lignes = d.jours.reduce((s, j) => s + j.lignes.length, 0);
-  const intertitres = d.jours.length > 1 ? d.jours.length * INTERTITRE : 0;
+  const avecIntertitres = d.intertitres || d.jours.length > 1;
+  const intertitres = avecIntertitres ? d.jours.length * INTERTITRE : 0;
   const place = placeDesMatchs(d) - intertitres;
   const duel = lignes <= 3;
   const h = Math.min(104, Math.floor(place / Math.max(1, lignes)));
@@ -240,7 +243,7 @@ function Affiche({ d, logo }: { d: DonneesProgramme; logo: string }) {
       <div style={{ display: "flex", flexDirection: "column", flex: 1, justifyContent: "center", marginTop: SOUS_LE_TITRE }}>
         {d.jours.map((j, i) => (
           <div key={i} style={{ display: "flex", flexDirection: "column" }}>
-            {d.jours.length > 1 && (
+            {avecIntertitres && (
               <div style={{ display: "flex", height: INTERTITRE, alignItems: "flex-end", paddingBottom: 8, fontFamily: "Outfit", fontWeight: 700, fontSize: 20, letterSpacing: 6, color: EMERAUDE }}>
                 {j.date ? j.titre.toUpperCase() : "DATE À FIXER"}
               </div>

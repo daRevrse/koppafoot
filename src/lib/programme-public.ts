@@ -6,7 +6,9 @@ import { dateAvecJourLong } from "@/lib/dates";
 import { imageDistante } from "@/lib/og-da";
 import type { DonneesProgramme } from "@/lib/og-programme";
 import { jourDeLome, logoDe, partenairesDuProgramme, type FirestorePartenariat } from "@/lib/partenaires";
-import { paginer, selectionnerProgramme, titreDuProgramme, type ChoixDuProgramme } from "@/lib/programme";
+import {
+  intertitresVisibles, paginer, selectionnerProgramme, titreDuProgramme, type ChoixDuProgramme,
+} from "@/lib/programme";
 import type { CompetitionFormat, CompetitionType, FirestoreCompMatch } from "@/types";
 
 // ============================================
@@ -105,6 +107,7 @@ export async function programmePublic(
       lignes: j.lignes.map((l) => ({ ...l, domicile: avecEcusson(l.domicile), exterieur: avecEcusson(l.exterieur) })),
     })),
     page: pages.length > 1 ? { n: page, total: pages.length } : null,
+    intertitres: intertitresVisibles(choix),
     partenaires: logosPartenaires.filter((p): p is { annonceur: string; logo: string } => p.logo !== null),
   };
 }
