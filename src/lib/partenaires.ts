@@ -41,7 +41,9 @@
 //   · `competition`, `match` : la page d'une compétition, la fiche d'un match.
 //   · `affiche_semaine` : le pied de l'affiche et de la vidéo « Joueur de la
 //     semaine », que l'administration publie sur les réseaux (voir
-//     lib/joueur-semaine). Deux places au plus.
+//     lib/joueur-semaine). Deux places au plus, LE LOGO SEUL : une bannière
+//     réduite à cette taille ne se lisait plus. Pas de logo, pas d'affiche
+//     (voir `logoDe`, `refusDuPartenariat`), décidé le 2026-10-22.
 export const EMPLACEMENTS = [
   "direct", "direct_affiche", "direct_vide", "tribune", "actus", "competition", "match", "affiche_semaine",
 ] as const;
@@ -78,15 +80,20 @@ export const LIBELLE_FORMAT: Record<FormatPartenaire, string> = {
 /**
  * CE QUE LA MARQUE A ACHETÉ : deux formules, deux prix.
  *
- * `partenaire` : la plus chère. L'emplacement lui revient à lui seul, il ne
- * défile pas, et il est annoncé « Partenaire » (« Présenté par » sur la
- * compétition qu'il sponsorise). Tant qu'un partenaire est à l'affiche
- * quelque part, aucune annonce n'y paraît.
+ * TOUT LE MONDE DÉFILE, décidé le 2026-10-22. Les marques d'un même
+ * emplacement se relaient d'elles-mêmes, une toutes les `DUREE_ANNONCE_MS`,
+ * dans un ordre tiré au hasard à chaque affichage (voir `ordreDuTirage`).
+ * Avant, un partenaire faisait taire les annonces de sa place : posé sur
+ * tous les emplacements, il avait effacé du site les deux annonces en cours,
+ * et deux partenaires d'une même place ne tournaient que toutes les cinq
+ * minutes, au rythme du cache.
  *
- * `annonce` : moins chère, parce que partagée. Les annonces d'un même
- * emplacement défilent d'elles-mêmes, dans un ordre tiré au hasard à chaque
- * affichage, une toutes les `DUREE_ANNONCE_MS`, sous la mention « Annonce ».
- * Une annonce est toujours une bannière : des visuels de même proportion se
+ * `partenaire` : la plus chère. Il passe EN TÊTE du tirage, avant toute
+ * annonce, et il est annoncé « Partenaire » (« Présenté par » sur la
+ * compétition qu'il sponsorise). Bannière ou logo.
+ *
+ * `annonce` : moins chère, elle suit les partenaires, sous la mention
+ * « Annonce ». Toujours une bannière : des visuels de même proportion se
  * relaient sans faire bouger la page.
  *
  * Absent (les partenariats d'avant les annonces) : partenaire, ce qu'ils ont
@@ -145,6 +152,11 @@ export interface FirestorePartenariat {
    * Absent : le rail de droite montre la bannière 4:1.
    */
   image_verticale_url?: string | null;
+  /**
+   * Le logo d'une bannière, facultatif (`partenaires/{id}/logo-…`). Au format
+   * logo, `image_url` l'est déjà : ce champ reste vide. Voir `logoDe`.
+   */
+  logo_url?: string | null;
   /** Où mène un clic. https seulement ; absent = le visuel ne mène nulle part. */
   lien: string | null;
   emplacements: EmplacementPartenaire[];
@@ -233,6 +245,67 @@ export function avisVerticale(largeur: number, hauteur: number): string | null {
   return null;
 }
 
+/**
+ * Le logo, en dessous duquel il est flou au pied d'une affiche (1080 px de
+ * large, la zone d'un partenaire en fait le quart) et sur un écran dense.
+ */
+export const LOGO_LARGEUR_MIN = 400;
+
+/** Comme `avisBanniere`, pour un logo : n'importe quelle proportion, mais assez large. */
+export function avisLogo(largeur: number, hauteur: number): string | null {
+  if (!(largeur > 0 && hauteur > 0)) return null;
+  if (largeur < LOGO_LARGEUR_MIN) {
+    return `Ce logo ne fait que ${largeur} px de large : il sera flou sur l'affiche. ${LOGO_LARGEUR_MIN} px au moins, en PNG à fond transparent.`;
+  }
+  return null;
+}
+
+/**
+ * Le logo d'un partenaire, ou `null`.
+ *
+ * Au format logo, c'est son visuel. Une bannière a le sien à part, envoyé en
+ * plus : jamais la bannière elle-même, qui réduite au pied d'une affiche ne
+ * se lit plus.
+ */
+export function logoDe(p: Pick<FirestorePartenariat, "format" | "image_url" | "logo_url">): string | null {
+  return formatDe(p) === "logo" ? p.image_url ?? null : p.logo_url ?? null;
+}
+
+/** Une bannière sans image n'a rien à montrer. */
+export const SANS_VISUEL = "Une bannière a besoin de son visuel : ajoute l'image, ou choisis le format « Logo et nom ».";
+
+/**
+ * Une annonce défile avec les autres : toujours une bannière, pour que des
+ * visuels de même proportion se relaient sans faire bouger la page.
+ */
+export const ANNONCE_EN_LOGO = "Une annonce est une bannière : choisis le format « Bannière », avec son visuel.";
+
+/** L'affiche « Joueur de la semaine » ne montre que des logos. */
+export const SANS_LOGO = "L'affiche « Joueur de la semaine » ne montre que des logos : ajoute celui de la marque, ou décoche cet emplacement.";
+
+/**
+ * Ce qu'il faut refuser à l'enregistrement d'un partenariat, ou `null`.
+ *
+ * Jugé sur ce qu'il sera APRÈS l'enregistrement : un changement de format, un
+ * visuel retiré, un emplacement ajouté. Vérifié avant d'envoyer quoi que ce
+ * soit à Storage : un refus ne laisse pas de fichier orphelin.
+ */
+export function refusDuPartenariat(e: {
+  type: TypePartenariat;
+  format: FormatPartenaire;
+  emplacements: readonly EmplacementPartenaire[];
+  /** Le visuel principal (la bannière, ou le logo au format logo). */
+  visuel: boolean;
+  /** Le logo à part d'une bannière. */
+  logo: boolean;
+}): string | null {
+  if (e.type === "annonce" && e.format !== "banniere") return ANNONCE_EN_LOGO;
+  if (e.format === "banniere" && !e.visuel) return SANS_VISUEL;
+  const unLogo = e.format === "logo" ? e.visuel : e.logo;
+  if (e.emplacements.includes("affiche_semaine") && !unLogo) return SANS_LOGO;
+  return null;
+}
+
 /** Le partenariat est-il à l'affiche ce jour-là ? */
 export function aLAffiche(p: Pick<FirestorePartenariat, "actif" | "debut" | "fin">, jour: string): boolean {
   return p.actif && p.debut <= jour && jour <= p.fin;
@@ -258,29 +331,39 @@ export function choisirPartenaire<P extends Pick<FirestorePartenariat, "competit
 }
 
 /**
- * Ce qu'un emplacement montre : un partenaire seul, ou les annonces qui s'y
- * relaient.
+ * Les marques qu'un emplacement fait défiler, partenaires et annonces
+ * ensemble, sans ordre : le navigateur le tire à chaque affichage (voir
+ * `ordreDuTirage`). Le hasard ne peut pas venir du serveur, sa réponse est
+ * en cache cinq minutes et servie à tout le monde.
  *
- * Même règle de priorité que `choisirPartenaire` pour la compétition (ses
- * propres marques d'abord). Puis le partenaire, qui a payé l'exclusivité :
- * s'il y en a un, les annonces se taisent. Sinon, toutes les annonces de
- * l'emplacement, l'ordre étant tiré par le navigateur à chaque affichage (la
- * réponse est en cache, le hasard ne peut pas venir du serveur). Une annonce
- * sans visuel n'a rien à faire défiler : elle est écartée.
+ * Même règle de priorité que `choisirPartenaire` pour la compétition : sur
+ * ses pages, ses propres marques d'abord, c'est ce qu'elle a vendu. Une
+ * annonce sans visuel n'a rien à faire défiler : elle est écartée.
  */
 export function choisirAffiches<P extends Pick<FirestorePartenariat, "competition_id" | "type" | "format" | "image_url">>(
   candidats: P[],
   cid: string | null,
-  tirage: number,
-): { partenaire: P | null; annonces: P[] } {
+): P[] {
   const propres = cid ? candidats.filter((c) => c.competition_id === cid) : [];
   const generaux = candidats.filter((c) => !c.competition_id);
   const pool = propres.length ? propres : generaux;
-  const partenaires = pool.filter((c) => typeDe(c) === "partenaire");
-  if (partenaires.length) {
-    return { partenaire: partenaires[Math.min(partenaires.length - 1, Math.floor(tirage * partenaires.length))], annonces: [] };
-  }
-  return { partenaire: null, annonces: pool.filter((c) => typeDe(c) === "annonce" && formatDe(c) === "banniere") };
+  return pool.filter((c) => typeDe(c) === "partenaire" || formatDe(c) === "banniere");
+}
+
+/**
+ * L'ordre de défilement d'un affichage : les partenaires en tête, dans un
+ * ordre tiré au hasard, puis les annonces, tirées de même. Un partenaire est
+ * donc toujours le premier visuel qu'on voit, et deux partenaires d'une même
+ * place ont chacun leur chance d'ouvrir.
+ */
+export function ordreDuTirage<P extends Pick<FirestorePartenariat, "type">>(
+  affiches: readonly P[],
+  aleatoire: () => number = Math.random,
+): P[] {
+  return [
+    ...melanger(affiches.filter((a) => typeDe(a) === "partenaire"), aleatoire),
+    ...melanger(affiches.filter((a) => typeDe(a) === "annonce"), aleatoire),
+  ];
 }
 
 /** Un ordre au hasard (Fisher-Yates), sans toucher à la liste reçue. */
@@ -309,6 +392,22 @@ export function partenairesDeLAffiche<
     .sort((a, b) =>
       (typeDe(a) === "partenaire" ? 0 : 1) - (typeDe(b) === "partenaire" ? 0 : 1)
       || b.debut.localeCompare(a.debut));
+}
+
+/**
+ * Qui paraît au pied de l'affiche du programme d'une compétition (« Journée
+ * X », « Matchs du jour »), sous « PRÉSENTÉ PAR » : SES partenaires — pas les
+ * généraux, pas les annonces —, à l'affiche `jour`, quels que soient leurs
+ * emplacements, et seulement s'ils ont un logo (`logoDe`). Deux au plus, le
+ * plus récent d'abord. Décidé le 2026-10-22.
+ */
+export function partenairesDuProgramme<
+  P extends Pick<FirestorePartenariat, "competition_id" | "type" | "actif" | "debut" | "fin" | "format" | "image_url" | "logo_url">,
+>(candidats: P[], cid: string, jour: string): P[] {
+  return candidats
+    .filter((p) => p.competition_id === cid && typeDe(p) === "partenaire" && aLAffiche(p, jour) && logoDe(p) !== null)
+    .sort((a, b) => b.debut.localeCompare(a.debut))
+    .slice(0, 2);
 }
 
 export function lienValide(lien: string | null | undefined): string | null {

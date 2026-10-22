@@ -121,6 +121,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
     penaltyHome: d.penalty_home,
     penaltyAway: d.penalty_away,
     winnerTeamId: d.winner_team_id,
+    journee: typeof d.journee === "number" ? d.journee : null,
     mvpPlayerId: d.mvp_player_id ?? null,
     mvpUserId: d.mvp_user_id ?? null,
     mvpPlayerName: d.mvp_player_name ?? null,

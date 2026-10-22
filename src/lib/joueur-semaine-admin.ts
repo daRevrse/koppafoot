@@ -21,16 +21,18 @@ import { cleDeLaLigne, cleSansCompte } from "@/lib/photos-sans-compte";
 import type { CompPlayer, FirestoreCompTeam } from "@/types";
 import type { LigneSansCompte } from "@/lib/classement";
 import {
-  formatDe, jourDeLome, partenairesDeLAffiche,
-  type FirestorePartenariat, type FormatPartenaire,
+  jourDeLome, logoDe, partenairesDeLAffiche, type FirestorePartenariat,
 } from "@/lib/partenaires";
 
-/** Un partenaire que le pied de l'affiche peut montrer. */
+/**
+ * Un partenaire de l'emplacement `affiche_semaine`. Le pied de l'affiche ne
+ * montre que son logo : sans `logoUrl`, il n'y paraît pas, et
+ * l'administration le voit grisé.
+ */
 export interface PartenaireDAffiche {
   id: string;
   annonceur: string;
-  imageUrl: string | null;
-  format: FormatPartenaire;
+  logoUrl: string | null;
 }
 
 /** La semaine qui commence `lundi`, sans les compétitions écartées. */
@@ -194,10 +196,14 @@ export async function donneesDeLAffiche(demande: DemandeAffiche): Promise<Donnee
     ecussons.push({ equipe: m.equipe, logo: await logo(m.ecusson) });
   }
 
-  const retenus = (await partenairesDuJour()).filter((p) => demande.partenaires.includes(p.id)).slice(0, 2);
-  const partenaires = await Promise.all(
-    retenus.map(async (p) => ({ annonceur: p.annonceur, image: await imageReduite(p.imageUrl, 1200) })),
-  );
+  // Le logo seul. Un logo introuvable retire le partenaire du pied plutôt
+  // que d'y laisser un trou : l'aperçu le montre avant toute publication.
+  const retenus = (await partenairesDuJour())
+    .filter((p) => p.logoUrl && demande.partenaires.includes(p.id))
+    .slice(0, 2);
+  const partenaires = (await Promise.all(
+    retenus.map(async (p) => ({ annonceur: p.annonceur, image: await imageReduite(p.logoUrl, 600) })),
+  )).filter((p): p is { annonceur: string; image: string } => p.image !== null);
 
   return { nom: demande.nom, numeroSemaine: semaine.semaine.numero, photo, lignes, ecussons, partenaires };
 }
@@ -209,7 +215,6 @@ export async function partenairesDuJour(): Promise<PartenaireDAffiche[]> {
   return partenairesDeLAffiche(candidats, jourDeLome()).map((p) => ({
     id: p.id,
     annonceur: p.annonceur,
-    imageUrl: p.image_url ?? null,
-    format: formatDe(p),
+    logoUrl: logoDe(p),
   }));
 }

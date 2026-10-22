@@ -2346,6 +2346,12 @@ export interface FirestoreCompMatch {
   penalty_away: number | null;
   winner_team_id: string | null;
   /**
+   * LA JOURNÉE d'un match de poule : le tour où chaque équipe joue une fois,
+   * pas une date (voir lib/journees). Absente ou `null` : pas de journée — un
+   * match de phase finale, une exhibition, ou une poule pas encore numérotée.
+   */
+  journee?: number | null;
+  /**
    * L'HOMME DU MATCH, désigné par le scoreur au coup de sifflet final.
    *
    * Jamais calculé : la console propose un classement, un humain tranche. Un
@@ -2417,6 +2423,8 @@ export interface CompMatch {
   penaltyHome: number | null;
   penaltyAway: number | null;
   winnerTeamId: string | null;
+  /** Voir `FirestoreCompMatch.journee`. */
+  journee: number | null;
   /** Voir `FirestoreMatch.mvp_player_id`. */
   mvpPlayerId?: string | null;
   mvpUserId?: string | null;

@@ -29,6 +29,12 @@ export interface CampDuCalendrier {
   nom: string;
   /** Une place de phase finale pas encore attribuée : « 1er poule B ». */
   enAttente: boolean;
+  /**
+   * L'adresse de l'écusson, telle que le match la porte ; `null` sans
+   * écusson ou pour une place en attente. Le PDF l'ignore, l'affiche du
+   * programme la télécharge (lib/programme-public).
+   */
+  logo: string | null;
   /** « Kossi 12', 34' », dans l'ordre des buts. */
   buteurs: string[];
 }
@@ -37,7 +43,7 @@ export interface LigneDuCalendrier {
   id: string;
   /** « 16:30 », ou null. */
   heure: string | null;
-  /** « Poule B », « Demi-finale », « Exhibition ». */
+  /** « Poule B · Journée 2 », « Poule B », « Demi-finale », « Exhibition ». */
   phase: string;
   domicile: CampDuCalendrier;
   exterieur: CampDuCalendrier;
@@ -82,7 +88,10 @@ const TOURS: Record<CompMatchRound, string> = {
 const ORDRE_DES_TOURS: CompMatchRound[] = ["round_of_16", "quarter", "semi", "final", "third_place"];
 
 function phaseDe(m: CompMatch): string {
-  if (m.stage === "group") return m.group ? `Poule ${m.group}` : "Poule";
+  if (m.stage === "group") {
+    const poule = m.group ? `Poule ${m.group}` : "Poule";
+    return m.journee != null ? `${poule} · Journée ${m.journee}` : poule;
+  }
   if (m.stage === "exhibition") return "Exhibition";
   return m.round ? TOURS[m.round] : "Phase finale";
 }
@@ -103,9 +112,10 @@ const cleDeTri = (m: CompMatch) => `${m.date ?? "9999"}|${m.time || "99:99"}|${r
 function campDe(m: CompMatch, cote: "home" | "away"): Omit<CampDuCalendrier, "buteurs"> {
   const nom = cote === "home" ? m.homeTeamName : m.awayTeamName;
   const equipe = cote === "home" ? m.homeTeamId : m.awayTeamId;
-  if (equipe && nom) return { nom, enAttente: false };
+  const logo = (cote === "home" ? m.homeTeamLogo : m.awayTeamLogo) || null;
+  if (equipe && nom) return { nom, enAttente: false, logo };
   const source = cote === "home" ? m.homeSource : m.awaySource;
-  return { nom: source ? describeBracketSlotSource(source) : "À déterminer", enAttente: true };
+  return { nom: source ? describeBracketSlotSource(source) : "À déterminer", enAttente: true, logo: null };
 }
 
 /** « Kossi 12', 34' », « Kossi ×2 » sans minutes, « Kossi (csc) 40' ». */

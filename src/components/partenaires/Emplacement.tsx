@@ -6,7 +6,7 @@ import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 import { useSansPub } from "@/hooks/useSansPub";
 import {
-  DUREE_ANNONCE_MS, melanger, type EmplacementPartenaire, type PartenaireAffiche,
+  DUREE_ANNONCE_MS, ordreDuTirage, type EmplacementPartenaire, type PartenaireAffiche,
 } from "@/lib/partenaires";
 
 // ============================================
@@ -22,13 +22,13 @@ import {
 // marque mêlée au contenu sans le dire abîmerait la confiance qu'on vend
 // justement aux marques.
 //
-// UN PARTENAIRE EST SEUL ; LES ANNONCES SE RELAIENT. Le partenaire a payé
-// l'exclusivité : il reste. Les annonces partagent l'emplacement : une toutes
-// les huit secondes, dans un ordre tiré à chaque affichage, en fondu. Le
-// défilement s'arrête quand on survole ou qu'on parcourt l'emplacement au
-// clavier, quand il sort de l'écran ou que l'onglet est caché, et chez qui a
-// demandé à réduire les animations (on choisit alors aux points). Chaque
-// annonce compte sa vue quand elle paraît, une fois par affichage.
+// TOUTES LES MARQUES SE RELAIENT, LES PARTENAIRES EN TÊTE. Une toutes les
+// huit secondes, en fondu, dans un ordre tiré à chaque affichage
+// (lib/partenaires, `ordreDuTirage`). Le défilement s'arrête quand on survole
+// ou qu'on parcourt l'emplacement au clavier, quand il sort de l'écran ou que
+// l'onglet est caché, et chez qui a demandé à réduire les animations (on
+// choisit alors aux points). Chaque marque compte sa vue quand elle paraît,
+// une fois par affichage. Seule dans sa place, elle ne bouge pas.
 //
 // LÉGER. Les visuels ne se chargent qu'une fois la réponse arrivée, une vue
 // ne se compte qu'à moitié à l'écran : rien ne ralentit la page autour, et
@@ -43,15 +43,10 @@ import {
 // (hooks/useSansPub).
 // ============================================
 
-interface Reponse {
-  partenaire: PartenaireAffiche | null;
-  annonces: PartenaireAffiche[];
-}
-
 /** Une demande par emplacement et par page, partagée, rafraîchie après cinq minutes comme le cache du serveur. */
-const demandes = new Map<string, { depuis: number; reponse: Promise<Reponse> }>();
+const demandes = new Map<string, { depuis: number; reponse: Promise<PartenaireAffiche[]> }>();
 
-function affichesDe(emplacement: EmplacementPartenaire, cid: string | null): Promise<Reponse> {
+function affichesDe(emplacement: EmplacementPartenaire, cid: string | null): Promise<PartenaireAffiche[]> {
   const cle = `${emplacement}|${cid ?? ""}`;
   const deja = demandes.get(cle);
   if (deja && Date.now() - deja.depuis < 5 * 60_000) return deja.reponse;
@@ -59,8 +54,8 @@ function affichesDe(emplacement: EmplacementPartenaire, cid: string | null): Pro
   if (cid) params.set("cid", cid);
   const reponse = fetch(`/api/partenaires?${params}`)
     .then((r) => (r.ok ? r.json() : null))
-    .then((d) => ({ partenaire: d?.partenaire ?? null, annonces: Array.isArray(d?.annonces) ? d.annonces : [] }) as Reponse)
-    .catch(() => ({ partenaire: null, annonces: [] }));
+    .then((d) => (Array.isArray(d?.affiches) ? d.affiches : []) as PartenaireAffiche[])
+    .catch(() => []);
   demandes.set(cle, { depuis: Date.now(), reponse });
   return reponse;
 }
@@ -79,17 +74,17 @@ const T = textes(
     partenaire: "Partenaire",
     presentePar: "Présenté par",
     annonce: "Annonce",
-    annonces: "Annonces",
+    defilement: "Partenaires et annonces",
     voir: "Voir le site",
-    laquelle: (n: number, total: number, nom: string) => `Annonce ${n} sur ${total} : ${nom}`,
+    laquelle: (n: number, total: number, nom: string) => `${nom}, ${n} sur ${total}`,
   },
   {
     partenaire: "Partner",
     presentePar: "Presented by",
     annonce: "Ad",
-    annonces: "Ads",
+    defilement: "Partners and ads",
     voir: "Visit website",
-    laquelle: (n: number, total: number, nom: string) => `Ad ${n} of ${total}: ${nom}`,
+    laquelle: (n: number, total: number, nom: string) => `${nom}, ${n} of ${total}`,
   },
 );
 
@@ -106,7 +101,7 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
 }) {
   const t = useTextes(T);
   const sansPub = useSansPub();
-  // Un partenaire seul, ou les annonces dans l'ordre tiré pour cet affichage.
+  // Les marques de la place, dans l'ordre tiré pour cet affichage.
   const [affiches, setAffiches] = useState<PartenaireAffiche[]>([]);
   const [indice, setIndice] = useState(0);
   const [visible, setVisible] = useState(false);
@@ -122,7 +117,7 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
     let vivant = true;
     void affichesDe(emplacement, cid).then((r) => {
       if (!vivant) return;
-      setAffiches(r.partenaire ? [r.partenaire] : melanger(r.annonces));
+      setAffiches(ordreDuTirage(r));
       setIndice(0);
     });
     return () => { vivant = false; };
@@ -145,7 +140,7 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
     compterVue(courante.id);
   }, [visible, courante]);
 
-  // Le défilement des annonces. `indice` dans les dépendances : un point
+  // Le défilement. `indice` dans les dépendances : un point
   // choisi à la main garde ses huit secondes entières.
   useEffect(() => {
     if (affiches.length < 2 || !visible || survol || focus) return;
@@ -169,12 +164,16 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
   // l'administration l'en prévient à l'envoi, aperçu à l'appui.
   //
   // En variante verticale : debout, 300 px de large au plus (300 × 600, le
-  // format que les marques connaissent) — si TOUTES les annonces du
+  // format que les marques connaissent) — si TOUTES les marques du
   // défilement ont leur visuel vertical. Sinon toutes en 4:1 : un visuel
   // debout suivi d'un couché ferait sauter le rail à chaque relève.
-  if (courante.format === "banniere" && courante.imageUrl) {
+  //
+  // Un partenaire au format logo qui défile avec des bannières prend leur
+  // cadre, son logo et son nom au centre : l'encadré, moins haut, ferait
+  // sauter la page à chaque relève. Seul, il garde son encadré (plus bas).
+  const enRotation = affiches.length > 1;
+  if (enRotation || (courante.format === "banniere" && courante.imageUrl)) {
     const debout = variante === "verticale" && affiches.every((a) => a.imageVerticaleUrl);
-    const enRotation = affiches.length > 1;
     const banniere = (
       <>
         <span className="mb-1.5 flex items-baseline gap-2">
@@ -190,7 +189,7 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
           aria-live={enRotation ? "off" : undefined}
           className={`relative block w-full overflow-hidden border border-gray-200/70 bg-gray-50 transition-colors group-hover:border-gray-400 ${debout ? "aspect-[1/2]" : "aspect-[4/1]"}`}
         >
-          {/* Toutes les annonces superposées, une seule à pleine opacité :
+          {/* Toutes les marques superposées, une seule à pleine opacité :
               un fondu de l'une à l'autre, sans saut de mise en page. */}
           {affiches.map((a, i) => (
             <span
@@ -198,13 +197,31 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
               aria-hidden={i === indice ? undefined : true}
               className={`absolute inset-0 transition-opacity duration-500 ease-out motion-reduce:transition-none ${i === indice ? "opacity-100" : "opacity-0"}`}
             >
-              <Image
-                src={(debout ? a.imageVerticaleUrl : null) ?? a.imageUrl ?? ""}
-                alt={a.accroche ? `${a.annonceur} : ${a.accroche}` : a.annonceur}
-                fill
-                sizes={debout ? "300px" : "(min-width: 800px) 768px, 100vw"}
-                className="object-cover"
-              />
+              {a.format === "banniere" && a.imageUrl ? (
+                <Image
+                  src={(debout ? a.imageVerticaleUrl : null) ?? a.imageUrl}
+                  alt={a.accroche ? `${a.annonceur} : ${a.accroche}` : a.annonceur}
+                  fill
+                  sizes={debout ? "300px" : "(min-width: 800px) 768px, 100vw"}
+                  className="object-cover"
+                />
+              ) : (
+                <span className="flex h-full items-center justify-center gap-4 bg-white px-4">
+                  {a.imageUrl && (
+                    <span className="relative h-3/5 w-1/3 max-w-40 shrink-0">
+                      <Image src={a.imageUrl} alt="" fill sizes="160px" className="object-contain" />
+                    </span>
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate font-display text-base font-black tracking-tight text-gray-900 @md:text-xl">
+                      {a.annonceur}
+                    </span>
+                    {a.accroche && (
+                      <span className="mt-0.5 line-clamp-2 text-xs leading-snug text-gray-500">{a.accroche}</span>
+                    )}
+                  </span>
+                </span>
+              )}
             </span>
           ))}
         </span>
@@ -219,7 +236,7 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
         data-affiche={courante.id}
         role={enRotation ? "region" : undefined}
         aria-roledescription={enRotation ? "carrousel" : undefined}
-        aria-label={enRotation ? t.annonces : undefined}
+        aria-label={enRotation ? t.defilement : undefined}
         onMouseEnter={() => setSurvol(true)}
         onMouseLeave={() => setSurvol(false)}
         onFocus={() => setFocus(true)}
@@ -260,7 +277,7 @@ export default function Emplacement({ emplacement, cid = null, variante = "horiz
     );
   }
 
-  // L'ENCADRÉ : un partenaire au format logo (une annonce est toujours une bannière).
+  // L'ENCADRÉ : un partenaire au format logo, seul dans sa place (une annonce est toujours une bannière).
   const contenu = (
     <>
       {courante.imageUrl && (

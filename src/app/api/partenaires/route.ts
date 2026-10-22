@@ -8,10 +8,9 @@ import {
 /**
  * GET /api/partenaires?emplacement=competition&cid=<id>
  *
- * Ce qu'un emplacement montre : `{ partenaire, annonces }`. Un partenaire
- * seul s'il y en a un à l'affiche (il a payé l'exclusivité), sinon les
- * annonces qui s'y relaient, ou rien (voir lib/partenaires, `choisirAffiches`).
- * Public : il sert les pages que tout le monde lit, avec ou sans compte.
+ * Ce qu'un emplacement fait défiler : `{ affiches }`, partenaires et annonces
+ * ensemble, ou rien (voir lib/partenaires, `choisirAffiches`). Public : il
+ * sert les pages que tout le monde lit, avec ou sans compte.
  *
  * PAR LE SERVEUR, ET PAS PAR LES RÈGLES FIRESTORE. Le document porte les
  * compteurs et le lien de destination, que le navigateur n'a pas à lire ; la
@@ -19,10 +18,10 @@ import {
  * fermée aux clients (firestore.rules).
  *
  * MISE EN CACHE CINQ MINUTES, par adresse : une page de compétition lue mille
- * fois pendant une finale ne coûte qu'une lecture toutes les cinq minutes. La
- * rotation entre partenaires se fait donc par tranche de cinq minutes, pas à
- * chaque visite, ce qui suffit. L'ordre des annonces, lui, est tiré par le
- * navigateur à chaque affichage.
+ * fois pendant une finale ne coûte qu'une lecture toutes les cinq minutes.
+ * C'est pourquoi la réponse ne tire rien : tirée ici, elle servirait la même
+ * marque à tout le monde pendant cinq minutes. L'ordre est tiré par le
+ * navigateur, à chaque affichage (`ordreDuTirage`).
  *
  * Pas d'index composite : la requête ne filtre que sur l'emplacement, le reste
  * (actif, dates, compétition) se trie ici. La collection compte quelques
@@ -63,17 +62,13 @@ export async function GET(req: NextRequest) {
       // Le partenaire d'une autre compétition n'a rien à faire ici.
       .filter((p) => !p.competition_id || p.competition_id === cid);
 
-    const { partenaire, annonces } = choisirAffiches(candidats, cid, Math.random());
     return NextResponse.json(
-      {
-        partenaire: partenaire ? affiche(partenaire, cid) : null,
-        annonces: annonces.map((a) => affiche(a, cid)),
-      },
+      { affiches: choisirAffiches(candidats, cid).map((p) => affiche(p, cid)) },
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" } },
     );
   } catch (err) {
     console.error("[partenaires GET]", err);
     // Un emplacement vide vaut mieux qu'une page en erreur.
-    return NextResponse.json({ partenaire: null, annonces: [] });
+    return NextResponse.json({ affiches: [] });
   }
 }

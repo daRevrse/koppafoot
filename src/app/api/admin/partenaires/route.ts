@@ -4,7 +4,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import { effacerVisuels, stockerVisuel } from "@/lib/visuel-serveur";
 import {
-  EMPLACEMENTS, FORMATS, TYPES, jourValide, lienValide, typeDe,
+  EMPLACEMENTS, FORMATS, TYPES, jourValide, lienValide, refusDuPartenariat, typeDe,
   type EmplacementPartenaire, type FirestorePartenariat, type FormatPartenaire, type TypePartenariat,
 } from "@/lib/partenaires";
 
@@ -13,7 +13,7 @@ import {
  *
  * GET                       , tous les partenariats, compteurs compris.
  * POST   { …champs, image? } , en créer un.
- * PATCH  { id, …champs, image?, retirerImage?, imageVerticale?, retirerImageVerticale? } , le modifier.
+ * PATCH  { id, …champs, image?, retirerImage?, imageVerticale?, retirerImageVerticale?, logo?, retirerLogo? } , le modifier.
  * DELETE { id }              , le supprimer, visuel compris.
  *
  * Superadmin seulement. La collection est fermée aux navigateurs
@@ -27,7 +27,7 @@ interface Champs {
   annonceur?: string;
   accroche?: string | null;
   format?: string;
-  /** « partenaire » (exclusif) ou « annonce » (en rotation). */
+  /** « partenaire » (en tête du défilement) ou « annonce » (après les partenaires). */
   type?: string;
   lien?: string | null;
   emplacements?: string[];
@@ -42,6 +42,9 @@ interface Champs {
   /** Le visuel vertical d'une bannière (1:2), facultatif, même transport. */
   imageVerticale?: { data?: string; contentType?: string } | null;
   retirerImageVerticale?: boolean;
+  /** Le logo d'une bannière, facultatif, même transport (voir lib/partenaires, `logoDe`). */
+  logo?: { data?: string; contentType?: string } | null;
+  retirerLogo?: boolean;
 }
 
 type Erreur = { erreur: string };
@@ -112,29 +115,21 @@ async function nettoyer(c: Champs, partiel: boolean): Promise<Partial<FirestoreP
 }
 
 /**
- * Une bannière sans image n'a rien à montrer. Vérifié AVANT d'envoyer quoi que
- * ce soit à Storage : un refus ne laisse pas de fichier orphelin.
- */
-const SANS_VISUEL = "Une bannière a besoin de son visuel : ajoute l'image, ou choisis le format « Logo et nom ».";
-
-/**
- * Une annonce défile avec les autres : toujours une bannière, pour que des
- * visuels de même proportion se relaient sans faire bouger la page.
- */
-const ANNONCE_EN_LOGO = "Une annonce est une bannière : choisis le format « Bannière », avec son visuel.";
-
-/**
  * Les visuels d'un partenaire, sous `partenaires/{id}/` : la bannière (ou le
- * logo) en `visuel-…`, le vertical en `verticale-…`. Chacun remplace SON
- * ancien fichier, et lui seul : effacer tout le dossier, comme avant le
- * vertical, emporterait l'autre visuel à chaque changement.
+ * logo) en `visuel-…`, le vertical en `verticale-…`, le logo d'une bannière
+ * en `logo-…`. Chacun remplace SON ancien fichier, et lui seul : effacer tout
+ * le dossier, comme avant le vertical, emporterait les autres à chaque
+ * changement.
  */
 const visuel = (id: string) => `partenaires/${id}/visuel-`;
 const verticale = (id: string) => `partenaires/${id}/verticale-`;
+const logo = (id: string) => `partenaires/${id}/logo-`;
 const stockerVisuelPartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
   stockerVisuel(visuel(id), image, visuel(id));
 const stockerVerticalePartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
   stockerVisuel(verticale(id), image, verticale(id));
+const stockerLogoPartenaire = (id: string, image: NonNullable<Champs["image"]>) =>
+  stockerVisuel(logo(id), image, logo(id));
 
 export async function GET(req: NextRequest) {
   const appelant = await exigerSuperadmin(req);
@@ -152,6 +147,7 @@ export async function GET(req: NextRequest) {
           type: typeDe(p),
           imageUrl: p.image_url ?? null,
           imageVerticaleUrl: p.image_verticale_url ?? null,
+          logoUrl: p.logo_url ?? null,
           lien: p.lien ?? null,
           emplacements: p.emplacements ?? [],
           competitionId: p.competition_id ?? null,
@@ -177,12 +173,12 @@ export async function POST(req: NextRequest) {
     const corps = (await req.json()) as Champs;
     const champs = await nettoyer(corps, false);
     if (estErreur(champs)) return NextResponse.json({ error: champs.erreur }, { status: 400 });
-    if (champs.type === "annonce" && champs.format !== "banniere") {
-      return NextResponse.json({ error: ANNONCE_EN_LOGO }, { status: 400 });
-    }
-    if (champs.format === "banniere" && !corps.image?.data) {
-      return NextResponse.json({ error: SANS_VISUEL }, { status: 400 });
-    }
+    const refus = refusDuPartenariat({
+      type: champs.type!, format: champs.format!, emplacements: champs.emplacements!,
+      visuel: Boolean(corps.image?.data),
+      logo: champs.format === "banniere" && Boolean(corps.logo?.data),
+    });
+    if (refus) return NextResponse.json({ error: refus }, { status: 400 });
 
     const ref = adminDb.collection(COLLECTION).doc();
     let imageUrl: string | null = null;
@@ -198,10 +194,18 @@ export async function POST(req: NextRequest) {
       if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
       imageVerticaleUrl = url;
     }
+    // Le logo à part aussi : au format logo, le visuel l'est déjà.
+    let logoUrl: string | null = null;
+    if (champs.format === "banniere" && corps.logo?.data) {
+      const url = await stockerLogoPartenaire(ref.id, corps.logo);
+      if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
+      logoUrl = url;
+    }
     await ref.set({
       ...champs,
       image_url: imageUrl,
       image_verticale_url: imageVerticaleUrl,
+      logo_url: logoUrl,
       vues: 0,
       clics: 0,
       created_by: appelant.uid,
@@ -228,18 +232,18 @@ export async function PATCH(req: NextRequest) {
     const champs = await nettoyer(corps, true);
     if (estErreur(champs)) return NextResponse.json({ error: champs.erreur }, { status: 400 });
 
-    // Le format et le visuel tels qu'ils seront APRÈS la modification : un
-    // changement de format, un visuel retiré, ou les deux à la fois.
+    // Le partenariat tel qu'il sera APRÈS la modification : un changement de
+    // format, un visuel retiré, un emplacement ajouté, ou tout à la fois.
     const actuel = avant.data() as FirestorePartenariat;
     const format = champs.format ?? actuel.format ?? "logo";
-    const type = champs.type ?? typeDe(actuel);
-    if (type === "annonce" && format !== "banniere") {
-      return NextResponse.json({ error: ANNONCE_EN_LOGO }, { status: 400 });
-    }
-    const aUnVisuel = Boolean(corps.image?.data) || (!corps.retirerImage && Boolean(actuel.image_url));
-    if (format === "banniere" && !aUnVisuel) {
-      return NextResponse.json({ error: SANS_VISUEL }, { status: 400 });
-    }
+    const refus = refusDuPartenariat({
+      type: champs.type ?? typeDe(actuel),
+      format,
+      emplacements: champs.emplacements ?? actuel.emplacements ?? [],
+      visuel: Boolean(corps.image?.data) || (!corps.retirerImage && Boolean(actuel.image_url)),
+      logo: Boolean(corps.logo?.data) || (!corps.retirerLogo && Boolean(actuel.logo_url)),
+    });
+    if (refus) return NextResponse.json({ error: refus }, { status: 400 });
 
     const maj: Record<string, unknown> = { ...champs, updated_at: FieldValue.serverTimestamp() };
     if (corps.image?.data) {
@@ -261,6 +265,18 @@ export async function PATCH(req: NextRequest) {
     } else if (corps.retirerImageVerticale) {
       await effacerVisuels(verticale(ref.id));
       maj.image_verticale_url = null;
+    }
+    // Passé en logo, le logo à part n'a plus d'usage non plus : le visuel l'est.
+    if (format !== "banniere" && actuel.logo_url) {
+      await effacerVisuels(logo(ref.id));
+      maj.logo_url = null;
+    } else if (format === "banniere" && corps.logo?.data) {
+      const url = await stockerLogoPartenaire(ref.id, corps.logo);
+      if (estErreur(url)) return NextResponse.json({ error: url.erreur }, { status: 400 });
+      maj.logo_url = url;
+    } else if (corps.retirerLogo) {
+      await effacerVisuels(logo(ref.id));
+      maj.logo_url = null;
     }
     await ref.update(maj);
     return NextResponse.json({ ok: true });

@@ -36,7 +36,7 @@ function match(id: string, m: Partial<CompMatch> & { events?: Evt[] } = {}): Com
     homeTeamLogo: null, awayTeamLogo: null, bannerUrl: null,
     date: "2026-10-16", time: "16:30", venueName: null, venueCity: null, venueId: null, venueBooking: null,
     status: "scheduled", scoreHome: null, scoreAway: null, penaltyHome: null, penaltyAway: null,
-    winnerTeamId: null, forfeitByTeamId: null, feedsIntoMatchId: null, feedsIntoSlot: null,
+    winnerTeamId: null, journee: null, forfeitByTeamId: null, feedsIntoMatchId: null, feedsIntoSlot: null,
     homeLineup: feuille, awayLineup: feuille, homeLineupReady: true, awayLineupReady: true,
     homeOnPitch: [], awayOnPitch: [],
     liveState: events ? ({ events } as unknown as CompMatch["liveState"]) : null,
@@ -194,6 +194,29 @@ cas("un forfait ou un 0-0 n'ont pas de buteurs à douter", () => {
 
 cas("un match à venir sans feuille n'est pas marqué", () => {
   assert.equal(calendrierDeCompetition([match("m", { homeLineup: [], awayLineup: [] })], 45).jours[0].lignes[0].sansFeuille, false);
+});
+
+cas("la journée suit la poule", () => {
+  const c = calendrierDeCompetition([match("m", { journee: 2, group: "B" })], 45);
+  assert.equal(c.jours[0].lignes[0].phase, "Poule B · Journée 2");
+});
+
+cas("sans journée, la poule seule", () => {
+  assert.equal(calendrierDeCompetition([match("m", { group: "B" })], 45).jours[0].lignes[0].phase, "Poule B");
+});
+
+cas("chaque camp garde l'adresse de son écusson, un camp sans écusson n'en a pas", () => {
+  const c = calendrierDeCompetition([match("m", { homeTeamLogo: "https://x/h.png" })], 45);
+  assert.equal(c.jours[0].lignes[0].domicile.logo, "https://x/h.png");
+  assert.equal(c.jours[0].lignes[0].exterieur.logo, null);
+});
+
+cas("une place de phase finale pas encore attribuée n'a pas d'écusson", () => {
+  const c = calendrierDeCompetition([match("m", {
+    stage: "knockout", group: null, round: "semi", homeTeamId: null, homeTeamName: "", homeTeamLogo: "https://x/vieux.png",
+  })], 45);
+  assert.equal(c.jours[0].lignes[0].domicile.enAttente, true);
+  assert.equal(c.jours[0].lignes[0].domicile.logo, null);
 });
 
 if (echecs > 0) {
