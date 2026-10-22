@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from "react-native";
 import { couleurs, espacement, polices } from "~/theme";
 
-type Variante = "plein" | "contour" | "lien";
+type Variante = "plein" | "contour" | "lien" | "danger";
 
 interface Props extends Omit<PressableProps, "children" | "style"> {
   titre: string;
@@ -25,7 +25,7 @@ export function Bouton({ titre, variante = "plein", occupe = false, disabled, ..
       {...reste}
     >
       {occupe ? (
-        <ActivityIndicator color={variante === "plein" ? couleurs.surBouton : couleurs.texte} />
+        <ActivityIndicator color={variante === "plein" || variante === "danger" ? couleurs.surBouton : couleurs.texte} />
       ) : (
         <Text style={libelles[variante]}>{titre.toUpperCase()}</Text>
       )}
@@ -38,6 +38,7 @@ const styles = StyleSheet.create({
   plein: { backgroundColor: couleurs.bouton, borderWidth: 1, borderColor: couleurs.bouton },
   contour: { borderWidth: 1, borderColor: couleurs.bordure },
   lien: { minHeight: 40 },
+  danger: { backgroundColor: couleurs.boutonDanger, borderWidth: 1, borderColor: couleurs.boutonDanger },
   inactif: { opacity: 0.4 },
   presse: { opacity: 0.8 },
 });
@@ -54,5 +55,9 @@ const libelles = StyleSheet.create({
   lien: {
     fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), textAlign: "center",
     color: couleurs.texteDiscret,
+  },
+  danger: {
+    fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), textAlign: "center",
+    color: couleurs.surBouton,
   },
 });
