@@ -1,4 +1,5 @@
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { marquesDesJoueurs } from "@/lib/recit-du-match";
@@ -14,6 +15,8 @@ import { couleurs, espacement, polices } from "~/theme";
  * photo, la pastille garde son numéro — c'est le cas courant chez les amateurs.
  */
 export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string, string | null> }) {
+  const router = useRouter();
+  const versJoueur = (uid: string) => router.push({ pathname: "/joueur/[uid]", params: { uid } });
   // L'extérieur d'abord si le domicile n'a pas de feuille, comme sur le site.
   const [cote, setCote] = useState<"home" | "away">(
     fiche.domicile.lineup.length === 0 && fiche.exterieur.lineup.length > 0 ? "away" : "home",
@@ -59,7 +62,7 @@ export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string,
           </Text>
         </View>
       ) : (
-        <Terrain titulaires={titulaires} formation={camp.formation} photos={photos} marques={marques} homme={fiche.mvp.playerId} />
+        <Terrain titulaires={titulaires} formation={camp.formation} photos={photos} marques={marques} homme={fiche.mvp.playerId} onJoueur={versJoueur} />
       )}
 
       {remplacants.length > 0 ? (
@@ -68,7 +71,13 @@ export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string,
           {remplacants.map((r) => {
             const entre = marques[r.playerId]?.entreeA ?? null;
             return (
-              <View key={r.playerId} style={styles.remplacantBloc}>
+              <Pressable
+                key={r.playerId}
+                disabled={!r.userId}
+                accessibilityRole={r.userId ? "link" : undefined}
+                onPress={() => r.userId && versJoueur(r.userId)}
+                style={styles.remplacantBloc}
+              >
                 {photos[r.playerId] ? (
                   <Image source={{ uri: photos[r.playerId] as string }} style={styles.visage} contentFit="cover" />
                 ) : null}
@@ -77,7 +86,7 @@ export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string,
                   {r.name}
                   {entre !== null ? <Text style={styles.entre}>{`  ↑ ${entre}'`}</Text> : null}
                 </Text>
-              </View>
+              </Pressable>
             );
           })}
         </View>

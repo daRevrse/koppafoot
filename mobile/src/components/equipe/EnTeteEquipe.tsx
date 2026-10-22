@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { avecVia } from "@/lib/audience";
@@ -7,7 +8,6 @@ import type { CompTeam, Competition } from "@/types";
 import { Ecusson } from "~/components/Ecusson";
 import { urlDuSite } from "~/lib/config";
 import { initiales } from "~/lib/initiales";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { espacement, polices } from "~/theme";
 
 // Le bandeau d'une équipe (components/team/BandeauEquipe du site) : SOMBRE PAR
@@ -27,6 +27,7 @@ export function BarreEquipe({ equipe, competition, compact, onRetour }: {
   compact: boolean;
   onRetour: () => void;
 }) {
+  const router = useRouter();
   const partager = () => {
     const lien = urlDuSite(avecVia(`/c/${competition.slug}/teams/${equipe.id}`, "partage"));
     void Share.share({ message: `${equipe.name} · ${competition.name}\n${lien}` }).catch(() => {});
@@ -40,12 +41,12 @@ export function BarreEquipe({ equipe, competition, compact, onRetour }: {
         <Text style={[styles.compact, !compact && styles.cache]} numberOfLines={1} accessibilityElementsHidden={!compact}>
           {equipe.name.toUpperCase()}
         </Text>
-        {/* Le club derrière l'équipe : sa fiche n'existe que sur le site. */}
+        {/* Le club que l'équipe représente : sa fiche. */}
         {equipe.claimedByTeamId ? (
           <Pressable
             accessibilityRole="link"
-            accessibilityLabel="Fiche du club, sur le site"
-            onPress={() => ouvrirSurLeSite(`/teams/${equipe.claimedByTeamId}`)}
+            accessibilityLabel="Fiche du club"
+            onPress={() => router.push({ pathname: "/club/[id]", params: { id: equipe.claimedByTeamId as string } })}
             hitSlop={8}
             style={styles.bouton}
           >

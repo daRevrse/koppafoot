@@ -15,7 +15,7 @@ const PASTILLE: Record<"V" | "N" | "D", { fond: string; texte: string }> = {
 const LISERE: Record<"V" | "N" | "D", string> = { V: "#10b981", N: couleurs.bordureForte, D: "#fca5a5" };
 
 /** Une ligne (MatchsDuClub du site) : le jour, l'adversaire, l'étape et le terrain, le score et le résultat. */
-function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; onOuvrir: (id: string) => void }) {
+function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; onOuvrir: (m: MatchDuClub) => void }) {
   const resultat = resultatDuMatch(m);
   const enDirect = m.statut === "en_direct";
   const contexte = [m.etape, m.domicile ? "Domicile" : "Extérieur"].filter(Boolean).join(" · ");
@@ -23,7 +23,7 @@ function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; o
     <Pressable
       accessibilityRole="link"
       accessibilityLabel={`${m.adversaire.nom}, ${contexte}${resultat ? `, ${m.pour} à ${m.contre}` : ""}`}
-      onPress={() => onOuvrir(m.id)}
+      onPress={() => onOuvrir(m)}
       style={({ pressed }) => [
         styles.ligne,
         premiere && styles.premiere,
@@ -59,7 +59,7 @@ function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; o
 }
 
 /** Les matchs de l'équipe : à venir (le direct d'abord, puis le plus proche), puis joués (le plus récent d'abord). */
-export function MatchsDeLEquipe({ matchs, onOuvrir }: { matchs: MatchDuClub[]; onOuvrir: (id: string) => void }) {
+export function MatchsDeLEquipe({ matchs, onOuvrir }: { matchs: MatchDuClub[]; onOuvrir: (m: MatchDuClub) => void }) {
   const { aVenir, joues } = rangerLesMatchs(matchs);
   if (aVenir.length === 0 && joues.length === 0) return <EtatVide icone="calendar-outline" texte="Aucun match pour l'instant." />;
   return (

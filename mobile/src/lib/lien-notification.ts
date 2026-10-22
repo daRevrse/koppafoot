@@ -1,4 +1,5 @@
-// Où mène une notification touchée. Le serveur y range une adresse du site
+// Où mène une adresse du site dans l'application : une notification touchée,
+// le lien d'un match dans une forme ou une fiche de club. Le serveur range une adresse du site
 // (`data.link`, voir lib/push-categories du site) ; celles qui ont un écran
 // dans l'application l'ouvrent, le reste s'ouvre sur le site, dans le
 // navigateur intégré. Les adresses portent le slug de la compétition, pas
@@ -11,6 +12,8 @@ export type Destination =
   | { genre: "match"; slug: string; mid: string }
   | { genre: "equipe"; slug: string; tid: string }
   | { genre: "amical"; id: string }
+  | { genre: "club"; id: string }
+  | { genre: "joueur"; uid: string }
   | { genre: "site"; lien: string };
 
 /** Un morceau d'adresse décodé ; `null` s'il est mal encodé (« %E9 » seul). */
@@ -32,6 +35,8 @@ export function destinationDuLien(lien: string): Destination {
     if (a === "c" && b && c === "matches" && d) return { genre: "match", slug: b, mid: d };
     if (a === "c" && b && c === "teams" && d) return { genre: "equipe", slug: b, tid: d };
     if (a === "matches" && b && c === undefined) return { genre: "amical", id: b };
+    if (a === "teams" && b && c === undefined) return { genre: "club", id: b };
+    if (a === "profile" && b && c === undefined) return { genre: "joueur", uid: b };
   }
   return { genre: "site", lien };
 }
@@ -44,6 +49,10 @@ export function ecranDeLaDestination(d: Destination, cid: string | null): Href |
   switch (d.genre) {
     case "amical":
       return { pathname: "/amical/[id]", params: { id: d.id } };
+    case "club":
+      return { pathname: "/club/[id]", params: { id: d.id } };
+    case "joueur":
+      return { pathname: "/joueur/[uid]", params: { uid: d.uid } };
     case "competition":
       return cid ? { pathname: "/competition/[cid]", params: { cid } } : null;
     case "match":

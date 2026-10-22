@@ -46,6 +46,15 @@ export async function suivreCompetition(uid: string, cid: string, suivre: boolea
 }
 
 /**
+ * Activer un rôle (`activer` de ChoixDuRole, sur le site) : les champs de
+ * `patchDActivation` (lib/roles), que la règle `isRoleEvolution` laisse au
+ * titulaire, et rien d'autre.
+ */
+export async function activerLeRole(uid: string, patch: Record<string, string>): Promise<void> {
+  await updateDoc(doc(db, "users", uid), { ...patch, updated_at: serverTimestamp() });
+}
+
+/**
  * Des compétitions par identifiant, triées par nom. Une compétition supprimée
  * depuis qu'on la suit est ignorée. Un `getDoc` chacune : la lecture est
  * publique, et une requête `in` s'arrête à trente identifiants.

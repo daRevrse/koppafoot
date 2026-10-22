@@ -8,7 +8,6 @@ import type { Competition } from "@/types";
 import { Ecusson } from "~/components/Ecusson";
 import { useAuth } from "~/lib/auth";
 import { lireTousLesClubs, lireToutesLesCompetitions } from "~/lib/fiche-firestore";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { clubsTrouves, competitionsTrouvees, rechercheLancee, type ClubTrouve } from "~/lib/recherche";
 import { couleurs, espacement, polices } from "~/theme";
 
@@ -34,8 +33,8 @@ function Ligne({ visuel, titre, detail, externe, onPress }: {
 /**
  * La recherche de l'en-tête du Direct (MobileSearchOverlay du site) : tout
  * l'écran, le champ prêt à taper. Les compétitions se trouvent sur place et
- * ouvrent leur page ; les clubs, avec un compte, ouvrent leur fiche sur le
- * site ; la dernière ligne passe la recherche à l'annuaire.
+ * ouvrent leur page ; les clubs, avec un compte, ouvrent leur fiche ; la
+ * dernière ligne passe la recherche à l'annuaire.
  */
 export default function EcranRecherche() {
   const router = useRouter();
@@ -148,8 +147,7 @@ export default function EcranRecherche() {
                   visuel={<Ecusson url={c.logo} nom={c.nom} taille={30} />}
                   titre={c.nom}
                   detail={[c.ville, c.recrute ? "Recrute" : null].filter(Boolean).join(" · ") || null}
-                  externe
-                  onPress={() => ouvrirSurLeSite(`/teams/${c.id}`)}
+                  onPress={() => router.push({ pathname: "/club/[id]", params: { id: c.id } })}
                 />
               ))}
             </View>

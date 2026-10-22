@@ -15,8 +15,7 @@ import { useFicheJoueur } from "~/hooks/useFicheJoueur";
 import { urlDuSite } from "~/lib/config";
 import type { FicheJoueur } from "~/lib/fiche-joueur";
 import { initiales } from "~/lib/initiales";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
-import { ouvrirLaNotification } from "~/lib/push";
+import { ouvrirLeLien } from "~/lib/push";
 import { couleurs, espacement, polices } from "~/theme";
 
 const blanc = (opacite: number) => `rgba(255,255,255,${opacite})`;
@@ -60,7 +59,7 @@ function Forme({ forme }: { forme: FormeJoueur | null }) {
             accessibilityRole="link"
             accessibilityLabel={`${m.resultat === "V" ? "Victoire" : m.resultat === "N" ? "Nul" : "Défaite"} ${m.score} contre ${m.adversaire}, note ${formaterNote(m.note, "fr")}`}
             disabled={!m.lien}
-            onPress={() => m.lien && void ouvrirLaNotification(m.lien, true)}
+            onPress={() => m.lien && void ouvrirLeLien(m.lien, true)}
             style={styles.note}
           >
             <PastilleNote note={m.note} />
@@ -72,11 +71,18 @@ function Forme({ forme }: { forme: FormeJoueur | null }) {
   );
 }
 
-function Fiche({ fiche, forme }: { fiche: Extract<FicheJoueur, { genre: "fiche" }>; forme: FormeJoueur | null }) {
+/**
+ * Ce que montre la fiche d'un joueur, sans sa barre du haut : l'en-tête, les
+ * chiffres, la forme, l'arbitrage, les équipes, les infos, la bio, la galerie.
+ * L'onglet Évolution d'un joueur ou d'un arbitre le reprend pour sa fiche.
+ */
+export function ContenuFicheJoueur({ fiche, forme }: { fiche: Extract<FicheJoueur, { genre: "fiche" }>; forme: FormeJoueur | null }) {
+  const router = useRouter();
   const identite = [fiche.role, fiche.poste, fiche.numero ? `N°${fiche.numero}` : null].filter(Boolean).join(" · ");
   const infos = [
     fiche.pied ? ["Pied", fiche.pied] : null,
     fiche.niveau ? ["Niveau", fiche.niveau] : null,
+    fiche.licence ? ["Licence", fiche.licence.replace("Licence ", "")] : null,
     fiche.age !== null ? ["Âge", `${fiche.age} ans`] : null,
     fiche.taille ? ["Taille", `${fiche.taille} cm`] : null,
     fiche.poids ? ["Poids", `${fiche.poids} kg`] : null,
@@ -110,6 +116,28 @@ function Fiche({ fiche, forme }: { fiche: Extract<FicheJoueur, { genre: "fiche" 
           ))}
         </View>
 
+        {fiche.arbitrage ? (
+          <Cadre titre="Arbitrage">
+            <View style={styles.infos}>
+              {[
+                ["Matchs arbitrés", String(fiche.arbitrage.matchs)],
+                ["Note /5", fiche.arbitrage.note !== null ? formaterNote(fiche.arbitrage.note, "fr") : "–"],
+                ["Avis", fiche.arbitrage.avis ? String(fiche.arbitrage.avis) : "Pas encore noté"],
+              ].map(([l, v]) => (
+                <View key={l} style={styles.info}>
+                  <Text style={styles.infoLabel}>{l.toUpperCase()}</Text>
+                  <Text style={styles.infoValeur}>{v}</Text>
+                </View>
+              ))}
+            </View>
+            {fiche.arbitrage.corps ? (
+              <Text style={styles.vide}>
+                {`${fiche.arbitrage.corps.chef ? "Dirige" : "Membre de"} « ${fiche.arbitrage.corps.nom} » · ${fiche.arbitrage.corps.membres} arbitre${fiche.arbitrage.corps.membres > 1 ? "s" : ""}`}
+              </Text>
+            ) : null}
+          </Cadre>
+        ) : null}
+
         <Cadre titre="Forme">
           <Forme forme={forme} />
         </Cadre>
@@ -120,7 +148,7 @@ function Fiche({ fiche, forme }: { fiche: Extract<FicheJoueur, { genre: "fiche" 
               <Pressable
                 key={e.id}
                 accessibilityRole="link"
-                onPress={() => ouvrirSurLeSite(`/teams/${e.id}`)}
+                onPress={() => router.push({ pathname: "/club/[id]", params: { id: e.id } })}
                 style={({ pressed }) => [styles.equipe, pressed && styles.presse]}
               >
                 <Ecusson url={e.logo} nom={e.nom} taille={32} />
@@ -130,7 +158,7 @@ function Fiche({ fiche, forme }: { fiche: Extract<FicheJoueur, { genre: "fiche" 
                     {[e.dirige ? "Manager" : null, e.joues > 0 ? `${e.victoires} V · ${e.nuls} N · ${e.defaites} D` : "Pas encore de match"].filter(Boolean).join(" · ")}
                   </Text>
                 </View>
-                <Ionicons name="open-outline" size={15} color={couleurs.texteDiscret} />
+                <Ionicons name="chevron-forward" size={15} color={couleurs.texteDiscret} />
               </Pressable>
             ))}
           </Cadre>
@@ -200,7 +228,7 @@ export function EcranJoueur({ uid }: { uid: string }) {
       </SafeAreaView>
       <ScrollView contentContainerStyle={styles.contenu}>
         {fiche.genre === "fiche" ? (
-          <Fiche fiche={fiche} forme={forme} />
+          <ContenuFicheJoueur fiche={fiche} forme={forme} />
         ) : (
           <View style={styles.entete}>
             <Visage nom={fiche.nom} photo={fiche.photo} taille={88} />

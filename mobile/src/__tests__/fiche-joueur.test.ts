@@ -31,6 +31,20 @@ describe("ficheDepuisLaRoute", () => {
     expect(fiche).toMatchObject({ role: "Joueuse", poste: "Gardienne" });
   });
 
+  it("lit le bilan d'un arbitre et sa licence", () => {
+    const fiche = ficheDepuisLaRoute("u5", {
+      profile: { uid: "u5", first_name: "Koffi", last_name: "", user_type: "referee", license_level: "regional" },
+      teams: [],
+      arbitrage: { matchs: 7, note: 4.2, avis: 5, corps: { nom: "Les Sifflets", chef: true, membres: 4 } },
+    }, MAINTENANT);
+    expect(fiche).toMatchObject({
+      role: "Arbitre",
+      licence: "Licence régionale",
+      arbitrage: { matchs: 7, note: 4.2, avis: 5, corps: { nom: "Les Sifflets", chef: true, membres: 4 } },
+    });
+    expect(ficheDepuisLaRoute("u1", { profile: { uid: "u1" }, teams: [] }, MAINTENANT)).toMatchObject({ arbitrage: null, licence: null });
+  });
+
   it("lit un compte sans fiche publique : le nom et la photo, rien d'autre", () => {
     expect(ficheDepuisLaRoute("u3", {
       profile: null, teams: [], sansProfilPublic: { uid: "u3", first_name: "Yao", last_name: "K.", profile_picture_url: null },
