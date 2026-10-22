@@ -39,6 +39,7 @@ import type {
 import { toCompetition, toCompTeam, toCompMatch } from "./competition-mappers";
 import { hasKnockout, isSingleGroup, SINGLE_GROUP_LETTER } from "./competition-format";
 import { estExhibition } from "./exhibition";
+import { toursDuCercle } from "./journees";
 import { listGrantedCompetitionIds } from "./staff-access";
 import {
   OWN_GOAL_DETAIL, nouvelIdEvenement, type IssuePenalty, type TypeEvenement,
@@ -1110,22 +1111,9 @@ export async function createCompMatch(
 // Competition Matches (subcollection: competitions/{cid}/comp_matches/{mid})
 // ============================================
 
-/** Single round-robin pairings for one group. Returns [homeId, awayId][]. */
+/** Single round-robin pairings for one group, round after round. Returns [homeId, awayId][]. See lib/journees. */
 export function roundRobinPairs(teamIds: string[]): [string, string][] {
-  const ids = [...teamIds];
-  if (ids.length % 2 !== 0) ids.push("__BYE__");
-  const n = ids.length;
-  const rounds: [string, string][] = [];
-  const arr = [...ids];
-  for (let r = 0; r < n - 1; r++) {
-    for (let i = 0; i < n / 2; i++) {
-      const a = arr[i], b = arr[n - 1 - i];
-      if (a !== "__BYE__" && b !== "__BYE__") rounds.push([a, b]);
-    }
-    // rotate keeping first fixed
-    arr.splice(1, 0, arr.pop() as string);
-  }
-  return rounds;
+  return toursDuCercle(teamIds).flat();
 }
 
 /**
