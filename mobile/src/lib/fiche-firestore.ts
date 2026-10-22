@@ -36,6 +36,15 @@ export async function lireCompetition(cid: string): Promise<Competition | null> 
   return snap.exists() ? toCompetition(snap.id, snap.data() as FirestoreCompetition) : null;
 }
 
+/**
+ * Toutes les compétitions, lues une fois : l'annuaire les filtre et les range
+ * comme le site (voir lib/annuaire). La lecture est publique.
+ */
+export async function lireToutesLesCompetitions(): Promise<Competition[]> {
+  const snap = await getDocs(collection(db, "competitions"));
+  return snap.docs.map((d) => toCompetition(d.id, d.data() as FirestoreCompetition));
+}
+
 const cidsConnus = new Map<string, string | null>();
 
 /**

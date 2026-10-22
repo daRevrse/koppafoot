@@ -2,8 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { couleurs, polices } from "~/theme";
 
-// Deux onglets aujourd'hui : on ne montre que ce qui existe. Compétitions et
-// Tribune viendront avec leurs lots.
+// Trois onglets : on ne montre que ce qui existe. La Tribune viendra avec son lot.
 export default function OngletsLayout() {
   return (
     <Tabs
@@ -19,6 +18,10 @@ export default function OngletsLayout() {
       <Tabs.Screen
         name="index"
         options={{ title: "Direct", tabBarIcon: ({ color, size }) => <Ionicons name="football" color={color} size={size} /> }}
+      />
+      <Tabs.Screen
+        name="competitions"
+        options={{ title: "Compétitions", tabBarIcon: ({ color, size }) => <Ionicons name="trophy-outline" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="compte"
