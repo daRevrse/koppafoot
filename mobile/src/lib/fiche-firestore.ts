@@ -7,6 +7,7 @@ import type {
   Competition, CompMatch, CompTeam, FirestoreCompetition, FirestoreCompMatch, FirestoreCompTeam, FirestoreMatch, Match,
 } from "@/types";
 import { db } from "~/lib/firebase";
+import type { ClubTrouve } from "~/lib/recherche";
 
 // Les lectures d'une fiche de match : les mêmes requêtes que le site
 // (lib/competition-firestore : onCompMatch, onCompTeams ; la page amicale :
@@ -43,6 +44,25 @@ export async function lireCompetition(cid: string): Promise<Competition | null> 
 export async function lireToutesLesCompetitions(): Promise<Competition[]> {
   const snap = await getDocs(collection(db, "competitions"));
   return snap.docs.map((d) => toCompetition(d.id, d.data() as FirestoreCompetition));
+}
+
+/**
+ * Tous les clubs, avec ce que la recherche en montre (`findTeams` du site les
+ * lit aussi en entier). Les règles demandent un compte.
+ */
+export async function lireTousLesClubs(): Promise<ClubTrouve[]> {
+  const snap = await getDocs(collection(db, "teams"));
+  return snap.docs.map((d) => {
+    const t = d.data() as { name?: string; city?: string | null; logo_url?: string | null; is_ghost?: boolean; is_recruiting?: boolean };
+    return {
+      id: d.id,
+      nom: t.name ?? "",
+      ville: t.city ?? null,
+      logo: t.logo_url ?? null,
+      fantome: t.is_ghost === true,
+      recrute: t.is_recruiting === true,
+    };
+  });
 }
 
 const cidsConnus = new Map<string, string | null>();

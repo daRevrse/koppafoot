@@ -126,6 +126,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="compte" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="competitions" />
+        <Stack.Screen name="recherche" options={{ animation: "fade" }} />
       </Stack.Protected>
       <Stack.Protected guard={accueil.vu && !profilManquant && !utilisateur}>
         <Stack.Screen name="connexion" options={fenetre} />

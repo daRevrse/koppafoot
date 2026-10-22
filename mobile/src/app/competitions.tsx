@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -23,11 +23,12 @@ import { couleurs, espacement, polices } from "~/theme";
  */
 export default function EcranAnnuaire() {
   const router = useRouter();
+  const { q } = useLocalSearchParams<{ q?: string }>();
   const suivi = useSuivi();
   const [toutes, setToutes] = useState<Competition[] | null>(null);
   const [erreur, setErreur] = useState(false);
   const [recharge, setRecharge] = useState(false);
-  const [recherche, setRecherche] = useState("");
+  const [recherche, setRecherche] = useState(q ?? "");
 
   const lire = useCallback(async () => {
     try {
