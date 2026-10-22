@@ -70,6 +70,13 @@ describe("calculerFormes", () => {
     expect(f.niveau).toBe("excellente");
   });
 
+  it("ne note pas un match que le chrono n'a jamais vu, mais compte ses buts", () => {
+    const saisi = match(1, { liveState: { ...match(1).liveState!, timerOffset: 0 } });
+    const f = calculerFormes([saisi]).get(cleFormeCompte("U1"))!;
+    expect(f.matchs[0].note).toBeNull();
+    expect(f.matchs[0].buts).toBe(1);
+  });
+
   it("range un joueur sans compte sous sa ligne dans son équipe", () => {
     const f = formes.get(cleFormeLigne("A", "G1"))!;
     expect(f.matchs[0].note).toBe(6.5);
