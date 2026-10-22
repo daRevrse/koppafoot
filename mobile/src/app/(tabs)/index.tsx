@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { LayoutAnimation, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
+import { LayoutAnimation, Pressable, RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { cleDuJour, libelleDuJour } from "@/lib/dates";
 import { competitionHref, entryKey, matchHref, type Entry } from "@/lib/direct-shared";
@@ -13,6 +13,7 @@ import { FiltresDirect } from "~/components/direct/FiltresDirect";
 import { FriseDesJours } from "~/components/direct/FriseDesJours";
 import { LigneMatch } from "~/components/direct/LigneMatch";
 import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
+import { EnTeteOnglet } from "~/components/EnTeteOnglet";
 import { EtatVide } from "~/components/EtatVide";
 import { useDirect } from "~/hooks/useDirect";
 import { useMouvementReduit } from "~/hooks/useMouvementReduit";
@@ -71,7 +72,7 @@ export default function EcranDirect() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
-      <Text style={styles.titre}>DIRECT</Text>
+      <EnTeteOnglet titre="Direct" />
       <FriseDesJours
         jours={jours}
         jour={jour}
@@ -80,7 +81,23 @@ export default function EcranDirect() {
         actif={filtre === "tous"}
         onChange={choisirJour}
       />
-      <FiltresDirect filtre={filtre} enDirect={enDirect} onChange={choisirFiltre} />
+      <FiltresDirect
+        filtre={filtre}
+        enDirect={enDirect}
+        onChange={choisirFiltre}
+        fin={
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Toutes les compétitions"
+            onPress={() => router.push("/competitions")}
+            hitSlop={6}
+            style={({ pressed }) => [styles.versAnnuaire, pressed && styles.versAnnuairePresse]}
+          >
+            <Ionicons name="trophy-outline" size={13} color={couleurs.texteSecondaire} />
+            <Text style={styles.versAnnuaireTexte}>Compétitions</Text>
+          </Pressable>
+        }
+      />
       {!feed ? (
         horsLigne ? (
           <EtatVide icone="cloud-offline-outline" texte="Impossible de charger le Direct.">
@@ -168,9 +185,16 @@ export default function EcranDirect() {
 }
 
 const styles = StyleSheet.create({
+  // L'entrée vers l'annuaire, au bout des filtres : une pastille cerclée, pas
+  // remplie — elle mène ailleurs, elle ne filtre pas.
+  versAnnuaire: {
+    flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999, borderWidth: 1, borderColor: couleurs.bordureForte,
+  },
+  versAnnuairePresse: { backgroundColor: couleurs.surfaceHaute },
+  versAnnuaireTexte: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.texteSecondaire },
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   // Les titres du site : font-display font-black, en capitales.
-  titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte, paddingHorizontal: 16, paddingTop: 8 },
   bandeau: {
     flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8,
     backgroundColor: couleurs.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,

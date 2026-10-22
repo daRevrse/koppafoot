@@ -8,6 +8,7 @@ import { competitionHref } from "@/lib/direct-shared";
 import type { UserProfile } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { EnTeteCompetition } from "~/components/direct/EnTeteCompetition";
+import { EnTetePage } from "~/components/EnTetePage";
 import { EtatVide } from "~/components/EtatVide";
 import { ReglagePush } from "~/components/ReglagePush";
 import { useCompetitionsSuivies } from "~/hooks/useCompetitionsSuivies";
@@ -26,8 +27,8 @@ export default function EcranCompte() {
   if (!utilisateur) {
     return (
       <SafeAreaView style={styles.ecran} edges={["top"]}>
+        <EnTetePage titre="Compte" />
         <ScrollView contentContainerStyle={styles.contenu}>
-          <Text style={styles.titre}>COMPTE</Text>
           <EtatVide icone="person-circle-outline" texte="Un compte pour suivre tes compétitions et les retrouver en tête du Direct.">
             <View style={styles.boutons}>
               <Bouton titre="Se connecter" onPress={() => router.push("/connexion")} />
@@ -48,8 +49,8 @@ export default function EcranCompte() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
+      <EnTetePage titre="Compte" />
       <ScrollView contentContainerStyle={styles.contenu}>
-        <Text style={styles.titre}>COMPTE</Text>
         {profil ? (
           <>
             <CarteProfil profil={profil} email={profil.email ?? utilisateur.email} />
@@ -168,9 +169,7 @@ function SqueletteLignes() {
 
 const styles = StyleSheet.create({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
-  contenu: { paddingHorizontal: 16, paddingBottom: 32, gap: 20 },
-  // Les titres du site : font-display font-black, en capitales.
-  titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte, paddingTop: 8 },
+  contenu: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 20 },
   boutons: { alignSelf: "stretch", gap: 12 },
   carte: {
     flexDirection: "row", alignItems: "center", gap: 14, padding: 16,

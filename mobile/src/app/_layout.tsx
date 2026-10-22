@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
+import { FournisseurNotifications } from "~/lib/notifications";
 import { useNotificationTouchee } from "~/lib/notification-touchee";
 import { lienDeLaNotification, ouvrirLaNotification, suivreLeJeton } from "~/lib/push";
 import { couleurs } from "~/theme";
@@ -41,7 +42,9 @@ export default function RacineLayout() {
       <AccueilProvider>
         <ThemeProvider value={THEME_NAVIGATION}>
           <StatusBar style="light" />
-          <Navigation policesPretes={policesPretes} />
+          <FournisseurNotifications>
+            <Navigation policesPretes={policesPretes} />
+          </FournisseurNotifications>
         </ThemeProvider>
       </AccueilProvider>
     </AuthProvider>
@@ -119,6 +122,10 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="amical/[id]" />
         <Stack.Screen name="competition/[cid]" />
         <Stack.Screen name="equipe/[cid]/[tid]" />
+        {/* L'en-tête des onglets les ouvre : le compte, la cloche. */}
+        <Stack.Screen name="compte" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="competitions" />
       </Stack.Protected>
       <Stack.Protected guard={accueil.vu && !profilManquant && !utilisateur}>
         <Stack.Screen name="connexion" options={fenetre} />

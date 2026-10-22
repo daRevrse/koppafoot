@@ -52,6 +52,10 @@ import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import { lireCategorie, lireGenre, type Categorie } from "@/lib/genre";
 import { equipeArbitraleLue, toMatch } from "@/lib/match-mappers";
+// La notification se lit aussi dans l'application : son convertisseur vit
+// dans un module sans SDK, réexporté ici pour ceux qui l'importaient d'ici.
+import { toNotification } from "@/lib/notification-mappers";
+export { toNotification };
 import { tailleEffectif, totalJoueurs, quotaMinimum, ghostOpponentLineup } from "@/lib/effectif-match";
 import { nouvelIdEvenement, type IssuePenalty, type TypeEvenement } from "@/lib/evenements";
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
@@ -99,19 +103,6 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     photoConsentement: d.photo_consentement ?? null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),
-  };
-}
-
-export function toNotification(id: string, d: FirestoreNotification): Notification {
-  return {
-    id,
-    userId: d.user_id,
-    type: d.type,
-    title: d.title,
-    body: d.body,
-    link: d.link ?? undefined,
-    read: d.read,
-    createdAt: formatDate(d.created_at),
   };
 }
 
