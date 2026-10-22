@@ -103,13 +103,15 @@ export function lienDeLaNotification(r: Notifications.NotificationResponse | nul
 }
 
 /**
- * Ouvrir ce qu'annonce une notification touchée : un match, une compétition,
- * une équipe ou un amical dans leur écran ; le reste (une réservation, un
- * espace d'organisateur) sur le site, dans le navigateur intégré. `natif` :
- * les écrans de l'application sont ouverts (l'accueil est passé, le profil
+ * Ouvrir une adresse du site dans l'application : ce qu'annonce une
+ * notification touchée, le match d'une forme, celui d'une fiche de club. Un
+ * match, une compétition, une équipe, un club, un joueur ou un amical
+ * s'ouvrent dans leur écran ; le reste (une réservation, un espace
+ * d'organisateur) sur le site, dans le navigateur intégré. `natif` : les
+ * écrans de l'application sont ouverts (l'accueil est passé, le profil
  * existe) — sinon, le site.
  */
-export async function ouvrirLaNotification(lien: string, natif: boolean): Promise<void> {
+export async function ouvrirLeLien(lien: string, natif: boolean): Promise<void> {
   const destination = destinationDuLien(lien);
   if (natif && destination.genre !== "site") {
     const cid = "slug" in destination ? await cidDuSlug(destination.slug).catch(() => null) : null;

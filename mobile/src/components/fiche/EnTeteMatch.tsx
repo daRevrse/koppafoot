@@ -73,13 +73,30 @@ export function BarreFiche({ fiche, maintenant, compact, onRetour }: {
   );
 }
 
-function Camp({ camp }: { camp: CampDeFiche }) {
+/**
+ * Un camp du tableau : il ouvre la fiche de son équipe — sa page dans la
+ * compétition, ou la fiche du club pour un amical.
+ */
+function Camp({ camp, fiche }: { camp: CampDeFiche; fiche: Fiche }) {
+  const router = useRouter();
+  const teamId = camp.teamId;
+  const ouvrir = () => {
+    if (!teamId) return;
+    if (fiche.competition) router.push({ pathname: "/equipe/[cid]/[tid]", params: { cid: fiche.competition.id, tid: teamId } });
+    else router.push({ pathname: "/club/[id]", params: { id: teamId } });
+  };
   return (
-    <View style={styles.camp}>
+    <Pressable
+      accessibilityRole={teamId ? "link" : undefined}
+      accessibilityLabel={camp.nom}
+      disabled={!teamId}
+      onPress={ouvrir}
+      style={styles.camp}
+    >
       <Ecusson url={camp.logo} nom={camp.nom} taille={48} />
       <Text style={styles.nomCamp} numberOfLines={2}>{camp.nom.toUpperCase()}</Text>
       <PointsDeForme forme={camp.forme} />
-    </View>
+    </Pressable>
   );
 }
 
@@ -191,9 +208,9 @@ export function EnTeteMatch({ fiche, maintenant }: { fiche: Fiche; maintenant: n
       </View>
 
       <View style={styles.affiche}>
-        <Camp camp={fiche.domicile} />
+        <Camp camp={fiche.domicile} fiche={fiche} />
         <Centre fiche={fiche} maintenant={maintenant} />
-        <Camp camp={fiche.exterieur} />
+        <Camp camp={fiche.exterieur} fiche={fiche} />
       </View>
 
       {buteurs.home.length > 0 || buteurs.away.length > 0 ? (

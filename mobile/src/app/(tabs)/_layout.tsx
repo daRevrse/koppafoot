@@ -1,12 +1,23 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import type { ComponentProps } from "react";
+import { useAuth } from "~/lib/auth";
+import { titreDeLOnglet } from "~/lib/roles";
 import { couleurs, polices } from "~/theme";
 
 // La barre du bas : Direct, Actus, Évolution, Espace casquette. Seul le
 // Direct a son contenu ; les trois autres n'ont encore que leur en-tête. Le
 // compte et la cloche sont dans l'en-tête (EnTeteOnglet), les compétitions au
 // bout des filtres du Direct.
+/** L'icône de l'onglet Évolution : la courbe sans rôle, puis celle du rôle. */
+const ICONE_DU_ROLE: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
+  player: "person-outline", manager: "briefcase-outline", referee: "flag-outline",
+};
+
 export default function OngletsLayout() {
+  // L'onglet Évolution prend le nom du rôle une fois choisi (lib/roles).
+  const { profil } = useAuth();
+  const iconeEvolution = ICONE_DU_ROLE[profil?.evolutionRole ?? ""] ?? "trending-up-outline";
   return (
     <Tabs
       screenOptions={{
@@ -28,7 +39,7 @@ export default function OngletsLayout() {
       />
       <Tabs.Screen
         name="evolution"
-        options={{ title: "Évolution", tabBarIcon: ({ color, size }) => <Ionicons name="trending-up-outline" color={color} size={size} /> }}
+        options={{ title: titreDeLOnglet(profil), tabBarIcon: ({ color, size }) => <Ionicons name={iconeEvolution} color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="espace"

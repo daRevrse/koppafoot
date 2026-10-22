@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { versFormation } from "@/lib/formations";
 import type { MarquesJoueur } from "@/lib/recit-du-match";
 import { disposerSurTerrain, nomCourt, rayonPastille, RAYON_MAX_RANGS } from "@/lib/terrain";
@@ -55,12 +55,14 @@ function Marques({ m, homme, rayon }: { m: MarquesJoueur | undefined; homme: boo
 }
 
 /** Les onze sur le terrain : la photo ou le numéro, le nom court dessous, les marques du match. */
-export function Terrain({ titulaires, formation, photos, marques, homme }: {
+export function Terrain({ titulaires, formation, photos, marques, homme, onJoueur }: {
   titulaires: LineupEntry[];
   formation: string | null;
   photos?: Record<string, string | null | undefined>;
   marques?: Record<string, MarquesJoueur>;
   homme?: string | null;
+  /** Toucher un joueur qui a un compte : sa fiche. */
+  onJoueur?: (uid: string) => void;
 }) {
   const [largeur, setLargeur] = useState(0);
   const { places, ecart } = disposerSurTerrain(titulaires, undefined, "haut", versFormation(formation));
@@ -95,8 +97,12 @@ export function Terrain({ titulaires, formation, photos, marques, homme }: {
             // dessous, comme l'étiquette du site.
             const l = Math.max(d, LARGEUR_ETIQUETTE);
             return (
-              <View
+              <Pressable
                 key={joueur?.playerId ?? `vide-${i}`}
+                disabled={!joueur?.userId || !onJoueur}
+                accessibilityRole={joueur?.userId ? "link" : undefined}
+                accessibilityLabel={joueur ? joueur.name : undefined}
+                onPress={() => joueur?.userId && onJoueur?.(joueur.userId)}
                 style={[styles.place, { left: (place.x / 100) * largeur - l / 2, top: (place.y / 100) * largeur - d / 2, width: l }]}
               >
                 <View style={[styles.pastille, { width: d, height: d, borderRadius: rayon }, !joueur && styles.pastilleVide]}>
@@ -112,7 +118,7 @@ export function Terrain({ titulaires, formation, photos, marques, homme }: {
                 {joueur ? (
                   <Text style={styles.nom} numberOfLines={1}>{nomCourt(joueur.name)}</Text>
                 ) : null}
-              </View>
+              </Pressable>
             );
           })
         : null}

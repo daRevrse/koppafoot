@@ -20,6 +20,15 @@ export interface EquipeDuJoueur {
   dirige: boolean;
 }
 
+export interface BilanArbitrage {
+  matchs: number;
+  /** La moyenne des notes reçues, sur 5 ; null sans avis. */
+  note: number | null;
+  avis: number;
+  /** Son corps arbitral, s'il en a un : son nom, et s'il le dirige. */
+  corps: { nom: string; chef: boolean; membres: number } | null;
+}
+
 export type FicheJoueur =
   | {
     genre: "fiche";
@@ -45,6 +54,10 @@ export type FicheJoueur =
     galerie: string[];
     equipes: EquipeDuJoueur[];
     genreDuJoueur: Genre | null;
+    /** « Licence régionale » : le niveau qu'un arbitre déclare, que personne ne vérifie. */
+    licence: string | null;
+    /** Le bilan d'un arbitre, calculé par la route ; null pour qui n'arbitre pas. */
+    arbitrage: BilanArbitrage | null;
   }
   /** Un compte sans fiche publique (aUnProfilPublic) : son nom et sa photo, rien d'autre. */
   | { genre: "sans-fiche"; uid: string; nom: string; photo: string | null };
@@ -52,6 +65,7 @@ export type FicheJoueur =
 // Les mots de la carte de bilan du site (BilanDuProfil).
 const PIED: Record<string, string> = { left: "Pied gauche", right: "Pied droit", both: "Deux pieds" };
 const NIVEAU: Record<string, string> = { beginner: "Débutant", amateur: "Amateur", intermediate: "Intermédiaire", advanced: "Confirmé" };
+const LICENCE: Record<string, string> = { trainee: "stagiaire", regional: "régionale", national: "nationale", international: "internationale" };
 
 /** L'âge le jour `maintenant`, d'une date « AAAA-MM-JJ » ; null sans date lisible. */
 export function ageLe(dateDeNaissance: string | null | undefined, maintenant: Date): number | null {
@@ -71,7 +85,9 @@ const nomComplet = (p: Record<string, unknown>) => [texte(p.first_name), texte(p
 
 /** La réponse de la route, en fiche ; `null` quand elle ne dit rien. */
 export function ficheDepuisLaRoute(uid: string, data: unknown, maintenant: Date = new Date()): FicheJoueur | null {
-  const d = (data ?? {}) as { profile?: Record<string, unknown> | null; teams?: unknown; sansProfilPublic?: Record<string, unknown> };
+  const d = (data ?? {}) as {
+    profile?: Record<string, unknown> | null; teams?: unknown; sansProfilPublic?: Record<string, unknown>; arbitrage?: Record<string, unknown> | null;
+  };
   if (d.sansProfilPublic) {
     return { genre: "sans-fiche", uid, nom: nomComplet(d.sansProfilPublic), photo: lien(d.sansProfilPublic.profile_picture_url) };
   }
@@ -120,5 +136,18 @@ export function ficheDepuisLaRoute(uid: string, data: unknown, maintenant: Date 
     galerie: (Array.isArray(p.gallery_urls) ? p.gallery_urls : []).map(lien).filter((u): u is string => !!u),
     equipes,
     genreDuJoueur,
+    licence: LICENCE[texte(p.license_level) ?? ""] ? `Licence ${LICENCE[texte(p.license_level) ?? ""]}` : null,
+    arbitrage: lireArbitrage(d.arbitrage),
+  };
+}
+
+function lireArbitrage(a: Record<string, unknown> | null | undefined): BilanArbitrage | null {
+  if (!a) return null;
+  const corps = a.corps as { nom?: unknown; chef?: unknown; membres?: unknown } | null | undefined;
+  return {
+    matchs: nombre(a.matchs) ?? 0,
+    note: nombre(a.note),
+    avis: nombre(a.avis) ?? 0,
+    corps: corps && texte(corps.nom) ? { nom: texte(corps.nom) as string, chef: corps.chef === true, membres: nombre(corps.membres) ?? 0 } : null,
   };
 }

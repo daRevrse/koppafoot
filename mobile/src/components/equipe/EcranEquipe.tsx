@@ -145,7 +145,7 @@ export function EcranEquipe({ cid, tid }: { cid: string; tid: string }) {
           {onglet === "effectif" ? (
             <EffectifParPoste joueurs={equipe.players} clubId={equipe.claimedByTeamId} feminin={feminin} />
           ) : (
-            <MatchsDeLEquipe matchs={vus} onOuvrir={ouvrir} />
+            <MatchsDeLEquipe matchs={vus} onOuvrir={(m) => ouvrir(m.id)} />
           )}
         </View>
       </ScrollView>

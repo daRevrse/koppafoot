@@ -11,7 +11,7 @@ import {
   filtresDisponibles, joursDesNotifications, LIBELLE_NOTIFICATION, notificationsDuFiltre, type FiltreNotifications,
 } from "~/lib/centre-notifications";
 import { useNotifications } from "~/lib/notifications";
-import { ouvrirLaNotification } from "~/lib/push";
+import { ouvrirLeLien } from "~/lib/push";
 import { couleurs, espacement, polices } from "~/theme";
 
 /** L'icône de chaque type, celles du site (lucide) dans Ionicons. */
@@ -84,7 +84,7 @@ export default function EcranNotifications() {
 
   function ouvrir(n: Notification) {
     if (!n.read) marquerLue(n.id);
-    if (n.link) void ouvrirLaNotification(n.link, true);
+    if (n.link) void ouvrirLeLien(n.link, true);
     else Alert.alert(n.title, n.body);
   }
 

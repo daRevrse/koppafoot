@@ -10,7 +10,7 @@ import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { AuthProvider, useAuth } from "~/lib/auth";
 import { FournisseurNotifications } from "~/lib/notifications";
 import { useNotificationTouchee } from "~/lib/notification-touchee";
-import { lienDeLaNotification, ouvrirLaNotification, suivreLeJeton } from "~/lib/push";
+import { lienDeLaNotification, ouvrirLeLien, suivreLeJeton } from "~/lib/push";
 import { couleurs } from "~/theme";
 
 void SplashScreen.preventAutoHideAsync();
@@ -90,7 +90,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
 
   // UN TOUCHER SUR UNE NOTIFICATION ouvre ce qu'elle annonce : la fiche du
   // match, la page de la compétition ou de l'équipe, dans l'application ; le
-  // reste sur le site (voir ouvrirLaNotification) — y compris quand c'est ce
+  // reste sur le site (voir ouvrirLeLien) — y compris quand c'est ce
   // toucher qui a lancé l'application. Une réponse n'est ouverte qu'une fois.
   const reponse = useNotificationTouchee();
   const dejaOuverte = useRef<string | null>(null);
@@ -101,7 +101,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
     const lien = lienDeLaNotification(reponse);
     if (!lien || dejaOuverte.current === id) return;
     dejaOuverte.current = id;
-    void ouvrirLaNotification(lien, ecransOuverts);
+    void ouvrirLeLien(lien, ecransOuverts);
   }, [pret, reponse, ecransOuverts]);
 
   if (!pret) return null;
@@ -123,6 +123,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="competition/[cid]" />
         <Stack.Screen name="equipe/[cid]/[tid]" />
         <Stack.Screen name="joueur/[uid]" />
+        <Stack.Screen name="club/[id]" />
         {/* L'en-tête des onglets les ouvre : le compte, la cloche. */}
         <Stack.Screen name="compte" />
         <Stack.Screen name="notifications" />
