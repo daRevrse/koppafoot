@@ -24,6 +24,7 @@ import {
   poserJournee,
 } from "@/lib/competition-firestore";
 import NumeroterJournees from "@/components/competition/NumeroterJournees";
+import AfficheProgramme from "@/components/competition/AfficheProgramme";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
 import { getVenues } from "@/lib/firestore";
 import { dureeEnCompetition, horsHoraires } from "@/lib/terrains";
@@ -406,6 +407,7 @@ export default function CompetitionSchedulePage() {
   // n'en ont pas encore, après que l'organisateur a vu la proposition.
   const [journeeFiltre, setJourneeFiltre] = useState<number | null>(null);
   const [numerotation, setNumerotation] = useState(false);
+  const [afficheOuverte, setAfficheOuverte] = useState(false);
   const journeesPosees = useMemo(
     () => [...new Set(groupMatches.map((m) => m.journee).filter((j): j is number => j != null))].sort((a, b) => a - b),
     [groupMatches],
@@ -1213,6 +1215,16 @@ export default function CompetitionSchedulePage() {
             {telechargement ? <Loader2 size={16} className="animate-spin" /> : <FileDown size={16} />}
             PDF
           </button>
+          <button
+            type="button"
+            onClick={() => setAfficheOuverte(true)}
+            disabled={!hasMatches || !competition?.slug}
+            title="L'affiche d'une journée ou des matchs du jour, à partager"
+            className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <ImageIcon size={16} />
+            Affiche
+          </button>
         </div>
       </div>
 
@@ -1758,6 +1770,10 @@ export default function CompetitionSchedulePage() {
 
       {numerotation && (
         <NumeroterJournees cid={cid} matchs={groupMatches} onFini={() => setNumerotation(false)} />
+      )}
+
+      {afficheOuverte && competition?.slug && (
+        <AfficheProgramme slug={competition.slug} nom={competition.name} matchs={matches} onFermer={() => setAfficheOuverte(false)} />
       )}
 
       {/* Postpone / reschedule modal */}
