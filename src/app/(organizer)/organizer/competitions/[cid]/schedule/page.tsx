@@ -21,7 +21,9 @@ import {
   createCompTeam,
   deleteCompMatch,
   describeBracketSlotSource,
+  poserJournee,
 } from "@/lib/competition-firestore";
+import NumeroterJournees from "@/components/competition/NumeroterJournees";
 import { hasGroupStage, matchDuration } from "@/lib/competition-format";
 import { getVenues } from "@/lib/firestore";
 import { dureeEnCompetition, horsHoraires } from "@/lib/terrains";
@@ -398,12 +400,41 @@ export default function CompetitionSchedulePage() {
     }
   };
 
+  // LES JOURNÉES (lib/journees) : le tour où chaque équipe joue une fois.
+  // Chaque match de poule porte la sienne, corrigeable à la main ; un filtre
+  // n'en montre qu'une ; « Numéroter les journées » complète les matchs qui
+  // n'en ont pas encore, après que l'organisateur a vu la proposition.
+  const [journeeFiltre, setJourneeFiltre] = useState<number | null>(null);
+  const [numerotation, setNumerotation] = useState(false);
+  const journeesPosees = useMemo(
+    () => [...new Set(groupMatches.map((m) => m.journee).filter((j): j is number => j != null))].sort((a, b) => a - b),
+    [groupMatches],
+  );
+  const journeeMax = journeesPosees[journeesPosees.length - 1] ?? 0;
+  const sansJournee = groupMatches.some((m) => m.journee == null);
+  // Le filtre ne vaut que pour les poules : un bloc de phase finale l'efface.
+  const filtreActif = journeeFiltre != null && (selectedSection === "ALL" || selectedSection.startsWith("G:"));
+
+  const changerJournee = async (m: CompMatch, valeur: string) => {
+    try {
+      await poserJournee(cid, m.id, valeur ? Number(valeur) : null);
+    } catch {
+      toast.error("La journée n'a pas pu être enregistrée");
+    }
+  };
+
   const visibleSections = useMemo(() => {
     // Fall back to everything when the selected block no longer exists (a
     // bracket redraw, a poule emptied by an import).
-    if (selectedSection === "ALL" || !sectionIds.includes(selectedSection)) return sections;
-    return sections.filter((s) => s.id === selectedSection);
-  }, [sections, sectionIds, selectedSection]);
+    const blocs = selectedSection === "ALL" || !sectionIds.includes(selectedSection)
+      ? sections
+      : sections.filter((s) => s.id === selectedSection);
+    if (!filtreActif) return blocs;
+    return blocs
+      .filter((s) => s.kind === "group")
+      .map((s) => ({ ...s, matches: s.matches.filter((m) => m.journee === journeeFiltre) }))
+      .filter((s) => s.matches.length > 0);
+  }, [sections, sectionIds, selectedSection, filtreActif, journeeFiltre]);
 
   const updateRow = (id: string, key: keyof RowState, value: string) => {
     setRows((prev) => ({
@@ -819,6 +850,23 @@ export default function CompetitionSchedulePage() {
               <span className="font-normal text-gray-400">vs</span>{" "}
               <span className={away.pending ? "font-medium italic text-gray-400" : ""}>{away.label}</span>
             </span>
+            {/* La journée d'un match de poule, corrigée sur place. */}
+            {match.stage === "group" && (
+              <select
+                value={match.journee ?? ""}
+                onChange={(e) => void changerJournee(match, e.target.value)}
+                aria-label="Journée"
+                title="Journée : le tour où chaque équipe joue une fois"
+                className={`border px-1 py-0.5 text-[11px] font-black ${
+                  match.journee == null ? "border-dashed border-gray-300 text-gray-400" : "border-gray-200/70 text-gray-700"
+                }`}
+              >
+                <option value="">J –</option>
+                {Array.from({ length: journeeMax + 1 }, (_, i) => i + 1).map((j) => (
+                  <option key={j} value={j}>J{j}</option>
+                ))}
+              </select>
+            )}
             {completed && (
               <span className="inline-flex items-center gap-1 bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black text-emerald-700">
                 <Check size={11} />
@@ -1278,6 +1326,40 @@ export default function CompetitionSchedulePage() {
             </div>
           )}
 
+          {/* Les journées : le filtre, et la numérotation de ce qui n'en a pas. */}
+          {groupMatches.length > 0 && (selectedSection === "ALL" || selectedSection.startsWith("G:")) && (
+            <div className="flex flex-wrap items-center gap-2 border border-gray-200/70 bg-white px-3 py-2">
+              <span className="text-[11px] font-black uppercase tracking-wide text-gray-500">Journées</span>
+              {journeesPosees.length > 0 && (
+                <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+                  {[null, ...journeesPosees].map((j) => (
+                    <button
+                      key={j ?? "toutes"}
+                      type="button"
+                      onClick={() => setJourneeFiltre(j)}
+                      aria-pressed={journeeFiltre === j}
+                      className={`shrink-0 px-3 py-1.5 text-xs font-bold transition-colors ${
+                        journeeFiltre === j ? "bg-primary-600 text-white" : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      {j == null ? "Toutes" : `J${j}`}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {sansJournee && (
+                <button
+                  type="button"
+                  onClick={() => setNumerotation(true)}
+                  className="ml-auto flex shrink-0 items-center gap-1.5 border border-primary-200 px-3 py-1.5 text-xs font-bold text-primary-700 transition-colors hover:bg-primary-50"
+                >
+                  <Sparkles size={13} />
+                  Numéroter les journées
+                </button>
+              )}
+            </div>
+          )}
+
           {visibleSections.map((section, si) => {
             const knockout = section.kind === "knockout";
             const exhibition = section.kind === "exhibition";
@@ -1673,6 +1755,10 @@ export default function CompetitionSchedulePage() {
         competition={competition}
         onClose={() => setScoreMatch(null)}
       />
+
+      {numerotation && (
+        <NumeroterJournees cid={cid} matchs={groupMatches} onFini={() => setNumerotation(false)} />
+      )}
 
       {/* Postpone / reschedule modal */}
       <AnimatePresence>
