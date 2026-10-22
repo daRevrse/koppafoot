@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
-import { StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { accorder, type Genre } from "@/lib/genre";
 import { formaterNote, tonNote } from "@/lib/notes";
 import type { Fiche } from "~/lib/fiche-match";
@@ -32,6 +33,7 @@ export function PastilleNote({ note }: { note: number | null }) {
  * fait, et la note que la console lui a vue.
  */
 export function JoueurDuMatch({ fiche, photo, genre }: { fiche: Fiche; photo: string | null; genre: Genre | null }) {
+  const router = useRouter();
   const { mvp } = fiche;
   if (!mvp.nom) return null;
   const equipe = mvp.teamId
@@ -39,8 +41,15 @@ export function JoueurDuMatch({ fiche, photo, genre }: { fiche: Fiche; photo: st
     : null;
   const ligne = [equipe, mvp.motif].filter(Boolean).join(" · ");
 
+  // Un joueur qui a un compte ouvre sa fiche ; une ligne sans compte, non.
+  const uid = mvp.userId;
   return (
-    <View style={styles.carte}>
+    <Pressable
+      disabled={!uid}
+      accessibilityRole={uid ? "link" : undefined}
+      onPress={() => uid && router.push({ pathname: "/joueur/[uid]", params: { uid } })}
+      style={({ pressed }) => [styles.carte, pressed && styles.presse]}
+    >
       {photo ? (
         <View>
           <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" accessibilityIgnoresInvertColors />
@@ -68,7 +77,7 @@ export function JoueurDuMatch({ fiche, photo, genre }: { fiche: Fiche; photo: st
           <Text style={styles.faits}>{`${mvp.note.faits} fait${mvp.note.faits > 1 ? "s" : ""}`}</Text>
         </View>
       ) : null}
-    </View>
+    </Pressable>
   );
 }
 
@@ -77,6 +86,7 @@ const styles = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 14, marginHorizontal: 16, marginBottom: 16, padding: 14,
     borderWidth: 1, borderColor: "rgba(251,191,36,0.35)", backgroundColor: "rgba(251,191,36,0.06)",
   },
+  presse: { opacity: 0.8 },
   photo: { width: 52, height: 52, borderRadius: 26 },
   trophee: {
     position: "absolute", right: -4, bottom: -4, width: 20, height: 20, alignItems: "center", justifyContent: "center",
