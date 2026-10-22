@@ -27,7 +27,7 @@ import { textes } from "@/i18n/textes";
 import { FOOT } from "@/i18n/foot";
 import {
   competitionHref, competitionSubtitle, entryKey, kickoff, matchHref, minuteDuDirect,
-  ordreDesCompetitions, type CompetitionFeed, type Entry,
+  chaudsEnTete, ordreDesCompetitions, type CompetitionFeed, type Entry,
 } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION, amicalVersCompMatch } from "@/lib/friendlies-shared";
 import { onLiveFriendlies } from "@/lib/firestore";
@@ -39,6 +39,7 @@ import Emplacement from "@/components/partenaires/Emplacement";
 import CarteDefilante from "@/components/direct/CarteDefilante";
 import DiapoTerrain, { useVitrineDesTerrains } from "@/components/direct/DiapoTerrain";
 import { useMedia } from "@/hooks/useMedia";
+import { estAVenir } from "@/lib/chauds";
 
 // ============================================
 // DirectHomeV2, the live-score home, a scores board rather than a timeline.
@@ -91,6 +92,7 @@ const T = textes(
     precedent: "Précédent",
     suivant: "Suivant",
     affiche: (i: number) => `Affiche ${i}`,
+    chaud: "Match à ne pas manquer",
     topPerformances: "Top performances",
     carteDefilante: "Top performances et terrains",
     cinqDerniers: "5 derniers matchs",
@@ -143,6 +145,7 @@ const T = textes(
     precedent: "Previous",
     suivant: "Next",
     affiche: (i: number) => `Featured match ${i}`,
+    chaud: "Must-see match",
     topPerformances: "Top performances",
     carteDefilante: "Top performances and pitches",
     cinqDerniers: "Last 5 matches",
@@ -1098,7 +1101,15 @@ function Spotlight({
       <div className="flex items-center gap-2.5 px-4 py-3">
         <CompCrest competition={competition} size={28} />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-black text-gray-900">{nomCompetition(competition)}</span>
+          <span className="flex items-center gap-1">
+            <span className="block truncate text-[13px] font-black text-gray-900">{nomCompetition(competition)}</span>
+            {/* Un match chaud, marqué par l'organisateur (lib/chauds) : la flamme seule, pas de mot. */}
+            {match.chaud && estAVenir(match) && (
+              <Flame size={14} className="shrink-0 text-orange-500" role="img" aria-label={t.chaud}>
+                <title>{t.chaud}</title>
+              </Flame>
+            )}
+          </span>
           <span className="block truncate text-[11px] font-bold text-gray-400">
             {stageTagLabel(match, f) ?? competitionSubtitle(competition)}
           </span>
@@ -1513,10 +1524,18 @@ export default function DirectHomeV2({
   // externe comme pour les notres ; seul le lien change, un match mondial
   // n'ayant pas de fiche chez nous et renvoyant vers sa competition.
   const spotlightEntries = useMemo(() => {
+    // LES MATCHS CHAUDS D'ABORD, marques par leur organisateur (lib/chauds),
+    // avant meme les matchs en direct des autres competitions : deux par
+    // competition au plus, voir chaudsEnTete. Le reste suit la regle de
+    // toujours, sans eux.
+    const chauds = chaudsEnTete(scoped, todayKey).slice(0, AFFICHES_MAX);
+    const enTete = new Set(chauds.map(entryKey));
+
     // Le jour et l'avenir, rien d'autre. Un match programme a une date deja
     // passee (report jamais corrige, fixture oubliee) n'est pas « a venir »
     // non plus : il tombait dans le meme piege que le resultat perime.
     const aVenir = scoped
+      .filter((e) => !enTete.has(entryKey(e)))
       .filter((e) => e.match.status === "live"
         || (e.match.status === "scheduled" && e.match.date != null && e.match.date >= todayKey))
       .sort((a, b) => {
@@ -1548,7 +1567,7 @@ export default function DirectHomeV2({
     // quartier n'a alors plus sa place sur l'ecran d'accueil.
     const files = [...parCompetition.values()].sort(ordreDesCompetitions);
 
-    const affiches: Entry[] = [];
+    const affiches: Entry[] = [...chauds];
     for (let tour = 0; affiches.length < AFFICHES_MAX; tour++) {
       const avant = affiches.length;
       for (const file of files) {
