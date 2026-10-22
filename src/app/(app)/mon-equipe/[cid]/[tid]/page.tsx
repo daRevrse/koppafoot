@@ -138,6 +138,35 @@ export default function MyTeamPage() {
     };
   }, [user]);
 
+  // CRÉER L'ÉQUIPE DANS SES ÉQUIPES (lib/rattachement-equipe) : une équipe
+  // reprise par invitation avant que l'acceptation ne propose le choix
+  // n'était liée à rien, et n'apparaissait pas dans « Mes équipes ».
+  const [creation, setCreation] = useState(false);
+  const creerDansMesEquipes = async () => {
+    if (!firebaseUser) return;
+    setCreation(true);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch("/api/competitions/rattacher-equipe", {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
+        body: JSON.stringify({ cid, teamId: tid, rattacher: "nouvelle" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "La création a échoué");
+        return;
+      }
+      toast.success("L'équipe est maintenant dans tes équipes");
+      if (user) setClubs(await getTeamsByManager(user.uid));
+      await reloadTeam();
+    } catch {
+      toast.error("La création a échoué");
+    } finally {
+      setCreation(false);
+    }
+  };
+
   // Pulls the club squad into the competition roster. Runs server-side: the
   // import also writes a `linked_comp_players` row on each player's own user
   // doc, only the admin SDK may do that, which is what makes their personal
@@ -557,17 +586,34 @@ export default function MyTeamPage() {
                   </button>
                 ))}
               </div>
+              <p className="mt-3 text-xs font-semibold text-gray-500">
+                Ce n&apos;est aucune d&apos;elles ?{" "}
+                <button
+                  type="button"
+                  onClick={() => void creerDansMesEquipes()}
+                  disabled={creation}
+                  className="font-black text-emerald-600 hover:underline disabled:opacity-50"
+                >
+                  Créer « {team.name} » dans mes équipes →
+                </button>
+              </p>
             </div>
           ) : (
             <div className=" border border-dashed border-gray-200/70 bg-gray-50/60 p-4">
-              <p className="text-sm font-bold text-gray-700">Pas encore d&apos;équipe</p>
+              <p className="text-sm font-bold text-gray-700">Pas encore dans tes équipes</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
-                Crée ton équipe pour gérer un effectif permanent et l&apos;importer dans
-                chacune de tes compétitions.{" "}
-                <Link href="/teams" className="font-black text-emerald-600 hover:underline">
-                  Créer mon équipe →
-                </Link>
+                Ajoute « {team.name} » à tes équipes : tu la retrouves dans « Mes équipes », avec un effectif
+                permanent à importer dans chacune de tes compétitions.
               </p>
+              <button
+                type="button"
+                onClick={() => void creerDansMesEquipes()}
+                disabled={creation}
+                className="mt-3 flex items-center gap-1.5 bg-emerald-500 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
+              >
+                {creation && <Loader2 size={13} className="animate-spin" />}
+                Créer « {team.name} » dans mes équipes
+              </button>
             </div>
           )}
 

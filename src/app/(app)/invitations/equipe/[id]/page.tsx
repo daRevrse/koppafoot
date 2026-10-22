@@ -8,12 +8,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { getTeamsIManage } from "@/lib/firestore";
+import { choixParDefaut } from "@/lib/rattachement-equipe";
+import type { Team } from "@/types";
 
 // ============================================
 // Team-manager invitation, accept page (link sent by email).
 // Public path: guests see the invite and get login/signup CTAs that
 // bounce back here; logged-in users accept in one tap (the API checks
 // that their email matches the invited one).
+//
+// L'ÉQUIPE REJOINT LES SIENNES (lib/rattachement-equipe). Avant d'accepter,
+// le manager choisit : la lier à une de ses équipes, ou la créer dans ses
+// équipes. Sans ce choix, l'équipe restait celle du tournoi seul et
+// n'apparaissait jamais dans « Mes équipes ». Une équipe du même nom est
+// proposée d'abord, sinon la création.
 // ============================================
 
 interface InviteInfo {
@@ -35,6 +44,11 @@ export default function TeamManagerInvitePage() {
   const [notFound, setNotFound] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [accepted, setAccepted] = useState(false);
+  // Les équipes que gère l'appelant, et son choix : l'identifiant de l'une
+  // d'elles, ou « nouvelle ».
+  const [equipes, setEquipes] = useState<Team[] | null>(null);
+  const [choix, setChoix] = useState("nouvelle");
+  const [resultat, setResultat] = useState<{ cid: string; teamId: string; equipeId: string | null; lie: boolean } | null>(null);
 
   useEffect(() => {
     if (!inviteId) return;
@@ -48,6 +62,22 @@ export default function TeamManagerInvitePage() {
       .finally(() => setLoading(false));
   }, [inviteId]);
 
+  const uid = user?.uid ?? null;
+  const nomEquipe = invite?.teamName ?? "";
+  const enAttente = invite?.status === "pending";
+  useEffect(() => {
+    if (!uid || !enAttente) return;
+    let vivant = true;
+    getTeamsIManage(uid)
+      .then((l) => {
+        if (!vivant) return;
+        setEquipes(l);
+        setChoix(choixParDefaut(l, nomEquipe));
+      })
+      .catch(() => { if (vivant) setEquipes([]); });
+    return () => { vivant = false; };
+  }, [uid, enAttente, nomEquipe]);
+
   const handleAccept = async () => {
     if (!firebaseUser) return;
     setAccepting(true);
@@ -55,7 +85,8 @@ export default function TeamManagerInvitePage() {
       const token = await firebaseUser.getIdToken();
       const res = await fetch(`/api/team-manager-invites/${inviteId}`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ rattacher: choix }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -63,6 +94,7 @@ export default function TeamManagerInvitePage() {
         return;
       }
       setAccepted(true);
+      setResultat({ cid: data.cid, teamId: data.teamId, equipeId: data.equipeId ?? null, lie: choix !== "nouvelle" });
       toast.success("Tu gères maintenant cette équipe !");
     } catch (err) {
       console.error("Invite accept failed:", err);
@@ -129,17 +161,35 @@ export default function TeamManagerInvitePage() {
                   ? "C'est officiel : tu es propriétaire et manager de cette équipe. 🎉"
                   : "Cette invitation a déjà été acceptée."}
               </p>
+              {resultat?.equipeId && (
+                <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-500">
+                  {resultat.lie
+                    ? "Elle est liée à ton équipe : reprends ton effectif depuis la page de l'équipe dans la compétition."
+                    : `« ${invite.teamName} » est maintenant aussi dans tes équipes.`}
+                </p>
+              )}
               {/* Vers l'équipe, et non vers un « espace manager » : cette
                   page-là n'existe plus, le choix du rôle ayant rejoint la
                   vitrine. Ce qu'on vient d'obtenir, ce sont des équipes. */}
               {accepted && (
-                <Link
-                  href="/teams"
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
-                >
-                  <Briefcase size={15} />
-                  Voir mes équipes
-                </Link>
+                <div className="mt-5 flex flex-col items-center gap-2">
+                  {resultat && (
+                    <Link
+                      href={`/mon-equipe/${resultat.cid}/${resultat.teamId}`}
+                      className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-3 text-sm font-black text-white transition-colors hover:bg-emerald-600"
+                    >
+                      <Shield size={15} />
+                      Voir l&apos;équipe dans la compétition
+                    </Link>
+                  )}
+                  <Link
+                    href={resultat?.equipeId ? `/teams/${resultat.equipeId}` : "/teams"}
+                    className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-50"
+                  >
+                    <Briefcase size={15} />
+                    Voir mes équipes
+                  </Link>
+                </div>
               )}
             </>
           ) : revoked ? (
@@ -157,11 +207,50 @@ export default function TeamManagerInvitePage() {
                 Invitation envoyée à {invite.emailMasked}
               </p>
 
+              {user && (
+                <fieldset className="mt-6 text-left">
+                  <legend className="mb-2 text-[11px] font-black uppercase tracking-wide text-gray-500">
+                    Dans tes équipes
+                  </legend>
+                  {equipes === null ? (
+                    <div className="flex justify-center py-3 text-gray-300"><Loader2 size={18} className="animate-spin" /></div>
+                  ) : (
+                    <div className="space-y-2">
+                      {equipes.map((e) => (
+                        <label
+                          key={e.id}
+                          className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
+                            choix === e.id ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:border-gray-300"
+                          }`}
+                        >
+                          <input type="radio" name="rattacher" value={e.id} checked={choix === e.id} onChange={() => setChoix(e.id)} />
+                          <span className="min-w-0">
+                            <span className="block font-bold text-gray-900">Lier à {e.name}</span>
+                            <span className="block text-xs font-semibold text-gray-500">C&apos;est la même équipe : tu pourras reprendre son effectif.</span>
+                          </span>
+                        </label>
+                      ))}
+                      <label
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition-colors ${
+                          choix === "nouvelle" ? "border-emerald-500 bg-emerald-50" : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <input type="radio" name="rattacher" value="nouvelle" checked={choix === "nouvelle"} onChange={() => setChoix("nouvelle")} />
+                        <span className="min-w-0">
+                          <span className="block font-bold text-gray-900">Créer « {invite.teamName} » dans mes équipes</span>
+                          <span className="block text-xs font-semibold text-gray-500">Une nouvelle équipe à toi, avec son nom et son logo.</span>
+                        </span>
+                      </label>
+                    </div>
+                  )}
+                </fieldset>
+              )}
+
               {user ? (
                 <button
                   type="button"
                   onClick={handleAccept}
-                  disabled={accepting}
+                  disabled={accepting || equipes === null}
                   className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3.5 text-sm font-black text-white transition-colors hover:bg-emerald-600 disabled:opacity-50"
                 >
                   {accepting ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
