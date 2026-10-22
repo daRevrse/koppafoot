@@ -12,6 +12,7 @@
 
 import type { Competition, CompMatch } from "@/types";
 import { FRIENDLY_COMP_ID } from "@/lib/friendlies-shared";
+import { CHAUDS_PAR_COMPETITION } from "@/lib/chauds";
 import { isWorldComp } from "@/lib/world-board-shared";
 import { dureeMiTempsDe } from "@/lib/competition-format";
 import { minuteEnDirect, texteMinute } from "@/lib/minute-du-match";
@@ -83,6 +84,29 @@ export function entryKey(e: Entry): string {
 /** Kickoff sort key, undated fixtures land last. */
 export function kickoff(e: Entry): string {
   return `${e.match.date ?? "9999-99-99"}T${e.match.time ?? "99:99"}`;
+}
+
+/**
+ * LES MATCHS CHAUDS EN TÊTE DES MATCHS MIS EN AVANT (lib/chauds), avant même
+ * les matchs en direct des autres compétitions : à venir ou en direct, le
+ * plus proche d'abord, les sans-date à la fin. Joué, annulé, ou d'une date
+ * passée jamais corrigée, un match chaud reprend sa place normale.
+ *
+ * DEUX PAR COMPÉTITION AU PLUS, les plus proches : le calendrier de
+ * l'organisateur tient déjà la limite, mais les règles Firestore ne savent
+ * pas compter, et l'accueil ne se laisse pas envahir par un seul tournoi.
+ */
+export function chaudsEnTete(entries: Entry[], todayKey: string, parCompetition = CHAUDS_PAR_COMPETITION): Entry[] {
+  const parComp = new Map<string, number>();
+  return entries
+    .filter((e) => e.match.chaud
+      && (e.match.status === "live" || (e.match.status === "scheduled" && (e.match.date == null || e.match.date >= todayKey))))
+    .sort((a, b) => kickoff(a).localeCompare(kickoff(b)))
+    .filter((e) => {
+      const n = parComp.get(e.competition.id) ?? 0;
+      parComp.set(e.competition.id, n + 1);
+      return n < parCompetition;
+    });
 }
 
 /**

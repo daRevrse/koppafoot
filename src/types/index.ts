@@ -2352,6 +2352,13 @@ export interface FirestoreCompMatch {
    */
   journee?: number | null;
   /**
+   * UN MATCH « CHAUD », marqué par l'organisateur ou ses modérateurs : à venir
+   * ou en direct, il passe en tête des matchs mis en avant de l'accueil
+   * Direct (voir lib/chauds). Le drapeau reste après le coup de sifflet, sans
+   * effet : seul un match à venir ou en direct compte.
+   */
+  chaud?: boolean;
+  /**
    * L'HOMME DU MATCH, désigné par le scoreur au coup de sifflet final.
    *
    * Jamais calculé : la console propose un classement, un humain tranche. Un
@@ -2425,6 +2432,8 @@ export interface CompMatch {
   winnerTeamId: string | null;
   /** Voir `FirestoreCompMatch.journee`. */
   journee: number | null;
+  /** Voir `FirestoreCompMatch.chaud`. */
+  chaud: boolean;
   /** Voir `FirestoreMatch.mvp_player_id`. */
   mvpPlayerId?: string | null;
   mvpUserId?: string | null;
