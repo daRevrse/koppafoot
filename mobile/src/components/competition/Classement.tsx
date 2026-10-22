@@ -1,5 +1,6 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { COLONNES_CLASSEMENT } from "@/i18n/foot";
 import { computeStandings } from "@/lib/poules";
 import type { Competition, CompMatch, CompTeam } from "@/types";
@@ -23,6 +24,7 @@ export function Classement({ competition, matchs, equipes }: {
   matchs: CompMatch[] | null;
   equipes: CompTeam[];
 }) {
+  const router = useRouter();
   const [choix, setChoix] = useState<string | null>(null);
   if (matchs === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
 
@@ -52,7 +54,13 @@ export function Classement({ competition, matchs, equipes }: {
           const qualifie = i < qualifies;
           const dq = !!ligne.team.disqualified;
           return (
-            <View key={ligne.team.id} style={[styles.rangee, styles.ligne, qualifie && styles.ligneQualifiee]}>
+            <Pressable
+              key={ligne.team.id}
+              accessibilityRole="link"
+              accessibilityLabel={`${i + 1}, ${ligne.team.name}, ${ligne.points} points`}
+              onPress={() => router.push({ pathname: "/equipe/[cid]/[tid]", params: { cid: competition.id, tid: ligne.team.id } })}
+              style={({ pressed }) => [styles.rangee, styles.ligne, qualifie && styles.ligneQualifiee, pressed && styles.presse]}
+            >
               <View style={styles.colRang}>
                 <Text style={[styles.rang, qualifie && styles.rangQualifie]}>{i + 1}</Text>
               </View>
@@ -66,7 +74,7 @@ export function Classement({ competition, matchs, equipes }: {
               ))}
               <Text style={[styles.colDiff, styles.chiffre]}>{diff(ligne.goalDiff)}</Text>
               <Text style={[styles.colPts, styles.points]}>{ligne.points}</Text>
-            </View>
+            </Pressable>
           );
         })}
         {qualifies > 0 ? (
@@ -87,6 +95,7 @@ const styles = StyleSheet.create({
   enteteTexte: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.1), color: couleurs.texteDiscret },
   ligne: { paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
   ligneQualifiee: { backgroundColor: couleurs.primaireVoile },
+  presse: { backgroundColor: couleurs.surfaceHaute },
   colRang: { width: 28, alignItems: "center" },
   colEquipe: { flex: 1, minWidth: 0 },
   colChiffre: { width: 24, textAlign: "center" },

@@ -117,6 +117,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="match/[cid]/[mid]" />
         <Stack.Screen name="amical/[id]" />
         <Stack.Screen name="competition/[cid]" />
+        <Stack.Screen name="equipe/[cid]/[tid]" />
       </Stack.Protected>
       <Stack.Protected guard={accueil.vu && !profilManquant && !utilisateur}>
         <Stack.Screen name="connexion" options={fenetre} />

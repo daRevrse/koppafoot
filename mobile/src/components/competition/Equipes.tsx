@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { matchDuration } from "@/lib/competition-format";
@@ -11,7 +12,6 @@ import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
 import { usePhotosDesLignes } from "~/hooks/usePhotos";
 import { initiales } from "~/lib/initiales";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { equipesRangees } from "~/lib/page-competition";
 import { couleurs, espacement, polices } from "~/theme";
 
@@ -24,6 +24,7 @@ function Effectif({ competition, equipe, matchs, feminin }: {
   matchs: CompMatch[];
   feminin: boolean;
 }) {
+  const router = useRouter();
   const lignes = computeSquadStats(matchs, equipe.id, equipe.players, matchDuration(competition.format));
   const photos = usePhotosDesLignes(equipe.players, equipe.claimedByTeamId);
   return (
@@ -70,12 +71,12 @@ function Effectif({ competition, equipe, matchs, feminin }: {
       )}
       <Pressable
         accessibilityRole="link"
-        onPress={() => ouvrirSurLeSite(`/c/${competition.slug}/teams/${equipe.id}`)}
+        onPress={() => router.push({ pathname: "/equipe/[cid]/[tid]", params: { cid: competition.id, tid: equipe.id } })}
         style={styles.fiche}
         hitSlop={6}
       >
-        <Text style={styles.ficheTexte}>FICHE DE L&apos;ÉQUIPE SUR LE SITE</Text>
-        <Ionicons name="open-outline" size={13} color={couleurs.primaire} />
+        <Text style={styles.ficheTexte}>FICHE DE L&apos;ÉQUIPE</Text>
+        <Ionicons name="chevron-forward" size={13} color={couleurs.primaire} />
       </Pressable>
     </View>
   );
