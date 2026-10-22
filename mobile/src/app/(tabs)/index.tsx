@@ -72,7 +72,7 @@ export default function EcranDirect() {
 
   return (
     <SafeAreaView style={styles.ecran} edges={["top"]}>
-      <EnTeteOnglet titre="Direct" />
+      <EnTeteOnglet titre="Direct" recherche />
       <FriseDesJours
         jours={jours}
         jour={jour}

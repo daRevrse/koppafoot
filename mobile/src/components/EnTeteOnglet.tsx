@@ -56,18 +56,39 @@ function BoutonCompte() {
   );
 }
 
+/** La barre de recherche de l'en-tête : un champ qui n'en est pas un, il ouvre l'écran de recherche. */
+function BarreDeRecherche() {
+  const router = useRouter();
+  return (
+    <Pressable
+      accessibilityRole="search"
+      accessibilityLabel="Rechercher une équipe, une compétition, une ville"
+      onPress={() => router.push("/recherche")}
+      style={({ pressed }) => [styles.recherche, pressed && styles.presse]}
+    >
+      <Ionicons name="search" size={16} color={couleurs.texteDiscret} />
+      <Text style={styles.rechercheTexte} numberOfLines={1}>Équipe, compétition, ville…</Text>
+    </Pressable>
+  );
+}
+
 /**
- * L'en-tête d'un onglet : son titre, et à droite la cloche puis le compte,
- * comme l'en-tête du site. Sans compte, pas de cloche : rien à sonner.
+ * L'en-tête d'un onglet : son titre — ou, pour le Direct, la barre de
+ * recherche —, et à droite la cloche puis le compte, comme l'en-tête du site.
+ * Sans compte, pas de cloche : rien à sonner.
  */
-export function EnTeteOnglet({ titre, surTitre }: { titre: string; surTitre?: string }) {
+export function EnTeteOnglet({ titre, surTitre, recherche = false }: { titre: string; surTitre?: string; recherche?: boolean }) {
   const { utilisateur } = useAuth();
   return (
-    <View style={styles.entete}>
-      <View style={styles.titres}>
-        {surTitre ? <Text style={styles.surTitre}>{surTitre.toUpperCase()}</Text> : null}
-        <Text style={styles.titre} accessibilityRole="header" numberOfLines={1}>{titre.toUpperCase()}</Text>
-      </View>
+    <View style={[styles.entete, recherche && styles.enteteRecherche]}>
+      {recherche ? (
+        <BarreDeRecherche />
+      ) : (
+        <View style={styles.titres}>
+          {surTitre ? <Text style={styles.surTitre}>{surTitre.toUpperCase()}</Text> : null}
+          <Text style={styles.titre} accessibilityRole="header" numberOfLines={1}>{titre.toUpperCase()}</Text>
+        </View>
+      )}
       <View style={styles.actions}>
         {utilisateur ? <Cloche /> : null}
         <BoutonCompte />
@@ -78,11 +99,17 @@ export function EnTeteOnglet({ titre, surTitre }: { titre: string; surTitre?: st
 
 const styles = StyleSheet.create({
   entete: { flexDirection: "row", alignItems: "flex-end", gap: 12, paddingHorizontal: 16, paddingTop: 8 },
+  enteteRecherche: { alignItems: "center", paddingBottom: 4 },
+  recherche: {
+    flex: 1, flexDirection: "row", alignItems: "center", gap: 8, height: 40, paddingHorizontal: 14, borderRadius: 999,
+    backgroundColor: couleurs.surface, borderWidth: 1, borderColor: couleurs.bordure,
+  },
+  rechercheTexte: { flex: 1, fontFamily: polices.texte, fontSize: 14, color: couleurs.texteDiscret },
   titres: { flex: 1, minWidth: 0 },
   surTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.22), color: couleurs.primaire },
   // Les titres du site : font-display font-black, en capitales.
   titre: { fontFamily: polices.titre, fontSize: 28, lineHeight: 32, color: couleurs.texte },
-  actions: { flexDirection: "row", alignItems: "center", gap: 4, paddingBottom: 2 },
+  actions: { flexDirection: "row", alignItems: "center", gap: 4 },
   bouton: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   presse: { backgroundColor: couleurs.surfaceHaute },
   pastille: {
