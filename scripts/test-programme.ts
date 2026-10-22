@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 import {
   datesDisponibles, journeesDisponibles, lireChoix, paginer, selectionnerProgramme, titreDuProgramme,
 } from "@/lib/programme";
+import { lignesDuNom } from "@/lib/og-programme";
 import type { JourDuCalendrier, LigneDuCalendrier } from "@/lib/calendrier-competition";
 import type { CompMatch } from "@/types";
 
@@ -128,6 +129,23 @@ cas("un jour trop long pour une page neuve finit la page en cours, dans l'ordre"
   assert.deepEqual(pages.flat().flatMap((j) => j.lignes.map((l) => l.id)), [
     ...jour("d1", 10).lignes, ...jour("d2", 15).lignes,
   ].map((l) => l.id));
+});
+
+console.log("lignesDuNom (lib/og-programme)");
+
+cas("un nom court tient sur une ligne, en capitales", () => {
+  assert.deepEqual(lignesDuNom("Lions FC", 12, 2), ["LIONS FC"]);
+});
+
+cas("un nom trop long : deux lignes au plus, aucune plus large que la place, une ellipse à la fin", () => {
+  const l = lignesDuNom("Union Sportive de Tokoin-Hôpital", 10, 2);
+  assert.deepEqual(l, ["UNION", "SPORTIVE…"]);
+  for (const nom of ["Association Sportive des Jeunes de Bè-Kpota", "Racing Hédzranawoé", "AAAAAAAAAAAAAAAAAAAAAAAA"]) {
+    for (const parLigne of [6, 10, 15, 22]) {
+      const r = lignesDuNom(nom, parLigne, 2);
+      assert.ok(r.length <= 2 && r.every((x) => x.length <= parLigne), `${nom} / ${parLigne} : ${JSON.stringify(r)}`);
+    }
+  }
 });
 
 if (echecs) {

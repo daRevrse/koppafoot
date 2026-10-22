@@ -48,10 +48,12 @@ export const CADRE = 60;
  * Le cadre d'éclats (lib/og-da), et en tête de carte le logo : celui de la
  * compétition quand elle en a un, sinon celui de Koppafoot.
  */
-export function Cadre({ logo, logoCompetition, children }: {
+export function Cadre({ logo, logoCompetition, children, pied }: {
   logo: string;
   logoCompetition: string | null;
   children: React.ReactNode;
+  /** Un autre pied que l'adresse seule : l'affiche du programme y pose ses partenaires (lib/og-programme). */
+  pied?: React.ReactNode;
 }) {
   return (
     <FondEclats largeur={TAILLE_FLYER.width} hauteur={TAILLE_FLYER.height} cadre={CADRE} padding="48px 56px 40px">
@@ -65,7 +67,7 @@ export function Cadre({ logo, logoCompetition, children }: {
         <img src={logo} alt="KoppaFoot" width={236} height={118} />
       )}
       {children}
-      <Pied />
+      {pied ?? <Pied />}
     </FondEclats>
   );
 }
