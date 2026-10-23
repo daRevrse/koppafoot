@@ -7,6 +7,8 @@ import { useAdminAction, useAdminApi } from "@/hooks/useAdminApi";
 import { BOUTON_CONTOUR, BOUTON_VERT, Erreur, Modale } from "@/components/admin/ui";
 import { FORMATS_AMICAL, lireAmicalAdmin } from "@/lib/amical-admin";
 import type { EquipeAdmin } from "@/lib/admin-types";
+import { useAuth } from "@/contexts/AuthContext";
+import ChampLogoAdversaire, { envoyerLogoAdversaire } from "@/components/match/ChampLogoAdversaire";
 
 // ============================================
 // Programmer un amical depuis l'administration.
@@ -39,6 +41,9 @@ export default function AjouterAmical({ onDone }: { onDone: () => void }) {
   const [form, setForm] = useState(VIDE);
   // L'adversaire : un club de la plateforme, ou un nom tapé.
   const [horsPlateforme, setHorsPlateforme] = useState(false);
+  // Son logo, s'il en a un (lib/logo-hors-plateforme) : envoyé une fois le match créé.
+  const [logo, setLogo] = useState<File | null>(null);
+  const { firebaseUser } = useAuth();
   const [occupe, setOccupe] = useState(false);
   const { data, erreur, chargement, recharger } = useAdminApi<{ equipes: EquipeAdmin[] }>(
     ouvert ? "/api/admin/equipes" : null,
@@ -55,6 +60,7 @@ export default function AjouterAmical({ onDone }: { onDone: () => void }) {
     setOuvert(false);
     setForm(VIDE);
     setHorsPlateforme(false);
+    setLogo(null);
   };
 
   const poser = (patch: Partial<typeof VIDE>) => setForm((f) => ({ ...f, ...patch }));
@@ -68,15 +74,21 @@ export default function AjouterAmical({ onDone }: { onDone: () => void }) {
     }
     setOccupe(true);
     try {
-      const { convoques } = await agir<{ id: string; convoques: number }>("/api/admin/matchs", "POST", lu.valeur);
+      const { id, convoques } = await agir<{ id: string; convoques: number }>("/api/admin/matchs", "POST", lu.valeur);
       toast.success(
         convoques > 0
           ? `Match programmé, ${convoques} joueur${convoques > 1 ? "s" : ""} convoqué${convoques > 1 ? "s" : ""}`
           : "Match programmé",
       );
+      // Le match existe : un logo raté ne le défait pas, on le dit seulement.
+      if (horsPlateforme && logo && firebaseUser) {
+        const echec = await envoyerLogoAdversaire(id, logo, await firebaseUser.getIdToken());
+        if (echec) toast.error(`Match programmé, mais ${echec.charAt(0).toLowerCase()}${echec.slice(1)}`);
+      }
       setOuvert(false);
       setForm(VIDE);
       setHorsPlateforme(false);
+      setLogo(null);
       onDone();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "La création du match a échoué");
@@ -143,15 +155,18 @@ export default function AjouterAmical({ onDone }: { onDone: () => void }) {
                   </label>
                 </div>
                 {horsPlateforme ? (
-                  <input
-                    type="text"
-                    aria-label="Nom de l'adversaire"
-                    placeholder="Nom de l'équipe adverse"
-                    maxLength={80}
-                    className={CHAMP}
-                    value={form.awayName}
-                    onChange={(e) => poser({ awayName: e.target.value })}
-                  />
+                  <>
+                    <input
+                      type="text"
+                      aria-label="Nom de l'adversaire"
+                      placeholder="Nom de l'équipe adverse"
+                      maxLength={80}
+                      className={CHAMP}
+                      value={form.awayName}
+                      onChange={(e) => poser({ awayName: e.target.value })}
+                    />
+                    <ChampLogoAdversaire fichier={logo} onChange={setLogo} className="mt-2" />
+                  </>
                 ) : (
                   <select
                     aria-label="Club adverse"
