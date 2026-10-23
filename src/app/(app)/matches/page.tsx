@@ -57,6 +57,7 @@ import ArbitreDuMatch from "@/components/match/ArbitreDuMatch";
 import { libelleDuJour } from "@/lib/dates";
 import RecordMatchForm from "@/components/match/RecordMatchForm";
 import Link from "next/link";
+import ChampLogoAdversaire, { envoyerLogoAdversaire } from "@/components/match/ChampLogoAdversaire";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -271,7 +272,7 @@ function Bandeau({ match, recu = false }: { match: Match; recu?: boolean }) {
 }
 
 export default function MatchesPage() {
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
   const router = useRouter();
   const [matches, setMatches] = useState<Match[]>([]);
   const [challenges, setChallenges] = useState<Match[]>([]);
@@ -347,6 +348,8 @@ export default function MatchesPage() {
   const [awaySearchResults, setAwaySearchResults] = useState<Team[]>([]);
   const [awayTeamId, setAwayTeamId] = useState("");
   const [awayTeamName, setAwayTeamName] = useState("");
+  // Le logo de l'adversaire hors plateforme, facultatif (lib/logo-hors-plateforme).
+  const [logoAdversaire, setLogoAdversaire] = useState<File | null>(null);
   const [awayManagerId, setAwayManagerId] = useState("");
   const [showAwayDropdown, setShowAwayDropdown] = useState(false);
   const [searchingAway, setSearchingAway] = useState(false);
@@ -554,6 +557,7 @@ export default function MatchesPage() {
     setAwaySearchResults([]);
     setAwayTeamId("");
     setAwayTeamName("");
+    setLogoAdversaire(null);
     setAwayManagerId("");
     setShowAwayDropdown(false);
   };
@@ -697,6 +701,12 @@ export default function MatchesPage() {
       });
 
       toast.success(isFriendly ? "Match programmé" : "Défi envoyé");
+      // Le logo de l'adversaire hors plateforme, maintenant que le match a son
+      // identifiant (lib/logo-hors-plateforme). Raté, il ne défait pas le match.
+      if (isFriendly && logoAdversaire && firebaseUser) {
+        const echec = await envoyerLogoAdversaire(matchId, logoAdversaire, await firebaseUser.getIdToken());
+        if (echec) toast.error(echec);
+      }
 
       // Sur un terrain référencé, la demande de créneau part chez le
       // propriétaire dans la foulée — pour un défi aussi, sans attendre que
@@ -1276,6 +1286,8 @@ export default function MatchesPage() {
                       camp reçoit {tailleEffectif(format)} joueurs numérotés pour
                       que le direct soit couvrable des deux côtés.
                     </p>
+                    {/* Son logo, s'il en a un (lib/logo-hors-plateforme) : sinon, son initiale. */}
+                    <ChampLogoAdversaire fichier={logoAdversaire} onChange={setLogoAdversaire} className="mt-2.5" />
                   </div>
                 )}
                 {/* Date */}
