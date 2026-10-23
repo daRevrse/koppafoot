@@ -2538,6 +2538,14 @@ export async function pauseMatchTimer(matchId: string, currentOffset: number): P
   });
 }
 
+/** La case « Sans gardien », changee en cours de match. Voir lib/gardiens. */
+export async function setMatchSansGardien(matchId: string, sansGardien: boolean): Promise<void> {
+  await updateDoc(doc(db, "matches", matchId), {
+    "live_state.sans_gardien": sansGardien,
+    updated_at: serverTimestamp(),
+  });
+}
+
 /**
  * Poser la possession de balle sur un amical.
  *
@@ -2582,7 +2590,7 @@ export async function updateMatchPeriod(matchId: string, period: number): Promis
   });
 }
 
-export async function initLiveMatch(matchId: string): Promise<void> {
+export async function initLiveMatch(matchId: string, sansGardien: boolean): Promise<void> {
   await updateDoc(doc(db, "matches", matchId), {
     status: "live",
     live_state: {
@@ -2594,6 +2602,9 @@ export async function initLiveMatch(matchId: string): Promise<void> {
       // Le direct est ouvert, le ballon pas encore au centre : le coup
       // d'envoi est un geste a part. Voir lib/etat-du-jeu.
       jeu: JEU_AVANT,
+      // Voir initLiveCompMatch : toujours ecrite, c'est le marqueur de la
+      // regle du gardien designe.
+      sans_gardien: sansGardien,
     },
     score_home: 0,
     score_away: 0,

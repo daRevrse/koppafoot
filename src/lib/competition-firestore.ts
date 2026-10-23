@@ -1380,7 +1380,7 @@ const compMatchRef = (cid: string, mid: string) =>
  * Initialise live state for a competition match. Mirrors `initLiveMatch`:
  * status -> "live", fresh `live_state`, scores reset to 0.
  */
-export async function initLiveCompMatch(cid: string, mid: string): Promise<void> {
+export async function initLiveCompMatch(cid: string, mid: string, sansGardien: boolean): Promise<void> {
   await updateDoc(compMatchRef(cid, mid), {
     status: "live",
     live_state: {
@@ -1392,6 +1392,9 @@ export async function initLiveCompMatch(cid: string, mid: string): Promise<void>
       // Le direct est ouvert, le ballon pas encore au centre : le coup
       // d'envoi est un geste a part. Voir lib/etat-du-jeu.
       jeu: JEU_AVANT,
+      // La case de la feuille de match, toujours ecrite : sa presence dit
+      // que le match suit la regle du gardien designe (voir lib/gardiens).
+      sans_gardien: sansGardien,
     },
     score_home: 0,
     score_away: 0,
@@ -1466,6 +1469,14 @@ export async function setCompPossession(
     "live_state.possession.since": p.since,
     "live_state.possession.home_passes": p.home_passes ?? 0,
     "live_state.possession.away_passes": p.away_passes ?? 0,
+    updated_at: serverTimestamp(),
+  });
+}
+
+/** La case « Sans gardien », changee en cours de match. Jumelle de `setMatchSansGardien`. */
+export async function setCompSansGardien(cid: string, mid: string, sansGardien: boolean): Promise<void> {
+  await updateDoc(compMatchRef(cid, mid), {
+    "live_state.sans_gardien": sansGardien,
     updated_at: serverTimestamp(),
   });
 }

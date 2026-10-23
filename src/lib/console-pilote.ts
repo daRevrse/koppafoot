@@ -24,7 +24,7 @@ import {
   onCompMatch, onCompetition, getCompTeam, setCompMatchLineup,
   initLiveCompMatch, rouvrirFeuillesCompMatch, startCompTimer, pauseCompTimer, updateCompPeriod,
   addCompEvent, setCompGoalAssist, setCompFoulVictim, setCompGoalVarStatus,
-  finishCompMatch, updateCompMatch, setCompPossession, setCompAddedTime,
+  finishCompMatch, updateCompMatch, setCompPossession, setCompSansGardien, setCompAddedTime,
   setCompPenaltyOutcome, retirerCompEvenements, transitionCompMatch, ajouterDossards,
 } from "@/lib/competition-firestore";
 import type { Transition } from "@/lib/etat-du-jeu";
@@ -41,7 +41,7 @@ import {
   setMatchLineup, setMatchOnPitch, addMatchLiveEvent, setMatchGoalAssist, setMatchMVP,
   setMatchFoulVictim, initLiveMatch, rouvrirFeuillesMatch, startMatchTimer, pauseMatchTimer,
   compositionTypePour,
-  updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession,
+  updateMatchPeriod, updateMatchStatus, setPenaltyShootout, setMatchPossession, setMatchSansGardien,
   setMatchAddedTime, setMatchPenaltyOutcome, retirerEvenementsAmical,
   ecrituresEnvoyees, transitionMatch, terminerAmical,
 } from "@/lib/firestore";
@@ -159,7 +159,11 @@ export interface PiloteConsole {
    */
   ajouterDossards?(side: Cote, numeros: number[]): Promise<CompPlayer[]>;
 
-  lancer(surLeTerrain: { home: string[]; away: string[] }): Promise<void>;
+  /**
+   * Le direct s'ouvre. `sansGardien` est la case de l'ecran des feuilles :
+   * elle part avec le lancement, parce que `live_state` n'existe pas avant.
+   */
+  lancer(surLeTerrain: { home: string[]; away: string[] }, sansGardien: boolean): Promise<void>;
   /**
    * Le contraire de `lancer`, tant que personne n'a engage : le direct se
    * referme et le match redevient a venir, feuilles comprises. Voir
@@ -194,6 +198,9 @@ export interface PiloteConsole {
    * seule ecriture de la console qui ne corresponde pas a un geste du scoreur.
    */
   poserPossession(p: PossessionStockee): Promise<void>;
+
+  /** La case « Sans gardien », changee depuis le menu de la console. */
+  poserSansGardien(sansGardien: boolean): Promise<void>;
 
   /**
    * Le temps additionnel annonce pour une mi-temps, en minutes.
@@ -331,8 +338,8 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       }
     },
 
-    lancer: async ({ home, away }) => {
-      await initLiveCompMatch(cid, mid);
+    lancer: async ({ home, away }, sansGardien) => {
+      await initLiveCompMatch(cid, mid, sansGardien);
       await updateCompMatch(cid, mid, { home_on_pitch: home, away_on_pitch: away });
     },
     revenirAuxFeuilles: () => rouvrirFeuillesCompMatch(cid, mid),
@@ -355,6 +362,7 @@ export function piloteCompetition(cid: string, mid: string): PiloteConsole {
       await finishCompMatch(cid, mid);
     },
     poserPossession: (p) => setCompPossession(cid, mid, p),
+    poserSansGardien: (v) => setCompSansGardien(cid, mid, v),
     poserTempsAdditionnel: (mt, min) => setCompAddedTime(cid, mid, mt, min),
 
     poserMVP: (mvp, parUid) => updateCompMatch(cid, mid, {
@@ -562,8 +570,8 @@ export function piloteAmical(matchId: string): PiloteConsole {
       }
     },
 
-    lancer: async ({ home, away }) => {
-      await initLiveMatch(matchId);
+    lancer: async ({ home, away }, sansGardien) => {
+      await initLiveMatch(matchId, sansGardien);
       await setMatchOnPitch(matchId, "home", home);
       await setMatchOnPitch(matchId, "away", away);
     },
@@ -583,6 +591,7 @@ export function piloteAmical(matchId: string): PiloteConsole {
     // Le score du moment reste : seul le forfait est note.
     arreterDefinitivement: ({ forfaitTeamId }) => terminerAmical(matchId, forfaitTeamId),
     poserPossession: (p) => setMatchPossession(matchId, p),
+    poserSansGardien: (v) => setMatchSansGardien(matchId, v),
     poserTempsAdditionnel: (mt, min) => setMatchAddedTime(matchId, mt, min),
     poserMVP: (mvp, parUid) => setMatchMVP(matchId, mvp, parUid),
 

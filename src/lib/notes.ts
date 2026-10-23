@@ -30,8 +30,9 @@
 // ============================================
 
 import { OWN_GOAL_DETAIL, type TypeEvenement } from "@/lib/evenements";
+import { bilanDesGardiens, regleDuGardienDesigne } from "@/lib/gardiens";
 import { normaliserPoste } from "@/lib/postes";
-import { computeMinutesPlayed, type MatchJoue } from "@/lib/player-stats";
+import { computeMinutesPlayed, DUREE_MATCH_DEFAUT, type MatchJoue } from "@/lib/player-stats";
 import type { LineupEntry } from "@/types";
 import type { Langue } from "@/i18n/config";
 
@@ -72,6 +73,10 @@ const POIDS: Partial<Record<TypeEvenement, number>> = {
   save: 0.35,
   shot_on_target: 0.2,
   shot: 0.05,
+  // Un ballon gagne vaut un peu moins qu'un tir cadre ; un ballon perdu, un
+  // hors-jeu. Il y en a des dizaines par match : chacun doit peser peu.
+  ball_won: 0.15,
+  ball_lost: -0.1,
   offside: -0.1,
   foul: -0.15,
   yellow_card: -0.5,
@@ -202,16 +207,31 @@ export function notesDuCamp(
     }
   }
 
-  if (gardien) {
-    const n = notes.get(gardien.playerId);
-    if (n && n.note !== null) {
-      if (butsEncaisses > 0) {
-        n.note += butsEncaisses * POIDS_BUT_ENCAISSE;
-        n.faits += butsEncaisses;
-      } else if (n.minutes >= MINUTES_CLEAN_SHEET) {
-        n.note += PRIME_CLEAN_SHEET;
-        n.faits += 1;
-      }
+  // LES GARDIENS, ET CE QU'ILS ONT ENCAISSE. Un match tenu sous la regle du
+  // gardien designe (voir lib/gardiens) donne a chacun de ceux qui sont passes
+  // dans les cages les buts encaisses pendant qu'il y etait, et sa prime sur
+  // ses minutes AU BUT ; un match sans gardien n'en a aucun. Un match plus
+  // ancien garde la regle d'avant, a l'identique : la premiere ligne au poste
+  // prend tout, sur ses minutes jouees. Une note publiee ne bouge pas parce
+  // qu'on a deploye.
+  const gardiens: { playerId: string; encaisses: number; minutes: number }[] =
+    regleDuGardienDesigne(match.liveState)
+      ? match.liveState?.sansGardien || !teamId
+        ? []
+        : bilanDesGardiens(lineup, faits, teamId, dureeMatchMin ?? DUREE_MATCH_DEFAUT)
+      : gardien
+        ? [{ playerId: gardien.playerId, encaisses: butsEncaisses, minutes: minutes.get(gardien.playerId) ?? 0 }]
+        : [];
+
+  for (const g of gardiens) {
+    const n = notes.get(g.playerId);
+    if (!n || n.note === null) continue;
+    if (g.encaisses > 0) {
+      n.note += g.encaisses * POIDS_BUT_ENCAISSE;
+      n.faits += g.encaisses;
+    } else if (g.minutes >= MINUTES_CLEAN_SHEET) {
+      n.note += PRIME_CLEAN_SHEET;
+      n.faits += 1;
     }
   }
 

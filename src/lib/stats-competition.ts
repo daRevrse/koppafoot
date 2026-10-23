@@ -78,7 +78,7 @@ export const RECORD_MIN = 2;
  * fin plutot que de disparaitre.
  */
 const ORDRE = [
-  "buts", "tirs", "cadres", "arrets", "passes", "corners", "penaltys",
+  "buts", "tirs", "cadres", "arrets", "passes", "recuperations", "pertes", "corners", "penaltys",
   "coups_francs", "touches", "fautes", "hors_jeu", "jaunes", "rouges", "changements",
 ];
 const rang = (cle: string) => {

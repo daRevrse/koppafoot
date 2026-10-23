@@ -218,15 +218,33 @@ export function balleApres(type: TypeEvenement, cote: Cote): Cote | null {
     case "free_kick":
     case "penalty":
     case "save":
+    case "ball_won":
       return cote;
     case "foul":
     case "offside":
     case "shot":
     case "shot_on_target":
+    case "ball_lost":
       return autre(cote);
     default:
       return null;
   }
+}
+
+/**
+ * Le geste de ballon qu'on propose a un joueur de `cote`, selon le camp qui a
+ * le ballon : le perdre s'il est a son equipe, le gagner sinon.
+ *
+ * QUAND PERSONNE N'A LE BALLON, ON NE PEUT QUE LE GAGNER. Une perte suppose
+ * qu'on l'avait, et le scoreur n'a encore rien dit de qui l'a.
+ *
+ * Un ballon, une saisie : apres la perte d'un joueur, le ballon passe en face
+ * (voir `balleApres`), et ceux d'en face n'ont plus que « Perte ». Le
+ * proprietaire l'a choisi, contre un rattrapage qui aurait laisse saisir les
+ * deux bouts de la meme interception.
+ */
+export function actionDeBallon(cote: Cote, ballon: Cote | null): "ball_won" | "ball_lost" {
+  return ballon === cote ? "ball_lost" : "ball_won";
 }
 
 /**
