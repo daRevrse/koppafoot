@@ -550,7 +550,7 @@ export default function LiveMatchConsole({
   /** Le gardien en place d'un camp, d'après les événements. */
   const gardienDuCamp = (side: Side): GardienEnPlace | null => {
     const teamId = side === "home" ? match?.homeTeamId : match?.awayTeamId;
-    if (!match || !teamId || sansGardien) return null;
+    if (!match || teamId == null || sansGardien) return null;
     return gardienEnPlace(
       side === "home" ? match.homeLineup : match.awayLineup,
       match.liveState?.events ?? [],
@@ -1609,7 +1609,11 @@ export default function LiveMatchConsole({
     if (!match?.liveState) return;
     const teamName = side === "home" ? match.homeTeamName : match.awayTeamName;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
-    if (!teamId) {
+    // UN ADVERSAIRE HORS PLATEFORME a un identifiant VIDE (`""`), et c'est
+    // un camp comme un autre : ses événements portent ce même `""`, que les
+    // règles et les lecteurs connaissent déjà. Seul `null` dit qu'il n'y a
+    // pas d'équipe — un tableau pas encore tiré.
+    if (teamId == null) {
       toast.error("Équipe non définie");
       return;
     }
@@ -1749,7 +1753,7 @@ export default function LiveMatchConsole({
   const enregistrerEvenementEquipe = (side: Side, type: TypeEvenementEquipe) => {
     if (!match?.liveState) return;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
-    if (!teamId) {
+    if (teamId == null) {
       toast.error("Équipe non définie");
       return;
     }
@@ -1814,7 +1818,7 @@ export default function LiveMatchConsole({
   ) => {
     if (!match?.liveState) return;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
-    if (!teamId) {
+    if (teamId == null) {
       toast.error("Équipe non définie");
       return;
     }
@@ -1927,7 +1931,7 @@ export default function LiveMatchConsole({
     if (!fautePenalty || !match?.liveState) return;
     const cote = autre(fautePenalty.side);
     const teamId = cote === "home" ? match.homeTeamId : match.awayTeamId;
-    if (!teamId) return;
+    if (teamId == null) return;
     suivre(pilote.ajouterEvenement({
       id: nouvelIdEvenement(),
       type: "foul",
@@ -2012,7 +2016,7 @@ export default function LiveMatchConsole({
     if (!match?.liveState || !subModal) return;
     const { side } = subModal;
     const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
-    if (!teamId) {
+    if (teamId == null) {
       toast.error("Équipe non définie");
       return;
     }
@@ -2667,7 +2671,7 @@ export default function LiveMatchConsole({
       : gardienDuPoste?.playerId === entry.playerId;
     const peutArreter = estLeGardien || (!regleDuGardien && gardienDuPoste === null);
     const teamIdDuCamp = side === "home" ? match.homeTeamId : match.awayTeamId;
-    const prendreLesGants = regleDuGardien && !sansGardien && !!teamIdDuCamp
+    const prendreLesGants = regleDuGardien && !sansGardien && teamIdDuCamp != null
       && peutPrendreLesGants(enPlace, entry.playerId);
 
     const evenement = (
