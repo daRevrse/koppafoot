@@ -89,12 +89,23 @@ function encaissePar(f: FaitDeGardien, teamId: string): boolean {
 }
 
 /**
- * La marche commune : les faits dans l'ordre du match, le gardien qui change,
- * et ce qui se passe sous chaque gardien.
+ * Les faits dans l'ordre du match.
  *
  * MEME TRI QUE LES MINUTES JOUEES (voir computeMinutesPlayed) : par minute,
  * stable, pour que deux faits de la meme minute gardent l'ordre de saisie —
  * le rouge du gardien, puis le but qu'il n'est plus la pour arreter.
+ */
+function dansLOrdre(faits: FaitDeGardien[]): FaitDeGardien[] {
+  return faits
+    .filter((f) => typeof f.minute === "number")
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => a.f.minute - b.f.minute || a.i - b.i)
+    .map(({ f }) => f);
+}
+
+/**
+ * La marche commune : les faits dans l'ordre du match, le gardien qui change,
+ * et ce qui se passe sous chaque gardien.
  */
 function parcourir(
   lineup: LineupEntry[],
@@ -105,13 +116,7 @@ function parcourir(
   const depart = gardienDeDepart(lineup);
   let enPlace: GardienEnPlace | null = depart ? { playerId: depart.playerId, source: "feuille" } : null;
 
-  const tries = faits
-    .filter((f) => typeof f.minute === "number")
-    .map((f, i) => ({ f, i }))
-    .sort((a, b) => a.f.minute - b.f.minute || a.i - b.i)
-    .map(({ f }) => f);
-
-  for (const f of tries) {
+  for (const f of dansLOrdre(faits)) {
     const avant = enPlace;
     if (f.teamId === teamId) {
       if (f.type === "substitution" && enPlace && f.outPlayerId === enPlace.playerId && f.playerId) {
@@ -194,6 +199,64 @@ export function bilanDesGardiens(
   if (enPlaceFinal) bilanDe(enPlaceFinal.playerId).minutes += coupDeSifflet - depuis;
 
   return bilans;
+}
+
+/**
+ * LES JOUEURS SUR LA PELOUSE, A LEUR PLACE, pour le terrain de la console.
+ *
+ * Le terrain place chacun d'apres la feuille : son poste, et la case que le
+ * manager lui a choisie. Un remplacant gardait donc SON poste, et se rangeait
+ * ou celui-ci le mettait — un milieu entre pour le gardien jouait au milieu,
+ * et le but restait vide. CELUI QUI ENTRE PREND LA PLACE DE CELUI QUI SORT :
+ * son poste, sa case, et son rang dans l'ordre de la feuille, qui dit qui
+ * joue a gauche. Celui qui le remplace ensuite la reprend a son tour.
+ *
+ * `gardien` : le gardien en place sous la regle du gardien designe (voir
+ * `gardienEnPlace`), `null` quand les cages sont vides. LUI SEUL EST DESSINE
+ * AU BUT. Celui qui a pris les gants quitte sa case pour les cages, et elle
+ * reste vide ; un gardien de poste qui n'a pas les gants joue dans le champ.
+ * Absent — un match d'avant la case, ou sans gardien —, les postes restent
+ * ceux de la feuille.
+ *
+ * Qui est sur la pelouse vient de `surLeTerrain`, jamais des faits : on ne
+ * dessine que ceux qui y sont vraiment.
+ */
+export function lignesSurLaPelouse(
+  lineup: LineupEntry[],
+  surLeTerrain: string[],
+  faits: FaitDeGardien[],
+  teamId: string | null,
+  gardien?: string | null,
+): LineupEntry[] {
+  const places = new Map(lineup.map((e, rang) => [
+    e.playerId,
+    { position: e.position ?? null, emplacement: e.emplacement ?? null, rang },
+  ]));
+  for (const f of dansLOrdre(faits)) {
+    if (f.teamId !== teamId || f.type !== "substitution" || !f.playerId || !f.outPlayerId) continue;
+    const laissee = places.get(f.outPlayerId);
+    if (laissee) places.set(f.playerId, { ...laissee });
+  }
+
+  const presents = new Set(surLeTerrain);
+  return lineup
+    .filter((e) => presents.has(e.playerId))
+    .map((e) => ({ e, place: places.get(e.playerId)! }))
+    .sort((a, b) => a.place.rang - b.place.rang)
+    .map(({ e, place }) => {
+      let { position, emplacement } = place;
+      if (gardien !== undefined) {
+        if (e.playerId === gardien) {
+          // Une case du champ le retiendrait hors du but.
+          position = "goalkeeper";
+          if (emplacement && emplacement.ligne !== 0) emplacement = null;
+        } else {
+          if (normaliserPoste(position) === "goalkeeper") position = null;
+          if (emplacement?.ligne === 0) emplacement = null;
+        }
+      }
+      return { ...e, position, emplacement };
+    });
 }
 
 /**
