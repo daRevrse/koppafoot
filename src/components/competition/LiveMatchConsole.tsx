@@ -34,11 +34,15 @@ import { libelleMinute } from "@/lib/minute-du-match";
 import { SEANCE_VIDE, TIRS_PAR_EQUIPE, etatDeLaSeance, type Seance, type Tir } from "@/lib/tirs-au-but";
 import {
   JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
-  autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
+  actionDeBallon, autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
   scoreDeForfait, seanceDeTirs, verrou,
   type Jeu, type Transition,
 } from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
+import {
+  gardienDeDepart, gardienEnPlace, gardienExige, gardienPropose, peutPrendreLesGants,
+  regleDuGardienDesigne, type GardienEnPlace,
+} from "@/lib/gardiens";
 import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
 import {
   ajouterRetouche, appliquerRetouches, estHorsLigne, lireFile, sansLesEvenements,
@@ -373,6 +377,21 @@ export default function LiveMatchConsole({
   // franchie et la console va au coup d'envoi. Ce drapeau la rouvre à la
   // demande, pour une dernière retouche.
   const [revoirLesFeuilles, setRevoirLesFeuilles] = useState(false);
+  /**
+   * LA CASE « SANS GARDIEN », avant le coup d'envoi. Elle ne peut pas vivre
+   * dans le match : `live_state` n'existe pas encore, et le lancement le
+   * réécrit en entier. Elle part donc avec le lancement (voir lib/gardiens),
+   * et le menu ⋯ la change ensuite dans le match lui-même.
+   */
+  const [caseSansGardien, setCaseSansGardien] = useState<boolean | null>(null);
+  /**
+   * Le gardien désigné sur chaque feuille en préparation. `undefined` tant
+   * que le scoreur n'a rien touché : on propose alors le titulaire que
+   * l'effectif met au poste (voir `gardienPropose`).
+   */
+  const [gardiensChoisis, setGardiensChoisis] = useState<Record<Side, string | null | undefined>>(
+    { home: undefined, away: undefined },
+  );
 
   /**
    * La possession de balle, tenue ICI et non dans le match.
@@ -403,6 +422,10 @@ export default function LiveMatchConsole({
   // TerrainsFaceAFace.
   const [actions, setActions] = useState<ActionsState | null>(null);
   const [victime, setVictime] = useState<VictimeState | null>(null);
+  // Le gardien vient de quitter la pelouse sans remplaçant à son poste : qui
+  // prend les gants ? Facultative — un gardien remplaçant peut encore entrer.
+  // `eventId` : l'exclusion qui a vidé les cages ; la retirer ferme la question.
+  const [gantsAPrendre, setGantsAPrendre] = useState<{ side: Side; sortant: string; eventId: string } | null>(null);
   // Second question, asked only after a goal: who laid it on. Optional by
   // design, the scoreboard is already right, this only enriches it.
   const [assistPicker, setAssistPicker] = useState<AssistPickerState | null>(null);
@@ -514,6 +537,27 @@ export default function LiveMatchConsole({
   /** Pourquoi les actions de jeu sont fermées, ou `null`. */
   const verrouDuJeu = match?.status === "live" ? verrou(jeu) : null;
 
+  /**
+   * LE GARDIEN, voir lib/gardiens. `regleDuGardien` : le match a été lancé
+   * avec la case, et suit la règle du gardien désigné ; sinon, tout reste
+   * comme avant. `sansGardien` vaut la case : celle du match une fois lancé,
+   * celle de l'écran des feuilles avant.
+   */
+  const regleDuGardien = regleDuGardienDesigne(match?.liveState);
+  const sansGardien = match?.status === "live" || match?.status === "completed"
+    ? match?.liveState?.sansGardien === true
+    : caseSansGardien ?? false;
+  /** Le gardien en place d'un camp, d'après les événements. */
+  const gardienDuCamp = (side: Side): GardienEnPlace | null => {
+    const teamId = side === "home" ? match?.homeTeamId : match?.awayTeamId;
+    if (!match || !teamId || sansGardien) return null;
+    return gardienEnPlace(
+      side === "home" ? match.homeLineup : match.awayLineup,
+      match.liveState?.events ?? [],
+      teamId,
+    );
+  };
+
   // Load both rosters once, before kickoff, for the match-sheet builder. Drafts
   // are seeded from any previously-saved lineup so re-validation overwrites cleanly.
   const isPreKickoff = !!match && match.status !== "live" && match.status !== "completed";
@@ -606,14 +650,18 @@ export default function LiveMatchConsole({
   // À DÉFAUT DE FEUILLE ENREGISTRÉE, la composition type du club prend le
   // relais : c'est la seule différence avec avant, et elle ne joue que sur un
   // camp qui n'a rien.
+  // Le gardien désigné suit la feuille enregistrée ; une feuille qui n'en a
+  // pas laisse la proposition venir de l'effectif.
   useEffect(() => {
     if (!match) return;
     setHomeSheet(seedSheet(match.homeLineup.length > 0 ? match.homeLineup : compoTypes.home ?? []));
+    setGardiensChoisis((g) => ({ ...g, home: gardienDeDepart(match.homeLineup)?.playerId ?? undefined }));
   }, [match?.homeLineup, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!match) return;
     setAwaySheet(seedSheet(match.awayLineup.length > 0 ? match.awayLineup : compoTypes.away ?? []));
+    setGardiensChoisis((g) => ({ ...g, away: gardienDeDepart(match.awayLineup)?.playerId ?? undefined }));
   }, [match?.awayLineup, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prevent accidental navigation while live
@@ -1092,6 +1140,23 @@ export default function LiveMatchConsole({
   };
 
   /**
+   * Le gardien d'une feuille en préparation : celui que le scoreur a désigné,
+   * ou, tant qu'il n'a rien touché, le titulaire que l'effectif met au poste.
+   * Un joueur qui n'est plus titulaire perd la désignation.
+   */
+  const gardienDeLaFeuille = (side: Side): string | null => {
+    const roster = (side === "home" ? homeRoster : awayRoster) ?? [];
+    const sheet = side === "home" ? homeSheet : awaySheet;
+    const titulaires = roster
+      .filter((p) => sheet[p.id] === "starter")
+      .map((p) => ({ id: p.id, position: p.position }));
+    return gardienPropose(titulaires, gardiensChoisis[side]);
+  };
+  /** Le 🧤 d'une ligne : désigne ce titulaire, ou retire la désignation. */
+  const designerGardien = (side: Side, playerId: string) =>
+    setGardiensChoisis((g) => ({ ...g, [side]: gardienDeLaFeuille(side) === playerId ? null : playerId }));
+
+  /**
    * LA FEUILLE DE SECOURS : « N°1 » à « N°25 », sauf les numéros
    * que l'effectif porte déjà. Rien ne s'écrit ici — le scoreur coche ceux
    * qu'il voit sur le terrain, et seuls ceux-là entrent dans l'effectif, à la
@@ -1123,6 +1188,24 @@ export default function LiveMatchConsole({
     const caseDe = (id: string) =>
       dejaSurLaFeuille.find((e) => e.playerId === id && e.role === "starter")?.emplacement ?? null;
 
+    // LE GARDIEN DÉSIGNÉ PORTE LE POSTE, et lui seul parmi les titulaires : sur
+    // une feuille, le poste est le rôle du jour. Un titulaire que l'effectif
+    // dit gardien mais qui joue dans le champ ce jour-là le perd ; les
+    // remplaçants gardent le leur. Sans gardien, la feuille garde les postes
+    // de l'effectif : c'est la case qui décide, partout où l'on compte.
+    const teamIdDuCamp = side === "home" ? match.homeTeamId : match.awayTeamId;
+    const gardien = sansGardien ? null : gardienDeLaFeuille(side);
+    if (gardienExige(teamIdDuCamp, sansGardien) && !gardien) {
+      toast.error("Désigne le gardien 🧤 parmi les titulaires");
+      return;
+    }
+    const posteSurLaFeuille = (p: CompPlayer) => {
+      const poste = normaliserPoste(p.position);
+      if (sansGardien || sheet[p.id] !== "starter") return poste;
+      if (p.id === gardien) return "goalkeeper";
+      return poste === "goalkeeper" ? null : poste;
+    };
+
     const entries: LineupEntry[] = roster
       .filter((p) => (sheet[p.id] ?? "out") !== "out")
       .map((p) => ({
@@ -1136,8 +1219,8 @@ export default function LiveMatchConsole({
         // Le poste suit le joueur sur la feuille, sous sa forme canonique. La
         // console en a besoin pour savoir qui est le gardien, et le terrain
         // pour placer les maillots. La ligne d'effectif l'ecrit en trois
-        // orthographes, d'ou le normaliseur.
-        position: normaliserPoste(p.position),
+        // orthographes, d'ou le normaliseur. Le gardien designe, voir plus haut.
+        position: posteSurLaFeuille(p),
         emplacement: sheet[p.id] === "starter" ? caseDe(p.id) : null,
       }));
 
@@ -1183,14 +1266,27 @@ export default function LiveMatchConsole({
     }
   };
 
+  /**
+   * Le camp n'a pas le gardien qu'il lui faut pour lancer le match : la case
+   * est décochée, et sa feuille enregistrée ne met aucun titulaire au but.
+   */
+  const gardienManquant = (side: Side): boolean => {
+    if (!match) return false;
+    const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
+    const lineup = side === "home" ? match.homeLineup : match.awayLineup;
+    return gardienExige(teamId, sansGardien) && !gardienDeDepart(lineup);
+  };
+
   const handleLaunch = async () => {
     if (!match?.homeLineupReady || !match?.awayLineupReady) return;
+    if (gardienManquant("home") || gardienManquant("away")) return;
     const homeOnPitch = match.homeLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     const awayOnPitch = match.awayLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
     try {
       // Le direct s'ouvre ; le coup d'envoi, et son push, sont un geste à part
-      // dans la console. Voir `remettreEnJeu`.
-      await pilote.lancer({ home: homeOnPitch, away: awayOnPitch });
+      // dans la console. Voir `remettreEnJeu`. La case « Sans gardien » part
+      // avec lui.
+      await pilote.lancer({ home: homeOnPitch, away: awayOnPitch }, sansGardien);
     } catch {
       toast.error("Erreur technique");
     }
@@ -1403,6 +1499,8 @@ export default function LiveMatchConsole({
     const r = planDuRetrait(m.liveState.events, eventId, {
       homeTeamId: m.homeTeamId,
       surLeTerrain: { home: m.homeOnPitch, away: m.awayOnPitch },
+      // Pour savoir si l'exclu était le gardien : voir lib/gardiens.
+      lineups: { home: m.homeLineup, away: m.awayLineup },
     });
     if (!r.ok) {
       toast.error(r.raison);
@@ -1413,7 +1511,9 @@ export default function LiveMatchConsole({
       ? `${LIBELLE_EVENEMENT[cible.type] ?? "Événement"}${cible.playerName ? ` de ${cible.playerName}` : ""}`
       : "Événement";
     if (confirmer) {
-      const emporte = r.plan.ids.length > 1;
+      const emportes = r.plan.ids.filter((id) => id !== eventId);
+      const gants = emportes.some((id) => m.liveState?.events.find((e) => e.id === id)?.type === "gants");
+      const emporte = emportes.some((id) => m.liveState?.events.find((e) => e.id === id)?.type !== "gants");
       const ok = await demander({
         titre: `Retirer : ${quoi.toLowerCase()} ?`,
         corps: (
@@ -1421,6 +1521,7 @@ export default function LiveMatchConsole({
             Il disparaît de l&apos;historique, des statistiques et des notes.
             {r.plan.score.home + r.plan.score.away < 0 && " Le score perd ce but."}
             {emporte && " L'exclusion et le second jaune partent ensemble."}
+            {gants && " La prise de gants qui avait suivi part aussi."}
             {r.plan.surLeTerrain.home || r.plan.surLeTerrain.away
               ? " La pelouse revient à ce qu'elle était avant."
               : ""}
@@ -1449,6 +1550,7 @@ export default function LiveMatchConsole({
     // Les questions qui portaient sur lui n'ont plus d'objet.
     setAssistPicker((a) => (a && ids.includes(a.eventId) ? null : a));
     setVictime((v) => (v && ids.includes(v.eventId) ? null : v));
+    setGantsAPrendre((g) => (g && ids.includes(g.eventId) ? null : g));
     setPenaltyOuvert((p) => (p && ids.includes(p.eventId) ? null : p));
     setFautePenalty((f) => (f && ids.includes(f.eventId) ? null : f));
     // Le but qui avait mis le ballon mort est retiré : la console ne devine pas
@@ -1516,6 +1618,12 @@ export default function LiveMatchConsole({
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
     const events = match.liveState.events ?? [];
     const base = { side, team_id: teamId, period, minute, player_id: entry.playerId, player_name: entry.name };
+    // LE GARDIEN QUI QUITTE LA PELOUSE sans remplaçant à son poste laisse les
+    // cages vides : la console demande qui prend les gants (voir lib/gardiens).
+    const etaitAuBut = regleDuGardien && gardienDuCamp(side)?.playerId === entry.playerId;
+    const viderLesCages = (exclusionId: string) => {
+      if (etaitAuBut) setGantsAPrendre({ side, sortant: entry.playerId, eventId: exclusionId });
+    };
 
     // RIEN N'EST ATTENDU ICI. L'identifiant est tiré d'avance, l'écriture part
     // dans la file de Firestore, et la console rend la main aussitôt — réseau
@@ -1560,6 +1668,7 @@ export default function LiveMatchConsole({
         );
         proposerAnnulation(`🟥 2e jaune : ${entry.name} exclu`, jauneId);
         verifierMinimum(side, onPitch.filter((id) => id !== entry.playerId).length);
+        viderLesCages(jauneId);
       } else {
         // UN JAUNE NE SONNE PAS. Pour qui suit une compétition de quarante
         // matchs, c'était un téléphone qui vibre à chaque faute un peu
@@ -1577,6 +1686,7 @@ export default function LiveMatchConsole({
       );
       proposerAnnulation(`🟥 Carton rouge, ${entry.name}`, rougeId);
       verifierMinimum(side, onPitch.filter((id) => id !== entry.playerId).length);
+      viderLesCages(rougeId);
     } else if (type === "sortie") {
       // Il quitte la pelouse, personne n'entre : son équipe joue à un de
       // moins. Jamais notifié — une blessure n'est pas un fait de match pour
@@ -1587,12 +1697,14 @@ export default function LiveMatchConsole({
       suivre(pilote.poserSurLeTerrain(side, restants), "La pelouse n'a pas été mise à jour");
       proposerAnnulation(`🚑 ${entry.name} sort sans remplaçant`, sortieId);
       verifierMinimum(side, restants.length);
+      viderLesCages(sortieId);
     } else {
-      // Arrêt, faute, hors-jeu : l'historique du match, et rien d'autre.
+      // Arrêt, faute, hors-jeu, ballon gagné ou perdu, prise de gants :
+      // l'historique du match, et rien d'autre.
       //
       // AUCUNE NOTIFICATION, volontairement. On réveille le téléphone d'un
       // supporter pour un but ou une expulsion, pas pour un hors-jeu à la
-      // 12e. Ces trois-là existent pour les statistiques et pour le récit
+      // 12e. Ceux-là existent pour les statistiques et pour le récit
       // d'après-match ; les pousser noierait les deux qui comptent.
       const id = nouvelIdEvenement();
       suivre(pilote.ajouterEvenement({ ...base, id, type }), "L'action n'a pas été enregistrée");
@@ -1766,11 +1878,16 @@ export default function LiveMatchConsole({
       // pas : la feuille le dit. Sur une feuille ou personne n'a declare
       // de gardien — deux tiers d'entre elles n'ont aucun poste — l'arret
       // n'est porte par personne, et l'issue reste vraie.
+      //
+      // Sous la regle du gardien designe, c'est le gardien EN PLACE (voir
+      // lib/gardiens) : personne dans un match sans gardien, ni quand les
+      // cages sont vides.
       const surLeTerrain = new Set(autre === "home" ? match.homeOnPitch : match.awayOnPitch);
-      const gardien = gardienDe(
-        (autre === "home" ? match.homeLineup : match.awayLineup)
-          .filter((e) => surLeTerrain.has(e.playerId)),
-      );
+      const lineupAdverse = autre === "home" ? match.homeLineup : match.awayLineup;
+      const enPlace = regleDuGardien ? gardienDuCamp(autre) : null;
+      const gardien = regleDuGardien
+        ? lineupAdverse.find((e) => e.playerId === enPlace?.playerId) ?? null
+        : gardienDe(lineupAdverse.filter((e) => surLeTerrain.has(e.playerId)));
       const teamAdverse = autre === "home" ? match.homeTeamId : match.awayTeamId;
       if (gardien && teamAdverse) {
         suivre(pilote.ajouterEvenement({
@@ -2222,6 +2339,8 @@ export default function LiveMatchConsole({
      * on demande à revoir celles qui existent.
      */
     const montrerLAtelier = !lineupsReady || revoirLesFeuilles;
+    /** Chaque camp a le gardien qu'il lui faut, ou le match se joue sans. */
+    const gardiensPrets = !gardienManquant("home") && !gardienManquant("away");
     const titulairesDe = (side: Side) =>
       (side === "home" ? match.homeLineup : match.awayLineup)
         .filter((e) => e.role === "starter").length;
@@ -2253,6 +2372,18 @@ export default function LiveMatchConsole({
             <p className="mt-0.5 text-[11px] font-bold text-gray-400">
               {startersMax}v{startersMax} · 2 × {halfMinutes} min
             </p>
+            {/* LA CASE DU GARDIEN, une pour tout le match : en petits poteaux,
+                personne n'arrête le ballon à la main (voir lib/gardiens). Elle
+                part avec le coup d'envoi. */}
+            <label className="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 text-[11px] font-bold text-gray-600">
+              <input
+                type="checkbox"
+                checked={sansGardien}
+                onChange={(e) => setCaseSansGardien(e.target.checked)}
+                className="h-3.5 w-3.5 accent-emerald-600"
+              />
+              Sans gardien de but (petits poteaux)
+            </label>
           </div>
           <div className="h-10 w-10 shrink-0" />
         </div>
@@ -2303,6 +2434,14 @@ export default function LiveMatchConsole({
                       {t.label}
                     </p>
                     <p className="truncate text-sm font-black text-gray-900">{t.nom}</p>
+                    {/* Le gardien de la feuille, ou ce qui manque pour lancer. */}
+                    {gardienExige(t.cote === "home" ? match.homeTeamId : match.awayTeamId, sansGardien) && (
+                      <p className={`mt-0.5 truncate text-[11px] font-bold ${gardienManquant(t.cote) ? "text-amber-600" : "text-gray-500"}`}>
+                        {gardienManquant(t.cote)
+                          ? "Gardien à désigner"
+                          : `🧤 ${gardienDeDepart(t.cote === "home" ? match.homeLineup : match.awayLineup)?.name ?? ""}`}
+                      </p>
+                    )}
                   </div>
                   <p className="shrink-0 text-xs font-black tabular-nums text-gray-500">
                     {titulairesDe(t.cote)} titulaire{titulairesDe(t.cote) > 1 ? "s" : ""}
@@ -2338,6 +2477,9 @@ export default function LiveMatchConsole({
                 onToggle={(pid) => toggleSheetRole("home", pid)}
                 onValidate={() => handleValidateSheet("home")}
                 onDossards={pilote.ajouterDossards && dossardsRestants("home") ? () => tirerDossards("home") : undefined}
+                avecGardien={gardienExige(match.homeTeamId, sansGardien)}
+                gardienId={sansGardien ? null : gardienDeLaFeuille("home")}
+                onGardien={(pid) => designerGardien("home", pid)}
               />
             </div>
             <div className={sheetSide === "away" ? "" : "hidden md:block"}>
@@ -2354,6 +2496,9 @@ export default function LiveMatchConsole({
                 onToggle={(pid) => toggleSheetRole("away", pid)}
                 onValidate={() => handleValidateSheet("away")}
                 onDossards={pilote.ajouterDossards && dossardsRestants("away") ? () => tirerDossards("away") : undefined}
+                avecGardien={gardienExige(match.awayTeamId, sansGardien)}
+                gardienId={sansGardien ? null : gardienDeLaFeuille("away")}
+                onGardien={(pid) => designerGardien("away", pid)}
               />
             </div>
           </div>
@@ -2370,9 +2515,17 @@ export default function LiveMatchConsole({
               </p>
             </div>
           )}
+          {lineupsReady && !gardiensPrets && (
+            <div className="mb-2 flex items-center justify-center gap-2 text-amber-700">
+              <AlertTriangle size={15} className="shrink-0 text-amber-500" />
+              <p className="text-[11px] font-bold leading-tight">
+                Désigne le gardien de chaque équipe, ou coche « Sans gardien ».
+              </p>
+            </div>
+          )}
           <button
             onClick={handleLaunch}
-            disabled={!lineupsReady}
+            disabled={!lineupsReady || !gardiensPrets}
             className="group relative inline-flex w-full items-center justify-center gap-3 bg-gray-900 px-6 py-4 text-base font-black uppercase tracking-widest text-white transition-all hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 sm:text-lg"
           >
             <span className="relative">Aller au coup d&apos;envoi</span>
@@ -2481,13 +2634,27 @@ export default function LiveMatchConsole({
    * tiers des lignes d'effectif n'ont pas de poste : réserver l'arrêt au
    * gardien déclaré le rendrait impossible à saisir sur la plupart des
    * feuilles. Le scoreur touche alors le bon joueur lui-même.
+   *
+   * CE N'EST PLUS VRAI D'UN MATCH LANCÉ AVEC LA CASE « SANS GARDIEN » (voir
+   * lib/gardiens), cochée ou non. L'arrêt y va au gardien EN PLACE et à lui
+   * seul, et à personne dans un petits poteaux : la feuille a désigné le
+   * gardien, il n'y a plus rien à deviner. Quand les cages sont vides — le
+   * gardien expulsé, ou blessé sans changement possible —, tous ont « Prendre
+   * les gants ». Un match lancé avant la case garde la règle ci-dessus.
    */
   const actionsPour = (side: Side, entry: LineupEntry): ActionJoueur[] => {
     const surLeTerrain = new Set(
       side === "home" ? match.homeOnPitch : match.awayOnPitch,
     ).has(entry.playerId);
-    const gardien = gardienDe(side === "home" ? homeLineup : awayLineup);
-    const estLeGardien = gardien?.playerId === entry.playerId;
+    const enPlace = regleDuGardien ? gardienDuCamp(side) : null;
+    const gardienDuPoste = regleDuGardien ? null : gardienDe(side === "home" ? homeLineup : awayLineup);
+    const estLeGardien = regleDuGardien
+      ? enPlace?.playerId === entry.playerId
+      : gardienDuPoste?.playerId === entry.playerId;
+    const peutArreter = estLeGardien || (!regleDuGardien && gardienDuPoste === null);
+    const teamIdDuCamp = side === "home" ? match.homeTeamId : match.awayTeamId;
+    const prendreLesGants = regleDuGardien && !sansGardien && !!teamIdDuCamp
+      && peutPrendreLesGants(enPlace, entry.playerId);
 
     const evenement = (
       cle: TypeEvenementJoueur,
@@ -2552,9 +2719,21 @@ export default function LiveMatchConsole({
         deJeu("shot_on_target", EMOJI_EVENEMENT.shot_on_target),
         deJeu("shot", EMOJI_EVENEMENT.shot),
       ]),
-      ...(estLeGardien || gardien === null ? [deJeu("save", "🧤")] : []),
+      // LE BALLON, selon qui l'a : son équipe l'a, il peut le perdre ; elle
+      // ne l'a pas, ou personne, il peut le gagner. Une seule des deux, et la
+      // saisie fait basculer la possession (voir actionDeBallon).
+      (() => {
+        const cle = actionDeBallon(side, possession.side);
+        return deJeu(cle, EMOJI_EVENEMENT[cle]);
+      })(),
+      ...(peutArreter ? [deJeu("save", "🧤")] : []),
       ...(estLeGardien ? [] : [deJeu("offside", "🚩")]),
       deJeu("foul", "⚠️"),
+      // Les cages sont vides, ou un joueur de champ y dépanne : jamais
+      // verrouillée, elle arrive justement ballon mort, après l'exclusion.
+      ...(prendreLesGants
+        ? [{ ...evenement("gants", EMOJI_EVENEMENT.gants, "vert"), libelle: "Prendre les gants" }]
+        : []),
       // Le carton et le remplacement restent ouverts : ce sont les deux choses
       // qui arrivent justement pendant un arrêt de jeu.
       jaune,
@@ -2984,6 +3163,22 @@ export default function LiveMatchConsole({
             >
               <ArrowLeftRight size={13} className="shrink-0" /> Inverser les côtés
             </button>
+            {/* LA CASE « SANS GARDIEN », après le coup d'envoi. Un petits poteaux
+                peut démarrer case décochée — le manager avait mis un gardien
+                sur sa feuille — : on la corrige ici, sans revenir aux feuilles.
+                Les arrêts déjà saisis restent, l'historique les retire. */}
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOuvert(false);
+                const v = !sansGardien;
+                suivre(pilote.poserSansGardien(v), "La case n'a pas été enregistrée");
+                toast(v ? "Match sans gardien" : "Match avec gardien", { icon: "🧤" });
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-left text-[11px] font-black uppercase tracking-wide text-white/80 hover:bg-white/10"
+            >
+              <Hand size={13} className="shrink-0" /> Sans gardien : {sansGardien ? "oui" : "non"}
+            </button>
           </div>
         )}
 
@@ -3196,6 +3391,28 @@ export default function LiveMatchConsole({
             onPick={enregistrerVictime}
             onClose={() => setVictime(null)}
             ignorer="Victime inconnue"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Les cages vides : qui prend les gants ? Facultative — un gardien
+          remplaçant peut encore entrer, et l'action reste sur chaque joueur. */}
+      <AnimatePresence>
+        {gantsAPrendre && (
+          <PlayerPickerModal
+            titre="Qui prend les gants ?"
+            sousTitre={`${minuteLue} · Les cages sont vides`}
+            teamName={gantsAPrendre.side === "home" ? match.homeTeamName : match.awayTeamName}
+            entries={onPitchEntries(gantsAPrendre.side).filter((e) => e.playerId !== gantsAPrendre.sortant)}
+            yellowSet={yellowCardedIds}
+            isSubmitting={isSubmitting}
+            onPick={(e) => {
+              const { side } = gantsAPrendre;
+              setGantsAPrendre(null);
+              enregistrerAction(side, e, "gants");
+            }}
+            onClose={() => setGantsAPrendre(null)}
+            ignorer="Un remplaçant va entrer"
           />
         )}
       </AnimatePresence>
@@ -3603,6 +3820,9 @@ function LineupBuilder({
   onValidate,
   depuisLaCompoType,
   onDossards,
+  avecGardien,
+  gardienId,
+  onGardien,
 }: {
   side: Side;
   teamName: string;
@@ -3622,6 +3842,12 @@ function LineupBuilder({
    * il n'y a plus de numéro libre, ou hors compétition.
    */
   onDossards?: () => void;
+  /** La feuille doit désigner un gardien : le match en a, et le camp est sur la plateforme. */
+  avecGardien: boolean;
+  /** Le titulaire désigné, ou proposé par l'effectif ; `null` sans gardien. */
+  gardienId: string | null;
+  /** Le 🧤 d'une ligne titulaire : désigner ce joueur, ou retirer la désignation. */
+  onGardien: (playerId: string) => void;
 }) {
   const accentText = accent === "primary" ? "text-emerald-700" : "text-amber-500";
   const validateCls =
@@ -3699,6 +3925,14 @@ function LineupBuilder({
             </span>{" "}
             · <span className={accentText}>{subs}</span> remplaçant{subs > 1 ? "s" : ""}
           </p>
+          {/* Le gardien, qu'une feuille ne se valide pas sans (voir lib/gardiens). */}
+          {avecGardien && (
+            <p className={`-mt-1 mb-3 text-[11px] font-bold ${gardienId ? "text-gray-500" : "text-amber-600"}`}>
+              {gardienId
+                ? `🧤 Gardien : ${roster.find((p) => p.id === gardienId)?.name ?? ""}`
+                : "Touche 🧤 sur un titulaire pour désigner le gardien."}
+            </p>
+          )}
           {/* The roster is the only thing that scrolls. On mobile it takes
               the viewport minus header, tabs and the pinned kickoff bar. */}
           <div
@@ -3707,11 +3941,13 @@ function LineupBuilder({
           >
             {roster.map((p) => {
               const role = sheet[p.id] ?? "out";
+              const estGardien = avecGardien && gardienId === p.id;
               return (
-                <button
+                // La ligne change le rôle ; le 🧤, À CÔTÉ et non dedans (un
+                // bouton n'en contient pas un autre), désigne le gardien.
+                <div
                   key={p.id}
-                  onClick={() => onToggle(p.id)}
-                  className={`flex w-full items-center gap-3 border px-4 py-3 text-left transition-all active:scale-[0.99] ${
+                  className={`flex w-full items-stretch border transition-all ${
                     role === "out"
                       ? "border-gray-200/70 bg-gray-50/50 hover:border-gray-200/70"
                       : role === "starter"
@@ -3719,12 +3955,30 @@ function LineupBuilder({
                         : "border-sky-500/30 bg-sky-50/60"
                   }`}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-white text-sm font-black text-gray-900">
-                    {p.number || p.name[0]?.toUpperCase()}
-                  </span>
-                  <span className="flex-1 truncate text-sm font-bold text-gray-900">{p.name}</span>
-                  <RoleBadge role={role} />
-                </button>
+                  <button
+                    onClick={() => onToggle(p.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:scale-[0.99]"
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-white text-sm font-black text-gray-900">
+                      {p.number || p.name[0]?.toUpperCase()}
+                    </span>
+                    <span className="flex-1 truncate text-sm font-bold text-gray-900">{p.name}</span>
+                    <RoleBadge role={role} />
+                  </button>
+                  {avecGardien && role === "starter" && (
+                    <button
+                      type="button"
+                      onClick={() => onGardien(p.id)}
+                      aria-label="Désigner gardien"
+                      aria-pressed={estGardien}
+                      className={`flex w-12 shrink-0 items-center justify-center border-l border-emerald-500/20 text-lg transition-opacity ${
+                        estGardien ? "bg-emerald-100 opacity-100" : "opacity-30 hover:opacity-70"
+                      }`}
+                    >
+                      🧤
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>

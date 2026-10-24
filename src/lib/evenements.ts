@@ -48,7 +48,14 @@ export type TypeEvenement =
   | "shot_on_target"
   | "corner"
   | "throw_in"
-  | "free_kick";
+  | "free_kick"
+  // Le ballon gagne ou perdu par un joueur : ils suivent la possession (voir
+  // `actionDeBallon` dans lib/etat-du-jeu) et comptent dans la note.
+  | "ball_won"
+  | "ball_lost"
+  // Un joueur prend les gants : le gardien d'un match AVEC gardien a quitte la
+  // pelouse sans remplacant a son poste. Voir lib/gardiens.
+  | "gants";
 
 /**
  * Ceux qu'on saisit en touchant un joueur.
@@ -58,7 +65,7 @@ export type TypeEvenement =
  */
 export type TypeEvenementJoueur =
   | "goal" | "yellow_card" | "red_card" | "save" | "foul" | "offside"
-  | "shot" | "shot_on_target" | "sortie";
+  | "shot" | "shot_on_target" | "sortie" | "ball_won" | "ball_lost" | "gants";
 
 /**
  * Ceux qui n'appartiennent a personne.
@@ -78,6 +85,7 @@ export const EVENEMENTS_EQUIPE: readonly TypeEvenementEquipe[] = [
 const MINEURS = new Set<TypeEvenement>([
   "save", "foul", "offside", "penalty", "sortie",
   "shot", "shot_on_target", "corner", "throw_in", "free_kick",
+  "ball_won", "ball_lost", "gants",
 ]);
 
 export function estMineur(type: TypeEvenement): boolean {
@@ -95,6 +103,7 @@ export function estMineur(type: TypeEvenement): boolean {
  */
 const COMPTABLES = new Set<TypeEvenement>([
   "shot", "shot_on_target", "corner", "throw_in", "free_kick",
+  "ball_won", "ball_lost", "gants",
 ]);
 
 export function estStatistique(type: TypeEvenement): boolean {
@@ -120,6 +129,9 @@ export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> =
     corner: "Corner",
     throw_in: "Touche",
     free_kick: "Coup franc",
+    ball_won: "Gain de balle",
+    ball_lost: "Perte de balle",
+    gants: "Prend les gants",
   },
   en: {
     goal: "Goal",
@@ -138,6 +150,9 @@ export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> =
     corner: "Corner",
     throw_in: "Throw-in",
     free_kick: "Free kick",
+    ball_won: "Ball won",
+    ball_lost: "Ball lost",
+    gants: "Takes the gloves",
   },
 };
 
@@ -166,6 +181,9 @@ export const EMOJI_EVENEMENT: Record<TypeEvenement, string> = {
   corner: "⛳",
   throw_in: "🙌",
   free_kick: "🧱",
+  ball_won: "🛡️",
+  ball_lost: "💨",
+  gants: "🧤",
 };
 
 /**

@@ -687,6 +687,13 @@ export interface FirestoreMatch {
     jeu?: Jeu | null;
     /** La seance de tirs au but, tir par tir. Voir `lib/tirs-au-but`. */
     tirs_au_but?: Seance | null;
+    /**
+     * La case « Sans gardien de but » de la feuille de match, ecrite au
+     * lancement puis par le menu de la console. Sa presence dit aussi que le
+     * match suit la regle du gardien designe (voir `lib/gardiens`) : absente
+     * des matchs lances avant elle, qui gardent la regle d'avant.
+     */
+    sans_gardien?: boolean | null;
   } | null;
   modification_request?: {
     date: string;
@@ -1003,6 +1010,8 @@ export interface Match {
     jeu?: Jeu | null;
     /** Voir `FirestoreMatch.live_state.tirs_au_but`. */
     tirsAuBut?: Seance | null;
+    /** Voir `FirestoreMatch.live_state.sans_gardien`. */
+    sansGardien?: boolean | null;
   } | null;
   modificationRequest?: MatchModificationRequest | null;
   /** Voir `FirestoreMatch.home_lineup`. */

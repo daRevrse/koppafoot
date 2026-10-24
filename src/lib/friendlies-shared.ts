@@ -109,6 +109,7 @@ function etatDuDirect(v: unknown): Match["liveState"] {
     addedTime: (ls.added_time ?? null) as NonNullable<Match["liveState"]>["addedTime"],
     jeu: (ls.jeu ?? null) as NonNullable<Match["liveState"]>["jeu"],
     tirsAuBut: (ls.tirs_au_but ?? null) as NonNullable<Match["liveState"]>["tirsAuBut"],
+    sansGardien: typeof ls.sans_gardien === "boolean" ? ls.sans_gardien : null,
   };
 }
 

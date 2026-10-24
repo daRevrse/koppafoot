@@ -194,6 +194,7 @@ export function toCompMatch(id: string, d: FirestoreCompMatch): CompMatch {
       addedTime: d.live_state.added_time ?? null,
       jeu: d.live_state.jeu ?? null,
       tirsAuBut: d.live_state.tirs_au_but ?? null,
+      sansGardien: d.live_state.sans_gardien ?? null,
     } : null,
     createdAt: formatDate(d.created_at),
     updatedAt: formatDate(d.updated_at),

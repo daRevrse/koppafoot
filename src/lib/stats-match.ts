@@ -175,6 +175,11 @@ export function lignesStats(
     // cent de passes reussies : un changement de camp n'est pas toujours une
     // passe ratee — une touche, une faute, un tir arrete le changent aussi.
     ...(passes ? [{ cle: "passes", label: "Passes", home: passes.home, away: passes.away }] : []),
+    // Les ballons gagnes et perdus, saisis joueur par joueur dans la console,
+    // se lisent ici par equipe. Un ballon perdu n'est pas toujours gagne en
+    // face — une touche n'est a personne —, d'ou deux lignes et non une.
+    paire("recuperations", "Ballons récupérés", "ball_won"),
+    paire("pertes", "Ballons perdus", "ball_lost"),
     paire("corners", "Corners", "corner"),
     paire("penaltys", "Penaltys obtenus", "penalty"),
     {
@@ -209,5 +214,6 @@ export function aDesStats(
 ): boolean {
   if (possession && partPossession(possession, chronoTourne)) return true;
   if (possession && possession.homePasses + possession.awayPasses >= SEUIL_PUBLIC_PASSES) return true;
-  return faits.some((e) => e.type !== "period_start" && e.type !== "period_end");
+  // La prise de gants n'est pas une statistique : elle dit qui est au but.
+  return faits.some((e) => e.type !== "period_start" && e.type !== "period_end" && e.type !== "gants");
 }

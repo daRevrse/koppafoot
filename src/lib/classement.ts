@@ -46,6 +46,7 @@
 
 import { normaliserPoste } from "@/lib/postes";
 import { estLigneHorsPlateforme } from "@/lib/effectif-match";
+import { bilanDesGardiens, regleDuGardienDesigne } from "@/lib/gardiens";
 import { OWN_GOAL_DETAIL } from "@/lib/evenements";
 import { moyennePonderee, notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
@@ -362,6 +363,18 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
         ? nommesSansFeuille(faits, camp.teamId, match.comptesDesLignes ?? {})
         : camp.entries;
 
+      // QUI ETAIT DANS LES CAGES, et non qui porte le poste sur la feuille :
+      // un gardien reste sur le banc ne garde aucune cage. Sous la regle du
+      // gardien designe (voir lib/gardiens), chaque joueur passe au but compte
+      // un match au but, et un clean sheet s'il n'y a rien encaisse — sans
+      // seuil de minutes, comme avant. Un match sans gardien n'en a aucun ; un
+      // match plus ancien garde le test du poste, plus bas.
+      const cages = !sansFeuille && regleDuGardienDesigne(match.liveState)
+        ? match.liveState?.sansGardien || !camp.teamId
+          ? []
+          : bilanDesGardiens(camp.entries, faits, camp.teamId, match.dureeMatchMin ?? DUREE_MATCH_DEFAUT)
+        : null;
+
       for (const entry of lignes) {
         if (estLigneHorsPlateforme(entry.playerId)) continue;
         const cle = cleDe(entry);
@@ -384,7 +397,13 @@ export function calculerClassements(matchs: MatchAClasser[]): Classements {
 
         const poste = normaliserPoste(entry.position);
         if (poste) cumul.posteConnu = true;
-        if (poste === "goalkeeper") {
+        if (cages) {
+          const auBut = cages.find((b) => b.playerId === entry.playerId);
+          if (auBut) {
+            cumul.matchsAuBut += 1;
+            if (auBut.encaisses === 0) cumul.cleanSheets += 1;
+          }
+        } else if (poste === "goalkeeper") {
           cumul.matchsAuBut += 1;
           if (camp.encaisses === 0) cumul.cleanSheets += 1;
         }

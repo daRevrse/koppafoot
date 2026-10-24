@@ -1,4 +1,5 @@
-import type { CompMatch } from "@/types";
+import { gardienEnPlace } from "@/lib/gardiens";
+import type { CompMatch, LineupEntry } from "@/types";
 
 // ============================================
 // Retirer un événement de la console : ce qui part avec lui.
@@ -20,6 +21,9 @@ import type { CompMatch } from "@/types";
 //   rouge      → le joueur revient sur la pelouse ; un rouge de second jaune
 //                emporte ce second jaune, sans quoi il resterait deux jaunes
 //                sans exclusion.
+//   gardien    → son exclusion (rouge, second jaune, sortie) retirée, il
+//                revient au but : la prise de gants qu'elle avait provoquée
+//                part avec elle (voir lib/gardiens).
 //   changement → l'entrant ressort, le sortant revient. REFUSÉ quand la
 //                pelouse a bougé depuis : le défaire mettrait douze joueurs
 //                sur le terrain, ou en ferait revenir un qui n'y est plus.
@@ -48,7 +52,15 @@ export type ResultatRetrait =
 export function planDuRetrait(
   events: Evenement[],
   eventId: string,
-  contexte: { homeTeamId: string | null; surLeTerrain: Record<Cote, string[]> },
+  contexte: {
+    homeTeamId: string | null;
+    surLeTerrain: Record<Cote, string[]>;
+    /**
+     * Les feuilles des deux camps, pour savoir si l'exclu était le gardien.
+     * Absentes, une exclusion ne retire qu'elle-même, comme avant.
+     */
+    lineups?: Record<Cote, LineupEntry[]>;
+  },
 ): ResultatRetrait {
   const cible = events.find((e) => e.id === eventId);
   if (!cible) return { ok: false, raison: "Cet événement n'est plus dans l'historique." };
@@ -60,6 +72,20 @@ export function planDuRetrait(
     if (!playerId) return;
     const pelouse = plan.surLeTerrain[cote] ?? contexte.surLeTerrain[cote];
     if (!pelouse.includes(playerId)) plan.surLeTerrain[cote] = [...pelouse, playerId];
+  };
+
+  // Le gardien exclu revient : celui qui avait pris les gants après lui les
+  // rend. Sans quoi deux joueurs se croiraient au but, et la console
+  // n'offrirait plus l'arrêt qu'au dépanneur.
+  const emporterLesGants = (exclusion: Evenement) => {
+    const lineup = contexte.lineups?.[cote];
+    if (!lineup || !exclusion.playerId) return;
+    const indice = events.indexOf(exclusion);
+    const avant = gardienEnPlace(lineup, events.slice(0, indice), exclusion.teamId);
+    if (avant?.playerId !== exclusion.playerId) return;
+    for (const e of events.slice(indice + 1)) {
+      if (e.type === "gants" && e.teamId === exclusion.teamId && !plan.ids.includes(e.id)) plan.ids.push(e.id);
+    }
   };
 
   switch (cible.type) {
@@ -74,6 +100,7 @@ export function planDuRetrait(
       if (rougeAuto) {
         plan.ids.push(rougeAuto.id);
         remettreSurLaPelouse(cible.playerId);
+        emporterLesGants(rougeAuto);
       }
       break;
     }
@@ -88,12 +115,14 @@ export function planDuRetrait(
         if (secondJaune) plan.ids.push(secondJaune.id);
       }
       remettreSurLaPelouse(cible.playerId);
+      emporterLesGants(cible);
       break;
     }
 
     case "sortie":
       // Sa sortie n'a pas eu lieu : il est toujours sur la pelouse.
       remettreSurLaPelouse(cible.playerId);
+      emporterLesGants(cible);
       break;
 
     case "substitution": {

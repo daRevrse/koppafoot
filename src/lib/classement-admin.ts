@@ -222,6 +222,8 @@ function amicalEnCompMatch(id: string, d: FirestoreMatch): MatchDeLaSemaine {
             varStatus: e.var_status ?? null,
             createdAt: e.created_at,
           })),
+          // La note et le classement en dependent : voir lib/gardiens.
+          sansGardien: d.live_state.sans_gardien ?? null,
         }
       : null,
     contributionsDirectes: contributionsDirectes(d),
