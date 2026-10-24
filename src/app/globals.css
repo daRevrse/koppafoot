@@ -227,8 +227,18 @@ body {
   transition: transform 0.1s ease;
 }
 
-/* Main content offset on mobile to avoid bottom nav overlap */
+/* LA PLACE DE LA BARRE DU BAS, sur téléphone.
+   Dans le navigateur, le pied de page suit le contenu et la prend à son
+   compte : la réserver aussi sous <main> laissait une bande grise de 72px
+   entre la page et le pied. Dans l'application installée il n'y a pas de
+   pied (voir plus bas), et c'est <main> qui la garde, comme avant. */
 @media (max-width: 1023px) {
+  .pied-de-page {
+    padding-bottom: var(--bottomnav-h, 0px);
+  }
+}
+
+@media (max-width: 1023px) and (display-mode: standalone) {
   .main-content-app {
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 8px));
   }
@@ -238,6 +248,11 @@ body {
 @media (display-mode: standalone) {
   .bottom-nav-glass {
     background: rgb(2, 44, 34);
+  }
+
+  /* Une appli n'a pas de pied de page : voir components/layout/PiedDePage. */
+  .pied-de-page {
+    display: none;
   }
 }
 

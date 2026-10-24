@@ -7,6 +7,7 @@ import MobileBottomNav from "@/components/layout/MobileBottomNav";
 import PullToRefresh from "@/components/layout/PullToRefresh";
 import PushNotificationSetup from "@/components/PushNotificationSetup";
 import PWAInstallFloating from "@/components/pwa/PWAInstallFloating";
+import PiedDePage from "@/components/layout/PiedDePage";
 
 // ============================================
 // ScoreShell, the chrome of the product, everywhere.
@@ -26,6 +27,10 @@ import PWAInstallFloating from "@/components/pwa/PWAInstallFloating";
 // L'invitation à installer vit ici, et pas dans une page : l'entrée du menu
 // compte répond à qui la cherche, celle-ci s'adresse à qui n'y a pas pensé.
 // Elle attend, se ferme, et se tait un mois — voir PWAInstallFloating.
+//
+// LE PIED DE PAGE AUSSI, sous le contenu et non dans <main> : il prend toute
+// la largeur de l'écran, gouttière du rail comprise. Sur téléphone il porte
+// la place de la barre du bas, que <main> réservait (voir globals.css).
 //
 // The Tribune rail is gone, but its column is not: the same 320px stays open
 // on the right. Letting the content spread into it would have re-flowed every
@@ -119,6 +124,7 @@ export default function ScoreShell({
         </div>
       </div>
 
+      <PiedDePage />
       <MobileBottomNav />
     </div>
   );

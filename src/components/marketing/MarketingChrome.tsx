@@ -10,8 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { VITRINES, vitrineDe, type Vitrine } from "@/config/vitrines";
 
 // ============================================
-// MarketingChrome, l'en-tête et le pied des vitrines (Organize, Score,
-// MyFields, Evolution), lus dans config/vitrines.
+// MarketingChrome, l'en-tête des vitrines (Organize, Score, MyFields,
+// Evolution), lues dans config/vitrines.
 //
 // Deliberately NOT the app shell. Someone who opens this link has not signed
 // in and has no competition: Direct / Compétitions / Mercato would be
@@ -20,7 +20,10 @@ import { VITRINES, vitrineDe, type Vitrine } from "@/config/vitrines";
 //
 // Editorial rules, applied here and on the page below: nothing that is a
 // link pretends to be a button, type is large and set in caps with wide
-// tracking, and the footer carries the name at poster size.
+// tracking.
+//
+// LE PIED N'EST PLUS ICI. Les vitrines avaient le leur ; elles portent
+// désormais celui de tout le site, components/layout/PiedDePage.
 // ============================================
 
 /**
@@ -238,91 +241,5 @@ export function MarketingHeader() {
         </nav>
       )}
     </header>
-  );
-}
-
-export function MarketingFooter() {
-  return (
-    // Inverse : fond sombre, texte clair. Le pied ferme la page au lieu de
-    // la laisser se dissoudre dans le blanc, et les trois vitrines
-    // partagent la meme assise, quel que soit le fond de leur contenu.
-    <footer className="relative overflow-hidden bg-gray-900 text-white">
-      <div className="mx-auto max-w-7xl px-6 pb-0 pt-20 sm:px-10 sm:pt-28">
-        <div className="flex flex-col gap-12 sm:flex-row sm:justify-between">
-          <p className="max-w-sm font-display text-2xl font-black leading-tight tracking-tight sm:text-3xl">
-            Le football amateur, tenu comme il le mérite.
-          </p>
-
-          {/* Les trois portes du produit d'un cote, l'application de l'autre.
-              Le pied ne portait que « Devenir organisateur » : depuis la page
-              des terrains, c'etait la seule sortie proposee, et elle menait
-              ailleurs. */}
-          <div className="grid gap-x-16 gap-y-8 sm:grid-cols-3">
-            <div className="flex flex-col gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
-                Les espaces
-              </p>
-              {VITRINES.map((v) => (
-                <Link
-                  key={v.cle}
-                  href={v.chemin}
-                  className="text-sm font-bold text-white/60 transition-colors hover:text-white"
-                >
-                  {v.nom}
-                </Link>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
-                L&apos;application
-              </p>
-              {[
-                { href: "/", label: "Le direct" },
-                { href: "/competitions", label: "Les compétitions" },
-                { href: "/actus", label: "Les actus" },
-                { href: "/login", label: "Se connecter" },
-              ].map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className="text-sm font-bold text-white/60 transition-colors hover:text-white"
-                >
-                  {l.label}
-                </Link>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300">
-                Le cadre
-              </p>
-              {[
-                { href: "/conditions", label: "Conditions d'utilisation" },
-                { href: "/confidentialite", label: "Confidentialité" },
-                { href: "/aide", label: "Nous écrire" },
-              ].map((l) => (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  className="text-sm font-bold text-white/60 transition-colors hover:text-white"
-                >
-                  {l.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Le nom en taille d'affiche, coupe par le pli, la signature EST le
-            bas de la page, pas une ligne de mentions legales dedans. */}
-        <p
-          aria-hidden
-          className="pointer-events-none mt-16 translate-y-[18%] select-none font-display text-[19vw] font-black leading-[0.78] tracking-[-0.03em] text-white/[0.06]"
-        >
-          KOPPAFOOT
-        </p>
-      </div>
-    </footer>
   );
 }
