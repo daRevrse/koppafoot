@@ -40,7 +40,7 @@ import {
 } from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
 import {
-  gardienDeDepart, gardienEnPlace, gardienExige, gardienPropose, peutPrendreLesGants,
+  gardienDeDepart, gardienEnPlace, gardienExige, gardienPropose, lignesSurLaPelouse, peutPrendreLesGants,
   regleDuGardienDesigne, type GardienEnPlace,
 } from "@/lib/gardiens";
 import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
@@ -2591,6 +2591,20 @@ export default function LiveMatchConsole({
   };
 
   /**
+   * La pelouse telle que le terrain la dessine : celui qui entre à la place de
+   * celui qui sort, et le gardien en place au but (voir lignesSurLaPelouse).
+   * Les listes de joueurs des questions, elles, restent dans l'ordre de la
+   * feuille : `onPitchEntries`.
+   */
+  const pelouseDessinee = (side: Side): LineupEntry[] => lignesSurLaPelouse(
+    side === "home" ? homeLineup : awayLineup,
+    side === "home" ? match.homeOnPitch : match.awayOnPitch,
+    events,
+    side === "home" ? match.homeTeamId : match.awayTeamId,
+    regleDuGardien && !sansGardien ? gardienDuCamp(side)?.playerId ?? null : undefined,
+  );
+
+  /**
    * Le banc : qui peut entrer.
    *
    * En competition, les remplacants de la feuille et eux seuls — un titulaire
@@ -3285,14 +3299,14 @@ export default function LiveMatchConsole({
             <TerrainsFaceAFace
               home={{
                 name: match.homeTeamName,
-                surLeTerrain: homeDisabled ? [] : onPitchEntries("home"),
+                surLeTerrain: homeDisabled ? [] : pelouseDessinee("home"),
                 banc: homeDisabled ? [] : benchEntries("home"),
                 formation: match.homeFormation,
                 couleurs: couleurs?.home,
               }}
               away={{
                 name: match.awayTeamName,
-                surLeTerrain: awayDisabled ? [] : onPitchEntries("away"),
+                surLeTerrain: awayDisabled ? [] : pelouseDessinee("away"),
                 banc: awayDisabled ? [] : benchEntries("away"),
                 formation: match.awayFormation,
                 couleurs: couleurs?.away,

@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import {
   bilanDesGardiens, gardienDeDepart, gardienEnPlace, gardienExige, gardienPropose,
-  peutPrendreLesGants, regleDuGardienDesigne, type FaitDeGardien,
+  lignesSurLaPelouse, peutPrendreLesGants, regleDuGardienDesigne, type FaitDeGardien,
 } from "@/lib/gardiens";
 import { calculerClassements, type MatchAClasser } from "@/lib/classement";
 import { notesDuCamp } from "@/lib/notes";
@@ -321,6 +321,105 @@ cas("le second jaune du gardien retiré emporte son rouge et la prise de gants",
   const r = planDuRetrait(events, "j2", contexteDuRetrait(true));
   assert.ok(r.ok);
   assert.deepEqual([...r.plan.ids].sort(), ["g1", "j2", "r2"]);
+});
+
+console.log("\nOù chacun se tient sur la pelouse");
+
+// Une feuille dont le manager a choisi les cases : le but est la ligne 0.
+const placee = (
+  playerId: string, role: "starter" | "substitute", position: LineupEntry["position"],
+  emplacement: LineupEntry["emplacement"] = null,
+): LineupEntry => ({ ...ligne(playerId, role, position), emplacement });
+const feuilleP: LineupEntry[] = [
+  placee("gA", "starter", "goalkeeper", { ligne: 0, colonne: 0 }),
+  placee("c1", "starter", "defender", { ligne: 1, colonne: 0 }),
+  placee("c2", "starter", "midfielder", { ligne: 2, colonne: 1 }),
+  placee("c3", "starter", "forward"),
+  placee("s1", "substitute", "midfielder"),
+  placee("gA2", "substitute", "goalkeeper"),
+];
+/** Qui, à quel poste, sur quelle case, dans l'ordre où le terrain les reçoit. */
+const lecture = (lignes: LineupEntry[]) =>
+  lignes.map((e) => `${e.playerId}:${e.position ?? "-"}:${e.emplacement ? `${e.emplacement.ligne}.${e.emplacement.colonne}` : "-"}`);
+
+cas("sans rien d'autre, chacun à sa place de la feuille", () => {
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["gA", "c1", "c2", "c3"], [], "A")),
+    ["gA:goalkeeper:0.0", "c1:defender:1.0", "c2:midfielder:2.1", "c3:forward:-"],
+  );
+});
+
+cas("celui qui entre prend la place de celui qui sort", () => {
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["gA", "s1", "c2", "c3"], [rempl(10, "s1", "c1")], "A")),
+    ["gA:goalkeeper:0.0", "s1:defender:1.0", "c2:midfielder:2.1", "c3:forward:-"],
+  );
+});
+
+cas("le remplaçant du gardien va au but, quel que soit son poste", () => {
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["s1", "c1", "c2", "c3"], [rempl(50, "s1", "gA")], "A", "s1")),
+    ["s1:goalkeeper:0.0", "c1:defender:1.0", "c2:midfielder:2.1", "c3:forward:-"],
+  );
+});
+
+cas("la place passe de main en main", () => {
+  // s1 entre pour c1, puis c1 revient (amical) à la place de c2.
+  const faits = [rempl(10, "s1", "c1"), rempl(20, "c1", "c2")];
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["gA", "s1", "c1", "c3"], faits, "A")),
+    ["gA:goalkeeper:0.0", "s1:defender:1.0", "c1:midfielder:2.1", "c3:forward:-"],
+  );
+});
+
+cas("celui qui prend les gants passe au but, sa case reste vide", () => {
+  const faits = [
+    fait({ type: "red_card", minute: 30, teamId: "A", playerId: "gA" }),
+    fait({ type: "gants", minute: 31, teamId: "A", playerId: "c2" }),
+  ];
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["c1", "c2", "c3"], faits, "A", "c2")),
+    ["c1:defender:1.0", "c2:goalkeeper:-", "c3:forward:-"],
+  );
+});
+
+cas("un gardien de poste sans les gants joue dans le champ", () => {
+  const deuxGardiens = [
+    placee("gA", "starter", "goalkeeper", { ligne: 0, colonne: 0 }),
+    placee("g2", "starter", "goalkeeper"),
+  ];
+  assert.deepEqual(lecture(lignesSurLaPelouse(deuxGardiens, ["gA", "g2"], [], "A", "gA")), ["gA:goalkeeper:0.0", "g2:-:-"]);
+});
+
+cas("les cages vides : personne n'est dessiné au but", () => {
+  // gA2, gardien de poste, entre à la place de c3 avant que quiconque ait
+  // pris les gants : il joue à la place de c3.
+  const faits = [
+    fait({ type: "red_card", minute: 30, teamId: "A", playerId: "gA" }),
+    rempl(32, "gA2", "c3"),
+  ];
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["c1", "c2", "gA2"], faits, "A", null)),
+    ["c1:defender:1.0", "c2:midfielder:2.1", "gA2:forward:-"],
+  );
+});
+
+cas("sans la règle du gardien désigné, la prise de gants ne déplace personne", () => {
+  const faits = [
+    fait({ type: "red_card", minute: 30, teamId: "A", playerId: "gA" }),
+    fait({ type: "gants", minute: 31, teamId: "A", playerId: "c2" }),
+  ];
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["c1", "c2", "c3"], faits, "A")),
+    ["c1:defender:1.0", "c2:midfielder:2.1", "c3:forward:-"],
+  );
+});
+
+cas("le remplacement de l'autre équipe ne déplace personne", () => {
+  assert.deepEqual(
+    lecture(lignesSurLaPelouse(feuilleP, ["gA", "c1", "c2", "c3"], [rempl(10, "c1", "gA", "B")], "A")),
+    ["gA:goalkeeper:0.0", "c1:defender:1.0", "c2:midfielder:2.1", "c3:forward:-"],
+  );
 });
 
 if (echecs > 0) {
