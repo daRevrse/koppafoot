@@ -6,16 +6,22 @@ import { usePremierPlan } from "~/hooks/usePremierPlan";
 import { useAuth } from "~/lib/auth";
 import {
   ecouterAmicauxAVenir, ecouterMatchsConfies, ecouterMatchsDuJour, ecouterReservationsDuProprietaire,
-  lireCompetitionsDuCompte, type CompetitionsDuCompte,
+  lireBattements, lireCompetitionsDuCompte, type CompetitionsDuCompte,
 } from "~/lib/casquette-firestore";
 import {
-  amicauxSansScoreur, competitionsSansDoublon, matchsConfiesATenir, matchsDuJour, reservationsATraiter,
+  amicauxACouvrir, competitionsSansDoublon, conflitDe, matchsConfiesATenir, matchsDuJour, reservationsATraiter,
   sectionsDeLEspace, type Sections,
 } from "~/lib/espace-casquette";
 
 export interface JourneeTenue {
   competition: Competition;
   matchs: CompMatch[];
+}
+
+export interface DemandeATraiter {
+  demande: Booking;
+  /** Le créneau déjà pris qu'elle recouvre, à dire avant de confirmer. */
+  conflit: Booking | null;
 }
 
 export interface EspaceCasquette {
@@ -28,10 +34,10 @@ export interface EspaceCasquette {
   organisateur: boolean;
   confies: Match[];
   journees: JourneeTenue[];
-  /** Les amicaux que personne ne couvre ; `null` sans casquette de scoreur ou avant lecture. */
-  amicaux: number | null;
+  /** Les amicaux que personne ne couvre ; vide sans casquette de scoreur ou avant lecture. */
+  amicaux: Match[];
   competitions: Competition[];
-  reservations: { aRepondre: Booking[]; duJour: Booking[] } | null;
+  reservations: { aRepondre: DemandeATraiter[]; duJour: Booking[] } | null;
   rafraichir: () => Promise<void>;
 }
 
@@ -89,6 +95,21 @@ export function useEspaceCasquette(): EspaceCasquette {
     return ecouterReservationsDuProprietaire(uid, (liste) => setResas({ uid, liste }));
   }, [uid, proprietaire, actif]);
 
+  // Le battement des terrains, pour dire qu'une demande chevauche un créneau pris.
+  const [battements, setBattements] = useState<{ uid: string; parTerrain: Record<string, number> } | null>(null);
+  useEffect(() => {
+    if (!uid || !proprietaire) return;
+    let vivant = true;
+    void lireBattements(uid)
+      .catch(() => ({}))
+      .then((parTerrain) => {
+        if (vivant) setBattements({ uid, parTerrain });
+      });
+    return () => {
+      vivant = false;
+    };
+  }, [uid, proprietaire]);
+
   const lu = comps?.uid === uid ? comps.lu : null;
   // Les compétitions tenues (modérées, organisées, par code) et celles du compte (organisées, puis modérées).
   const tenues = useMemo(() => (lu ? competitionsSansDoublon([lu.coOrganisees, lu.organisees, lu.parCode]) : []), [lu]);
@@ -115,10 +136,15 @@ export function useEspaceCasquette(): EspaceCasquette {
         .filter((j) => j.matchs.length > 0),
     [tenues, duJour, jour],
   );
-  const reservations = useMemo(
-    () => (uid && proprietaire && resas?.uid === uid ? reservationsATraiter(resas.liste, jour) : null),
-    [uid, proprietaire, resas, jour],
-  );
+  const reservations = useMemo(() => {
+    if (!uid || !proprietaire || resas?.uid !== uid) return null;
+    const { aRepondre, duJour: duJourResas } = reservationsATraiter(resas.liste, jour);
+    const parTerrain = battements?.uid === uid ? battements.parTerrain : {};
+    return {
+      aRepondre: aRepondre.map((demande) => ({ demande, conflit: conflitDe(demande, resas.liste, parTerrain) })),
+      duJour: duJourResas,
+    };
+  }, [uid, proprietaire, resas, battements, jour]);
 
   const sections = sectionsDeLEspace({
     scoreur,
@@ -140,7 +166,7 @@ export function useEspaceCasquette(): EspaceCasquette {
     organisateur,
     confies: aTenirConfies,
     journees,
-    amicaux: scoreur && amicaux ? amicauxSansScoreur(amicaux) : null,
+    amicaux: scoreur && amicaux ? amicauxACouvrir(amicaux) : [],
     competitions,
     reservations,
     rafraichir,

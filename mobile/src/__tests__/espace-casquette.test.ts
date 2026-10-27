@@ -1,5 +1,5 @@
 import {
-  amicauxSansScoreur, competitionsSansDoublon, confiePar, demandeur, matchsConfiesATenir, matchsDuJour,
+  amicauxACouvrir, competitionsSansDoublon, confiePar, conflitDe, demandeur, matchsConfiesATenir, matchsDuJour,
   reservationsATraiter, sectionsDeLEspace,
 } from "~/lib/espace-casquette";
 import type { Booking, CompMatch, Competition, Match } from "@/types";
@@ -32,9 +32,14 @@ describe("confiePar", () => {
   });
 });
 
-describe("amicauxSansScoreur", () => {
-  it("compte les amicaux que personne ne couvre", () => {
-    expect(amicauxSansScoreur([amical("a"), amical("b", { moderatorIds: ["u1"] }), amical("c")])).toBe(2);
+describe("amicauxACouvrir", () => {
+  it("garde les amicaux que personne ne couvre, le plus proche d'abord", () => {
+    const ids = amicauxACouvrir([
+      amical("tard", { date: "2026-10-29" }),
+      amical("couvert", { moderatorIds: ["u1"] }),
+      amical("tot", { time: "09:00" }),
+    ]).map((m) => m.id);
+    expect(ids).toEqual(["tot", "tard"]);
   });
 });
 
@@ -91,8 +96,31 @@ describe("reservationsATraiter", () => {
       resa("matin", { status: "confirmed", time: "08:00" }),
       resa("attente", { status: "pending" }),
       resa("annulee", { status: "cancelled" }),
+      resa("bloque", { status: "confirmed", kind: "blocage", time: "12:00" }),
     ], "2026-10-27");
     expect(duJour.map((b) => b.id)).toEqual(["matin", "soir"]);
+  });
+});
+
+describe("conflitDe", () => {
+  const demande = resa("d", { venueId: "v1", time: "18:00", duration: 1 });
+
+  it("trouve le créneau déjà pris que la demande recouvre, sur le même terrain", () => {
+    const pris = resa("p", { status: "confirmed", venueId: "v1", time: "18:30", duration: 1 });
+    expect(conflitDe(demande, [pris, demande], {})?.id).toBe("p");
+  });
+
+  it("compte un créneau bloqué, mais pas un autre terrain ni une autre demande en attente", () => {
+    const bloque = resa("b", { status: "confirmed", kind: "blocage", venueId: "v1", time: "17:30", duration: 1 });
+    expect(conflitDe(demande, [bloque], {})?.id).toBe("b");
+    expect(conflitDe(demande, [resa("x", { status: "confirmed", venueId: "v2" })], {})).toBeNull();
+    expect(conflitDe(demande, [resa("y", { venueId: "v1" })], {})).toBeNull();
+  });
+
+  it("tient compte du battement du terrain entre deux créneaux", () => {
+    const apres = resa("a", { status: "confirmed", venueId: "v1", time: "19:10", duration: 1 });
+    expect(conflitDe(demande, [apres], {})).toBeNull();
+    expect(conflitDe(demande, [apres], { v1: 15 })?.id).toBe("a");
   });
 });
 

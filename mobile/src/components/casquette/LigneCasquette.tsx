@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { stylesBloc } from "~/components/competition/Bloc";
 import { couleurs, espacement, polices } from "~/theme";
@@ -7,17 +7,41 @@ import { couleurs, espacement, polices } from "~/theme";
 /**
  * Une ligne de l'Espace casquette : un match à tenir, une réservation, un
  * lien. Le titre, ce qui le situe, une note éventuelle, et à droite l'état
- * (en direct, terminé) ou le chevron de ce qui s'ouvre.
+ * (en direct, terminé) ou le chevron de ce qui s'ouvre. Avec `fin` (un
+ * bouton), la ligne n'ouvre rien : c'est le bouton qui agit.
  */
-export function LigneCasquette({ icone, titre, detail, note, etat, onPress }: {
+export function LigneCasquette({ icone, titre, detail, note, etat, onPress, fin }: {
   icone?: ComponentProps<typeof Ionicons>["name"];
   titre: string;
   detail?: string | null;
   note?: string | null;
   etat?: "direct" | "termine" | null;
-  onPress: () => void;
+  onPress?: () => void;
+  fin?: ReactNode;
 }) {
   const libelleEtat = etat === "direct" ? "en direct" : etat === "termine" ? "terminé" : null;
+  const contenu = (
+    <>
+      {icone ? (
+        <View style={[styles.icone, etat === "direct" && styles.iconeDirect]}>
+          <Ionicons name={icone} size={17} color={etat === "direct" ? couleurs.direct : couleurs.primaire} />
+        </View>
+      ) : null}
+      <View style={styles.textes}>
+        <Text style={styles.titre} numberOfLines={2}>{titre}</Text>
+        {detail ? <Text style={styles.detail} numberOfLines={2}>{detail}</Text> : null}
+        {note ? <Text style={styles.note} numberOfLines={1}>{note}</Text> : null}
+      </View>
+      {fin ?? (etat === "direct" ? (
+        <Text style={[styles.etat, styles.direct]}>EN DIRECT</Text>
+      ) : etat === "termine" ? (
+        <Text style={[styles.etat, styles.termine]}>TERMINÉ</Text>
+      ) : (
+        <Ionicons name="chevron-forward" size={16} color={couleurs.texteDiscret} />
+      ))}
+    </>
+  );
+  if (!onPress) return <View style={stylesBloc.ligne}>{contenu}</View>;
   return (
     <Pressable
       accessibilityRole="link"
@@ -25,23 +49,7 @@ export function LigneCasquette({ icone, titre, detail, note, etat, onPress }: {
       onPress={onPress}
       style={({ pressed }) => [stylesBloc.ligne, pressed && styles.presse]}
     >
-      {icone ? (
-        <View style={[styles.icone, etat === "direct" && styles.iconeDirect]}>
-          <Ionicons name={icone} size={17} color={etat === "direct" ? couleurs.direct : couleurs.primaire} />
-        </View>
-      ) : null}
-      <View style={styles.textes}>
-        <Text style={styles.titre} numberOfLines={1}>{titre}</Text>
-        {detail ? <Text style={styles.detail} numberOfLines={2}>{detail}</Text> : null}
-        {note ? <Text style={styles.note} numberOfLines={1}>{note}</Text> : null}
-      </View>
-      {etat === "direct" ? (
-        <Text style={[styles.etat, styles.direct]}>EN DIRECT</Text>
-      ) : etat === "termine" ? (
-        <Text style={[styles.etat, styles.termine]}>TERMINÉ</Text>
-      ) : (
-        <Ionicons name="chevron-forward" size={16} color={couleurs.texteDiscret} />
-      )}
+      {contenu}
     </Pressable>
   );
 }
