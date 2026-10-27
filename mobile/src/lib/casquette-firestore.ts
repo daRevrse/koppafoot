@@ -7,7 +7,7 @@ import { toMatch } from "@/lib/match-mappers";
 import { toStaffGrant } from "@/lib/staff-scope";
 import type {
   Booking, CompMatch, Competition, FirestoreBooking, FirestoreCompetition, FirestoreCompMatch, FirestoreMatch,
-  FirestoreStaffGrant, Match,
+  FirestoreStaffGrant, FirestoreVenue, Match,
 } from "@/types";
 import { db } from "~/lib/firebase";
 
@@ -56,6 +56,15 @@ export function ecouterReservationsDuProprietaire(uid: string, cb: (resas: Booki
     (snap) => cb(snap.docs.map((d) => toBooking(d.id, d.data() as FirestoreBooking))),
     () => cb([]),
   );
+}
+
+/**
+ * Le battement de chaque terrain du compte, en minutes : ce qu'il garde après
+ * un créneau, et dont le chevauchement de deux demandes tient compte.
+ */
+export async function lireBattements(uid: string): Promise<Record<string, number>> {
+  const snap = await getDocs(query(collection(db, "venues"), where("owner_id", "==", uid)));
+  return Object.fromEntries(snap.docs.map((d) => [d.id, (d.data() as FirestoreVenue).battement_min ?? 0]));
 }
 
 export interface CompetitionsDuCompte {

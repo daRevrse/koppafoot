@@ -1,3 +1,4 @@
+import { seChevauchent } from "@/lib/terrains";
 import type { Booking, CompMatch, Competition, Match } from "@/types";
 
 // L'onglet Espace casquette : ce qu'un compte a à faire avec ses casquettes
@@ -23,9 +24,9 @@ export function confiePar(m: Match, uid: string): string | null {
   return `Scoreur de ${m.refereeName}${corps ? ` · « ${corps} »` : ""}`;
 }
 
-/** Les amicaux à venir que personne ne couvre (onAmicauxSansScoreur). */
-export function amicauxSansScoreur(matchs: Match[]): number {
-  return matchs.filter((m) => (m.moderatorIds ?? []).length === 0).length;
+/** Les amicaux à venir que personne ne couvre, le plus proche d'abord (onAmicauxSansScoreur). */
+export function amicauxACouvrir(matchs: Match[]): Match[] {
+  return matchs.filter((m) => (m.moderatorIds ?? []).length === 0).sort(parDateEtHeure);
 }
 
 /**
@@ -56,15 +57,34 @@ export function matchsDuJour(matchs: CompMatch[], jour: string): CompMatch[] {
  * Ce qu'un propriétaire a à traiter. À répondre : les demandes en attente pour
  * aujourd'hui ou plus tard (un créneau passé n'appelle plus de réponse), à
  * commencer par qui attend depuis le plus longtemps. Du jour : les
- * réservations confirmées d'aujourd'hui, par heure.
+ * réservations confirmées d'aujourd'hui, par heure ; un créneau que le
+ * propriétaire a bloqué lui-même n'est la réservation de personne.
  */
 export function reservationsATraiter(resas: Booking[], jour: string): { aRepondre: Booking[]; duJour: Booking[] } {
   return {
     aRepondre: resas
       .filter((b) => b.status === "pending" && b.date >= jour)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
-    duJour: resas.filter((b) => b.status === "confirmed" && b.date === jour).sort(parDateEtHeure),
+    duJour: resas
+      .filter((b) => b.status === "confirmed" && b.kind !== "blocage" && b.date === jour)
+      .sort(parDateEtHeure),
   };
+}
+
+/**
+ * Le créneau déjà pris (confirmé ou bloqué) qu'une demande recouvre sur le
+ * même terrain, battement compris (`conflits` de /mes-terrains/reservations).
+ * On ne l'interdit pas : le propriétaire connaît son terrain, il peut avoir
+ * deux surfaces ; on le lui dit avant qu'il confirme.
+ */
+export function conflitDe(demande: Booking, resas: Booking[], battements: Record<string, number>): Booking | null {
+  const battement = battements[demande.venueId] ?? 0;
+  return (
+    resas.find(
+      (c) => c.id !== demande.id && c.status === "confirmed" && c.venueId === demande.venueId
+        && seChevauchent(c, demande, battement),
+    ) ?? null
+  );
 }
 
 /** Qui demande : l'équipe quand la demande en porte une, sinon le compte. */
