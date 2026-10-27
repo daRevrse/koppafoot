@@ -12,7 +12,7 @@ import {
 } from "~/lib/centre-notifications";
 import { useNotifications } from "~/lib/notifications";
 import { ouvrirLeLien } from "~/lib/push";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /** L'icône de chaque type, celles du site (lucide) dans Ionicons. */
 const ICONE: Record<NotificationType, ComponentProps<typeof Ionicons>["name"]> = {
@@ -38,6 +38,8 @@ const heure = (iso: string) => {
 };
 
 function Ligne({ n, premiere, onPress }: { n: Notification; premiere: boolean; onPress: () => void }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   return (
     <Pressable
       accessibilityRole={n.link ? "link" : "button"}
@@ -73,6 +75,8 @@ function Ligne({ n, premiere, onPress }: { n: Notification; premiere: boolean; o
  * (un match, une compétition, une équipe), le site sinon.
  */
 export default function EcranNotifications() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { utilisateur } = useAuth();
   const { notifications, nonLues, marquerLue, toutMarquerLu } = useNotifications();
   const [filtre, setFiltre] = useState<FiltreNotifications>("toutes");
@@ -128,7 +132,7 @@ export default function EcranNotifications() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingTop: 16, paddingBottom: 32, gap: 16 },
   chargement: { paddingVertical: 40 },
@@ -161,4 +165,4 @@ const styles = StyleSheet.create({
   },
   heure: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
   chevron: { marginTop: 8 },
-});
+}));

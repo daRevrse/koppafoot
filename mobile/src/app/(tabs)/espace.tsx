@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { SansCasquette } from "~/components/casquette/SansCasquette";
 import { SectionATenir } from "~/components/casquette/SectionATenir";
@@ -8,7 +8,7 @@ import { SectionTerrains } from "~/components/casquette/SectionTerrains";
 import { EnTeteOnglet } from "~/components/EnTeteOnglet";
 import { useEspaceCasquette } from "~/hooks/useEspaceCasquette";
 import { useAuth } from "~/lib/auth";
-import { couleurs } from "~/theme";
+import { creerStyles, useCouleurs } from "~/theme";
 
 /**
  * L'onglet Espace casquette : ce que le compte a à faire avec ses casquettes
@@ -18,6 +18,8 @@ import { couleurs } from "~/theme";
  * ce qu'elles sont et où les demander.
  */
 export default function EcranEspace() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { utilisateur } = useAuth();
   const e = useEspaceCasquette();
   const [tire, setTire] = useState(false);
@@ -62,8 +64,8 @@ export default function EcranEspace() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   chargement: { paddingVertical: 48 },
   contenu: { gap: 16, paddingTop: 8, paddingBottom: 48 },
-});
+}));

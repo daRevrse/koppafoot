@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
-import { couleurs, espacement, polices } from "~/theme";
+import { Text, TextInput, View, type TextInputProps } from "react-native";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 interface Props extends TextInputProps {
   etiquette: string;
@@ -12,6 +12,8 @@ interface Props extends TextInputProps {
  * un focus qui renforce la bordure au lieu d'allumer un anneau vert.
  */
 export function Champ({ etiquette, erreur, style, onFocus, onBlur, ...reste }: Props) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const [focus, setFocus] = useState(false);
   return (
     <View style={styles.bloc}>
@@ -38,7 +40,7 @@ export function Champ({ etiquette, erreur, style, onFocus, onBlur, ...reste }: P
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   bloc: { gap: 6 },
   etiquette: {
     fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.texteDiscret,
@@ -50,4 +52,4 @@ const styles = StyleSheet.create({
   champFocus: { borderColor: couleurs.bordureForte },
   champErreur: { borderColor: couleurs.erreur },
   erreur: { fontSize: 12, fontFamily: polices.texteGras, color: couleurs.erreur },
-});
+}));

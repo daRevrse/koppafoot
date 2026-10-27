@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /** Le cadre commun aux fenêtres de connexion, d'inscription et de mot de passe. */
 export function EcranAuth({ titre, phrase, children }: { titre: string; phrase: string; children: ReactNode }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   return (
     <SafeAreaView style={styles.ecran} edges={["top", "bottom"]}>
@@ -32,12 +34,12 @@ export function EcranAuth({ titre, phrase, children }: { titre: string; phrase: 
   );
 }
 
-export const stylesAuth = StyleSheet.create({
+export const useStylesAuth = creerStyles((couleurs) => ({
   erreur: { fontFamily: polices.texte, fontSize: 13, color: couleurs.erreur },
   info: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire },
-});
+}));
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   barre: { paddingHorizontal: 16, paddingVertical: 8, alignItems: "flex-end" },
   // Un petit bouton-icône : rond, comme ceux du site (rounded-full).
@@ -51,4 +53,4 @@ const styles = StyleSheet.create({
   titre: { fontFamily: polices.titre, fontSize: 30, lineHeight: 30, letterSpacing: espacement(30, -0.02), color: couleurs.texte },
   phrase: { fontFamily: polices.texte, fontSize: 14, lineHeight: 22, color: couleurs.texteSecondaire, marginTop: 12, marginBottom: 32 },
   formulaire: { gap: 16 },
-});
+}));

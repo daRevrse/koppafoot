@@ -3,7 +3,7 @@ import { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
 import { useAuth } from "~/lib/auth";
 import { titreDeLOnglet } from "~/lib/roles";
-import { couleurs, polices } from "~/theme";
+import { polices, useCouleurs } from "~/theme";
 
 // La barre du bas : Direct, Actus, Évolution, Espace casquette. Le compte et
 // la cloche sont dans l'en-tête (EnTeteOnglet), les compétitions au bout des
@@ -14,6 +14,7 @@ const ICONE_DU_ROLE: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
 };
 
 export default function OngletsLayout() {
+  const couleurs = useCouleurs();
   // L'onglet Évolution prend le nom du rôle une fois choisi (lib/roles).
   const { profil } = useAuth();
   const iconeEvolution = ICONE_DU_ROLE[profil?.evolutionRole ?? ""] ?? "trending-up-outline";

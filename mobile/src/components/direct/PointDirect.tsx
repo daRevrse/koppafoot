@@ -1,9 +1,10 @@
-import { Animated, StyleSheet } from "react-native";
+import { Animated } from "react-native";
 import { useRespiration } from "~/hooks/useRespiration";
-import { couleurs } from "~/theme";
+import { creerStyles } from "~/theme";
 
 /** Le point rouge d'un match en cours. Décoratif : la minute dit déjà tout. */
 export function PointDirect({ taille = 6 }: { taille?: number }) {
+  const styles = useStyles();
   const opacite = useRespiration();
   return (
     <Animated.View
@@ -14,6 +15,6 @@ export function PointDirect({ taille = 6 }: { taille?: number }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   point: { backgroundColor: couleurs.direct },
-});
+}));

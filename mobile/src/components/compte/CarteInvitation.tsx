@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, Share, StyleSheet, Text, View } from "react-native";
 import { messageDInvitation } from "~/lib/compte";
-import { couleurs, espacement, polices } from "~/theme";
+import { espacement, polices } from "~/theme";
 
 /**
  * « Invite tes amis » (InviteCard du site) : le bloc vert, le mégaphone en
@@ -26,9 +26,10 @@ export function CarteInvitation({ prenom }: { prenom: string | null }) {
 }
 
 const styles = StyleSheet.create({
-  carte: { overflow: "hidden", padding: 16, gap: 6, backgroundColor: couleurs.bouton },
+  // bg-emerald-700 du site, dans les deux thèmes.
+  carte: { overflow: "hidden", padding: 16, gap: 6, backgroundColor: "#047857" },
   filigrane: { position: "absolute", right: -12, bottom: -14 },
-  titre: { fontFamily: polices.titre, fontSize: 17, color: couleurs.surBouton },
+  titre: { fontFamily: polices.titre, fontSize: 17, color: "#ffffff" },
   texte: { maxWidth: 260, fontFamily: polices.texteGras, fontSize: 12, lineHeight: 17, color: "rgba(255,255,255,0.78)" },
   bouton: {
     alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8,

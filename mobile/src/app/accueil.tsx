@@ -6,7 +6,7 @@ import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bouton } from "~/components/Bouton";
 import { useAccueil } from "~/lib/accueil";
-import { couleurs, espacement, polices } from "~/theme";
+import { ContexteCouleurs, creerStyles, espacement, palettes, polices, useCouleurs } from "~/theme";
 
 /**
  * La photo de la page de connexion du site (public/branding/login_side.jpg) :
@@ -29,8 +29,21 @@ const DIAPOS = [
  * d'un écran à l'autre. Les dimensions viennent de la mise en page réelle
  * (onLayout) : sur Android, selon les versions, la fenêtre compte ou non la
  * barre de navigation. La fenêtre sert de valeur de départ.
+ *
+ * Il reste sombre dans les deux thèmes : ses photos, leur dégradé et leur
+ * texte blanc sont faits pour, comme les en-têtes noirs des fiches.
  */
 export default function EcranAccueil() {
+  return (
+    <ContexteCouleurs.Provider value={palettes.sombre}>
+      <Accueil />
+    </ContexteCouleurs.Provider>
+  );
+}
+
+function Accueil() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { terminer } = useAccueil();
   const fenetre = useWindowDimensions();
   const [mesure, setMesure] = useState<{ largeur: number; hauteur: number } | null>(null);
@@ -102,7 +115,7 @@ export default function EcranAccueil() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   textes: { position: "absolute", left: 24, right: 24, gap: 12 },
   // L'affiche du site (CadreAuth) : font-display font-black, capitales, interlignage 0,9.
@@ -117,4 +130,4 @@ const styles = StyleSheet.create({
     fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: "#fff",
     textShadowColor: "rgba(0,0,0,0.5)", textShadowRadius: 4,
   },
-});
+}));

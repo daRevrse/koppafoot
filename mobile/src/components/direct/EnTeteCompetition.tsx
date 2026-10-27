@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } fro
 import { competitionSubtitle } from "@/lib/direct-shared";
 import type { Competition } from "@/types";
 import { Ecusson } from "~/components/Ecusson";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices, useCouleurs } from "~/theme";
 
 interface Props {
   competition: Competition;
@@ -20,6 +20,8 @@ interface Props {
 
 /** L'en-tête d'une compétition, celui du Direct du site (CompetitionGroup). */
 export function EnTeteCompetition({ competition, suivable, suivie, onEtoile, onPress, repli, style }: Props) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const sousTitre = competitionSubtitle(competition);
   return (
     <View style={[styles.entete, style]}>
@@ -65,7 +67,7 @@ export function EnTeteCompetition({ competition, suivable, suivie, onEtoile, onP
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   // Fond plein : l'en-tête reste collé en haut pendant que les lignes défilent dessous.
   entete: {
     flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8,
@@ -79,4 +81,4 @@ const styles = StyleSheet.create({
   sousTitre: { flexShrink: 1, fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
   nombre: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.texteDiscret },
   chevron: { width: 24, height: 24, alignItems: "center", justifyContent: "center" },
-});
+}));

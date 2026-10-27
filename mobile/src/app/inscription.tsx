@@ -6,11 +6,12 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
 import { ConnexionGoogle } from "~/components/ConnexionGoogle";
-import { EcranAuth, stylesAuth } from "~/components/EcranAuth";
+import { EcranAuth, useStylesAuth } from "~/components/EcranAuth";
 import { useAuth } from "~/lib/auth";
 import { phraseDeRaison } from "~/lib/raisons-auth";
 
 export default function EcranInscription() {
+  const stylesAuth = useStylesAuth();
   const { raison } = useLocalSearchParams<{ raison?: string }>();
   const { inscriptionEmail } = useAuth();
   const router = useRouter();

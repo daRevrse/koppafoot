@@ -1,12 +1,13 @@
 import { Animated, StyleSheet, View } from "react-native";
 import { useRespiration } from "~/hooks/useRespiration";
-import { couleurs } from "~/theme";
+import { creerStyles } from "~/theme";
 
 /** Deux compétitions, la première avec deux matchs, la seconde avec un. */
 const GROUPES = [2, 1];
 
 /** La forme du Direct, le temps du premier chargement. */
 export function SqueletteDirect() {
+  const styles = useStyles();
   const opacite = useRespiration();
   return (
     <Animated.View
@@ -30,7 +31,7 @@ export function SqueletteDirect() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   entete: {
     flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 12, paddingVertical: 8,
     backgroundColor: couleurs.surfaceHaute,
@@ -41,4 +42,4 @@ const styles = StyleSheet.create({
     height: 56, backgroundColor: couleurs.surface,
     borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
   },
-});
+}));

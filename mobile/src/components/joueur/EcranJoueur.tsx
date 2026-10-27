@@ -1,13 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import type { ReactNode } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { avecVia } from "@/lib/audience";
 import { LIBELLE_FORME, type FormeJoueur } from "@/lib/etat-de-forme";
 import { formaterNote } from "@/lib/notes";
+import { BarreDEtatSurNoir } from "~/components/BarreDEtatSurNoir";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatFiche } from "~/components/fiche/EtatFiche";
 import { PastilleNote } from "~/components/fiche/JoueurDuMatch";
@@ -16,11 +16,12 @@ import { urlDuSite } from "~/lib/config";
 import type { FicheJoueur } from "~/lib/fiche-joueur";
 import { initiales } from "~/lib/initiales";
 import { ouvrirLeLien } from "~/lib/push";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, palettes, polices, useCouleurs } from "~/theme";
 
 const blanc = (opacite: number) => `rgba(255,255,255,${opacite})`;
 
 function Cadre({ titre, children }: { titre: string; children: ReactNode }) {
+  const styles = useStyles();
   return (
     <View style={styles.cadre}>
       <Text style={styles.cadreTitre} accessibilityRole="header">{titre.toUpperCase()}</Text>
@@ -31,6 +32,7 @@ function Cadre({ titre, children }: { titre: string; children: ReactNode }) {
 
 /** Le visage : la photo, ou les initiales. */
 function Visage({ nom, photo, taille }: { nom: string; photo: string | null; taille: number }) {
+  const styles = useStyles();
   const forme = { width: taille, height: taille, borderRadius: taille / 2 };
   return photo ? (
     <Image source={{ uri: photo }} style={[forme, styles.visageBord]} contentFit="cover" accessibilityIgnoresInvertColors />
@@ -43,6 +45,7 @@ function Visage({ nom, photo, taille }: { nom: string; photo: string | null; tai
 
 /** La forme (la case Forme de BilanDuProfil) : le niveau et la moyenne, puis la note de chaque match, qui l'ouvre. */
 function Forme({ forme }: { forme: FormeJoueur | null }) {
+  const styles = useStyles();
   const matchs = (forme?.matchs ?? []).slice(0, 5);
   if (!forme || matchs.length === 0) return <Text style={styles.vide}>Pas encore de match noté.</Text>;
   return (
@@ -77,6 +80,8 @@ function Forme({ forme }: { forme: FormeJoueur | null }) {
  * L'onglet Évolution d'un joueur ou d'un arbitre le reprend pour sa fiche.
  */
 export function ContenuFicheJoueur({ fiche, forme }: { fiche: Extract<FicheJoueur, { genre: "fiche" }>; forme: FormeJoueur | null }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const identite = [fiche.role, fiche.poste, fiche.numero ? `N°${fiche.numero}` : null].filter(Boolean).join(" · ");
   const infos = [
@@ -203,6 +208,7 @@ export function ContenuFicheJoueur({ fiche, forme }: { fiche: Extract<FicheJoueu
  * Un compte sans fiche publique ne montre que son nom et sa photo.
  */
 export function EcranJoueur({ uid }: { uid: string }) {
+  const styles = useStyles();
   const router = useRouter();
   const { fiche, forme } = useFicheJoueur(uid);
   if (!fiche) return <EtatFiche introuvable={fiche === null} texte="Ce joueur n'existe pas ou n'est plus disponible." />;
@@ -213,7 +219,7 @@ export function EcranJoueur({ uid }: { uid: string }) {
 
   return (
     <View style={styles.ecran}>
-      <StatusBar style="light" />
+      <BarreDEtatSurNoir />
       <SafeAreaView edges={["top"]} style={styles.barreFond}>
         <View style={styles.barre}>
           <Pressable accessibilityRole="button" accessibilityLabel="Revenir à l'écran précédent" onPress={retour} hitSlop={8} style={styles.bouton}>
@@ -241,7 +247,7 @@ export function EcranJoueur({ uid }: { uid: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   barreFond: { backgroundColor: "#000" },
   barre: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16 },
@@ -255,8 +261,9 @@ const styles = StyleSheet.create({
   couverture: { opacity: 0.35 },
   voile: { backgroundColor: "rgba(0,0,0,0.6)" },
   visageBord: { borderWidth: 2, borderColor: blanc(0.15) },
-  visageVide: { backgroundColor: couleurs.primaireVoile, alignItems: "center", justifyContent: "center" },
-  initiales: { fontFamily: polices.texteNoir, color: couleurs.primaire },
+  // Sur l'en-tête noir, dans les deux thèmes.
+  visageVide: { backgroundColor: palettes.sombre.primaireVoile, alignItems: "center", justifyContent: "center" },
+  initiales: { fontFamily: polices.texteNoir, color: palettes.sombre.primaire },
   nom: { marginTop: 8, textAlign: "center", fontFamily: polices.titre, fontSize: 26, lineHeight: 28, color: "#fff" },
   identite: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.16), color: "#6ee7b7" },
   details: { flexDirection: "row", gap: 16 },
@@ -301,4 +308,4 @@ const styles = StyleSheet.create({
   bio: { paddingHorizontal: 16, fontFamily: polices.texte, fontSize: 14, lineHeight: 21, color: couleurs.texteSecondaire },
   galerie: { flexDirection: "row", flexWrap: "wrap", gap: 4, paddingHorizontal: 16 },
   photo: { width: "32%", aspectRatio: 1 },
-});
+}));

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 /**
  * Un cadre de la page d'une compétition : son titre en capitales espacées,
@@ -11,6 +11,7 @@ export function Bloc({ titre, action, children }: {
   action?: { libelle: string; onPress: () => void };
   children: ReactNode;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.cadre}>
       <View style={styles.entete}>
@@ -26,7 +27,7 @@ export function Bloc({ titre, action, children }: {
   );
 }
 
-export const stylesBloc = StyleSheet.create({
+export const useStylesBloc = creerStyles((couleurs) => ({
   /** Une ligne d'un cadre, séparée de la précédente. */
   ligne: {
     flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 12,
@@ -34,11 +35,11 @@ export const stylesBloc = StyleSheet.create({
   },
   /** Le texte d'un cadre qui n'a rien à montrer. */
   vide: { paddingHorizontal: 16, paddingBottom: 16, fontFamily: polices.texte, fontSize: 13, color: couleurs.texteSecondaire },
-});
+}));
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   entete: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, padding: 16 },
   titre: { flexShrink: 1, fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), color: couleurs.texteDiscret },
   action: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.primaire },
-});
+}));

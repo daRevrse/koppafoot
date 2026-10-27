@@ -4,14 +4,14 @@ import { Alert, StyleSheet, Text, View } from "react-native";
 import { fr } from "@/i18n/fr";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
-import { EcranAuth, stylesAuth } from "~/components/EcranAuth";
+import { EcranAuth, useStylesAuth } from "~/components/EcranAuth";
 import { useAuth } from "~/lib/auth";
 import { API_URL } from "~/lib/config";
 import { auth } from "~/lib/firebase";
 import {
   confirmationValide, issueDeLaSuppression, MOT_DE_CONFIRMATION, type IssueSuppression,
 } from "~/lib/suppression-compte";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 async function supprimerLeCompte(saisie: string): Promise<IssueSuppression> {
   const u = auth.currentUser;
@@ -35,6 +35,8 @@ async function supprimerLeCompte(saisie: string): Promise<IssueSuppression> {
  * supprimé, la déconnexion referme la fenêtre (la garde de la pile).
  */
 export default function EcranSuppression() {
+  const stylesAuth = useStylesAuth();
+  const styles = useStyles();
   const { deconnexion } = useAuth();
   const router = useRouter();
   const [saisie, setSaisie] = useState("");
@@ -90,8 +92,8 @@ export default function EcranSuppression() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { gap: 10, padding: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   cadreTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.14), color: couleurs.erreur },
   obstacle: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texte },
-});
+}));

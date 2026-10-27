@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { RESULTATS, type Resultat, type ResultatDeForme } from "@/lib/forme";
 import { Ecusson } from "~/components/Ecusson";
 import type { Fiche } from "~/lib/fiche-match";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs, type Couleurs } from "~/theme";
 
 const { mot, lettre } = RESULTATS.fr;
 
@@ -16,6 +16,7 @@ const PASTILLE_ENTETE: Record<Resultat, { fond: string; texte: string }> = {
 
 /** La forme sous le nom d'un camp, dans l'en-tête : la plus récente soulignée. */
 export function PointsDeForme({ forme }: { forme: Resultat[] }) {
+  const styles = useStyles();
   if (forme.length === 0) return null;
   return (
     <View
@@ -36,14 +37,16 @@ export function PointsDeForme({ forme }: { forme: Resultat[] }) {
   );
 }
 
-// Les pastilles de l'onglet Infos (components/match/MatchForme), sur fond sombre.
-const PASTILLE: Record<Resultat, { fond: string; texte: string }> = {
+// Les pastilles de l'onglet Infos (components/match/MatchForme), sur la carte.
+const pastilles = (couleurs: Couleurs): Record<Resultat, { fond: string; texte: string }> => ({
   V: { fond: "#059669", texte: "#fff" },
-  N: { fond: couleurs.surfaceHaute, texte: couleurs.texteSecondaire },
+  N: { fond: couleurs.pastilleNeutre, texte: couleurs.texteSecondaire },
   D: { fond: "#ef4444", texte: "#fff" },
-};
+});
 
 function Colonne({ nom, resultats, cid, droite }: { nom: string; resultats: ResultatDeForme[]; cid: string; droite: boolean }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   return (
     <View style={[styles.colonne, droite ? styles.colonneDroite : null]}>
@@ -64,10 +67,10 @@ function Colonne({ nom, resultats, cid, droite }: { nom: string; resultats: Resu
                 style={styles.resultat}
               >
                 <Ecusson url={r.adversaire.logo} nom={r.adversaire.nom} taille={20} />
-                <View style={[styles.pastille, { backgroundColor: PASTILLE[r.resultat].fond }]}>
-                  <Text style={[styles.pastilleTexte, { color: PASTILLE[r.resultat].texte }]}>{lettre[r.resultat]}</Text>
+                <View style={[styles.pastille, { backgroundColor: pastilles(couleurs)[r.resultat].fond }]}>
+                  <Text style={[styles.pastilleTexte, { color: pastilles(couleurs)[r.resultat].texte }]}>{lettre[r.resultat]}</Text>
                 </View>
-                <View style={[styles.souligneInfos, dernier && { backgroundColor: PASTILLE[r.resultat].fond }]} />
+                <View style={[styles.souligneInfos, dernier && { backgroundColor: pastilles(couleurs)[r.resultat].fond }]} />
               </Pressable>
             );
           })}
@@ -79,6 +82,7 @@ function Colonne({ nom, resultats, cid, droite }: { nom: string; resultats: Resu
 
 /** Les derniers résultats des deux équipes, dans l'onglet Infos. Avant la première journée, rien. */
 export function FormeDesEquipes({ fiche }: { fiche: Fiche }) {
+  const styles = useStyles();
   const { formes } = fiche.contexte;
   if (!fiche.competition || (formes.domicile.length === 0 && formes.exterieur.length === 0)) return null;
   return (
@@ -92,7 +96,7 @@ export function FormeDesEquipes({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   points: { flexDirection: "row", justifyContent: "center", gap: 2, marginTop: 2 },
   pointBloc: { alignItems: "center", gap: 2 },
   point: { width: 14, height: 14, alignItems: "center", justifyContent: "center" },
@@ -111,4 +115,4 @@ const styles = StyleSheet.create({
   pastille: { width: 20, height: 20, alignItems: "center", justifyContent: "center" },
   pastilleTexte: { fontFamily: polices.texteNoir, fontSize: 10 },
   souligneInfos: { width: 20, height: 2 },
-});
+}));

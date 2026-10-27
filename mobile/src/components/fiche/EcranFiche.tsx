@@ -1,10 +1,10 @@
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { isSuperAdmin } from "@/lib/hats";
 import { cibleMatch } from "@/lib/audience";
 import { ongletTchatVisible } from "@/lib/tchat";
+import { BarreDEtatSurNoir } from "~/components/BarreDEtatSurNoir";
 import { ClassementDeLaPoule } from "~/components/fiche/ClassementDeLaPoule";
 import { Compos } from "~/components/fiche/Compos";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
@@ -23,7 +23,7 @@ import {
 import { useAuth } from "~/lib/auth";
 import { useMessagesDuTchat } from "~/lib/interactions-match";
 import { retourSelection } from "~/lib/retour";
-import { couleurs } from "~/theme";
+import { creerStyles } from "~/theme";
 
 /** Au-delà de ce défilement, le score du tableau est sorti de l'écran : la barre le reprend. */
 const SEUIL_COMPACT = 150;
@@ -33,6 +33,7 @@ const SEUIL_COMPACT = 150;
  * onglets qui restent collés sous la barre, et le panneau de l'onglet.
  */
 export function EcranFiche({ fiche }: { fiche: Fiche }) {
+  const styles = useStyles();
   const router = useRouter();
   // Le chrono et le compte à rebours avancent seuls ; un match joué n'a plus besoin de l'heure.
   const maintenant = useMaintenant(fiche.statut === "live" || fiche.statut === "scheduled");
@@ -87,7 +88,7 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
 
   return (
     <View style={styles.ecran}>
-      <StatusBar style="light" />
+      <BarreDEtatSurNoir />
       <BarreFiche fiche={fiche} maintenant={maintenant} compact={compact} onRetour={retour} />
       <ScrollView
         stickyHeaderIndices={[1]}
@@ -117,8 +118,8 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingBottom: 48 },
   panneau: { paddingTop: 16, minHeight: 400 },
-});
+}));

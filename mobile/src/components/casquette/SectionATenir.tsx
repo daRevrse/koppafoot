@@ -5,7 +5,7 @@ import { libelleDuJour } from "@/lib/dates";
 import type { Match } from "@/types";
 import { BoutonGeste } from "~/components/casquette/BoutonGeste";
 import { LigneCasquette } from "~/components/casquette/LigneCasquette";
-import { Bloc, stylesBloc } from "~/components/competition/Bloc";
+import { Bloc, useStylesBloc } from "~/components/competition/Bloc";
 import type { JourneeTenue } from "~/hooks/useEspaceCasquette";
 import { useAuth } from "~/lib/auth";
 import { couvrirAmical } from "~/lib/casquette-api";
@@ -13,7 +13,7 @@ import { confiePar, PAGES_DU_SITE } from "~/lib/espace-casquette";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { retourImpact } from "~/lib/retour";
 import { routeDeLaCompetition } from "~/lib/routes";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 const quand = (m: Match) => (m.date ? `${libelleDuJour(m.date)}${m.time ? ` à ${m.time}` : ""}` : m.time);
 
@@ -32,6 +32,8 @@ export function SectionATenir({ uid, confies, journees, amicaux }: {
   journees: JourneeTenue[];
   amicaux: Match[];
 }) {
+  const stylesBloc = useStylesBloc();
+  const styles = useStyles();
   const router = useRouter();
   const { utilisateur } = useAuth();
   const [enCours, setEnCours] = useState<string | null>(null);
@@ -138,7 +140,7 @@ export function SectionATenir({ uid, confies, journees, amicaux }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   competition: {
     paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure,
@@ -149,4 +151,4 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure,
     fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.accent,
   },
-});
+}));

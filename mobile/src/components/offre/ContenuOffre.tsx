@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { montant, type BlocOffre, type Jauge, type Tarifs, type VueOffre } from "~/lib/offre-app";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const date = (iso: string) =>
   new Date(`${iso.slice(0, 10)}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
@@ -15,6 +15,8 @@ const echeance = (b: BlocOffre) => (b.jusquAu ? `jusqu'au ${date(b.jusquAu)}` : 
  * « Pas de pubs ». Des tarifs, aucun bouton de paiement (lib/offre-app).
  */
 export function ContenuOffre({ vue }: { vue: VueOffre }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   return (
     <ScrollView contentContainerStyle={styles.contenu}>
       <Text style={styles.sousTitre}>
@@ -74,6 +76,8 @@ export function ContenuOffre({ vue }: { vue: VueOffre }) {
 }
 
 function EnTeteBloc({ icone, nom, bloc }: { icone: "diamond-outline" | "eye-off-outline"; nom: string; bloc: BlocOffre }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   return (
     <View style={styles.enTeteBloc}>
       <Ionicons name={icone} size={20} color={couleurs.primaire} />
@@ -89,6 +93,7 @@ function EnTeteBloc({ icone, nom, bloc }: { icone: "diamond-outline" | "eye-off-
 
 /** Les deux durées et leur prix ; « soit … par mois » pour l'année, comme le site. */
 function LesTarifs({ tarifs }: { tarifs: Tarifs }) {
+  const styles = useStyles();
   if (tarifs.mois === null && tarifs.an === null) {
     return <Text style={styles.note}>Tarif à venir.</Text>;
   }
@@ -112,6 +117,8 @@ function LesTarifs({ tarifs }: { tarifs: Tarifs }) {
 }
 
 function LigneJauge({ jauge: j, premiere }: { jauge: Jauge; premiere: boolean }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   return (
     <View style={[styles.jauge, !premiere && styles.trait]}>
       <Text style={styles.jaugeLibelle}>{j.libelle}</Text>
@@ -122,7 +129,7 @@ function LigneJauge({ jauge: j, premiere }: { jauge: Jauge; premiere: boolean })
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   contenu: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 40, gap: 20 },
   sousTitre: { fontFamily: polices.texte, fontSize: 14, lineHeight: 20, color: couleurs.texteSecondaire },
   bloc: {
@@ -152,4 +159,4 @@ const styles = StyleSheet.create({
   trait: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
   jaugeLibelle: { flex: 1, fontFamily: polices.texteGras, fontSize: 14, color: couleurs.texte },
   jaugeValeur: { fontFamily: polices.titre, fontSize: 17, color: couleurs.texte },
-});
+}));

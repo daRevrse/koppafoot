@@ -4,10 +4,11 @@ import { Text } from "react-native";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
-import { EcranAuth, stylesAuth } from "~/components/EcranAuth";
+import { EcranAuth, useStylesAuth } from "~/components/EcranAuth";
 import { useAuth } from "~/lib/auth";
 
 export default function EcranMotDePasse() {
+  const stylesAuth = useStylesAuth();
   const { motDePasseOublie } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");

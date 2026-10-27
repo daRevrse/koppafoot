@@ -1,5 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, type PressableProps } from "react-native";
-import { couleurs, espacement, polices } from "~/theme";
+import { ActivityIndicator, Pressable, Text, type PressableProps } from "react-native";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 type Variante = "plein" | "contour" | "lien" | "danger";
 
@@ -15,6 +15,9 @@ interface Props extends Omit<PressableProps, "children" | "style"> {
  * « lien » le lien de pied (classeLienPiedAuth).
  */
 export function Bouton({ titre, variante = "plein", occupe = false, disabled, ...reste }: Props) {
+  const styles = useStyles();
+  const libelles = useLibelles();
+  const couleurs = useCouleurs();
   const inactif = disabled || occupe;
   return (
     <Pressable
@@ -33,7 +36,7 @@ export function Bouton({ titre, variante = "plein", occupe = false, disabled, ..
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   base: { minHeight: 48, paddingHorizontal: 24, alignItems: "center", justifyContent: "center" },
   plein: { backgroundColor: couleurs.bouton, borderWidth: 1, borderColor: couleurs.bouton },
   contour: { borderWidth: 1, borderColor: couleurs.bordure },
@@ -41,9 +44,9 @@ const styles = StyleSheet.create({
   danger: { backgroundColor: couleurs.boutonDanger, borderWidth: 1, borderColor: couleurs.boutonDanger },
   inactif: { opacity: 0.4 },
   presse: { opacity: 0.8 },
-});
+}));
 
-const libelles = StyleSheet.create({
+const useLibelles = creerStyles((couleurs) => ({
   plein: {
     fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), textAlign: "center",
     color: couleurs.surBouton,
@@ -60,4 +63,4 @@ const libelles = StyleSheet.create({
     fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), textAlign: "center",
     color: couleurs.surBouton,
   },
-});
+}));

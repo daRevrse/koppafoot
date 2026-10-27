@@ -3,12 +3,12 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Competition } from "@/types";
-import { Bloc, stylesBloc } from "~/components/competition/Bloc";
+import { Bloc, useStylesBloc } from "~/components/competition/Bloc";
 import { STATUT_DE_CARTE } from "~/lib/annuaire";
 import { PAGES_DU_SITE } from "~/lib/espace-casquette";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { routeDeLaCompetition } from "~/lib/routes";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * Mes compétitions (l'espace organisateur du site) : celles qu'on organise,
@@ -16,6 +16,7 @@ import { couleurs, espacement, polices } from "~/theme";
  * dans l'application ; « Gérer » ouvre son espace sur le site.
  */
 export function SectionCompetitions({ competitions, organisateur }: { competitions: Competition[]; organisateur: boolean }) {
+  const stylesBloc = useStylesBloc();
   return (
     <Bloc
       titre="Mes compétitions"
@@ -31,6 +32,8 @@ export function SectionCompetitions({ competitions, organisateur }: { competitio
 }
 
 function LigneCompetition({ competition: c }: { competition: Competition }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const statut = STATUT_DE_CARTE[c.status];
   const vignette = c.logoUrl ?? c.bannerUrl;
@@ -54,8 +57,8 @@ function LigneCompetition({ competition: c }: { competition: Competition }) {
         </View>
         <View style={styles.textes}>
           <View style={styles.statut}>
-            <View style={[styles.point, { backgroundColor: statut.couleur }]} />
-            <Text style={[styles.statutTexte, { color: statut.couleur }]}>{statut.libelle.toUpperCase()}</Text>
+            <View style={[styles.point, { backgroundColor: couleurs[statut.ton] }]} />
+            <Text style={[styles.statutTexte, { color: couleurs[statut.ton] }]}>{statut.libelle.toUpperCase()}</Text>
           </View>
           <Text style={styles.nom} numberOfLines={1}>{c.name}</Text>
         </View>
@@ -73,7 +76,7 @@ function LigneCompetition({ competition: c }: { competition: Competition }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ligne: {
     flexDirection: "row", alignItems: "center", paddingRight: 12,
     borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure,
@@ -92,4 +95,4 @@ const styles = StyleSheet.create({
   nom: { fontFamily: polices.titreMoyen, fontSize: 15, color: couleurs.texte },
   gerer: { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: couleurs.bordureForte },
   gererTexte: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.texteSecondaire },
-});
+}));

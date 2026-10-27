@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps, ReactNode } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { stylesBloc } from "~/components/competition/Bloc";
-import { couleurs, espacement, polices } from "~/theme";
+import { Pressable, Text, View } from "react-native";
+import { useStylesBloc } from "~/components/competition/Bloc";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * Une ligne de l'Espace casquette : un match à tenir, une réservation, un
@@ -19,6 +19,9 @@ export function LigneCasquette({ icone, titre, detail, note, etat, onPress, fin 
   onPress?: () => void;
   fin?: ReactNode;
 }) {
+  const stylesBloc = useStylesBloc();
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const libelleEtat = etat === "direct" ? "en direct" : etat === "termine" ? "terminé" : null;
   const contenu = (
     <>
@@ -54,7 +57,7 @@ export function LigneCasquette({ icone, titre, detail, note, etat, onPress, fin 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   presse: { backgroundColor: couleurs.surfaceHaute },
   icone: { width: 34, height: 34, alignItems: "center", justifyContent: "center", backgroundColor: couleurs.primaireVoile },
   iconeDirect: { backgroundColor: couleurs.directVoile },
@@ -65,4 +68,4 @@ const styles = StyleSheet.create({
   etat: { paddingHorizontal: 6, paddingVertical: 2, fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: espacement(9, 0.1) },
   direct: { color: couleurs.direct, backgroundColor: couleurs.directVoile },
   termine: { color: couleurs.texteDiscret, backgroundColor: couleurs.surfaceHaute },
-});
+}));

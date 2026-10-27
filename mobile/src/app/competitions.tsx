@@ -13,7 +13,7 @@ import { useSuivi } from "~/hooks/useSuivi";
 import { competitionsPubliques, rechercher, sectionsDeLAnnuaire } from "~/lib/annuaire";
 import { lireToutesLesCompetitions } from "~/lib/fiche-firestore";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * L'annuaire des compétitions (/competitions du site), ouvert depuis le bout
@@ -22,6 +22,8 @@ import { couleurs, espacement, polices } from "~/theme";
  * le site : ils n'ont pas d'écran ici.
  */
 export default function EcranAnnuaire() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const { q } = useLocalSearchParams<{ q?: string }>();
   const suivi = useSuivi();
@@ -152,7 +154,7 @@ export default function EcranAnnuaire() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 20 },
   recherche: {
@@ -172,4 +174,4 @@ const styles = StyleSheet.create({
   flexible: { flex: 1, minWidth: 0 },
   mondeTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.14), color: couleurs.texteSecondaire },
   mondeTexte: { marginTop: 2, fontFamily: polices.texte, fontSize: 13, color: couleurs.texteDiscret },
-});
+}));

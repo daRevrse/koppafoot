@@ -13,7 +13,6 @@
 
 import { buteursDuMatch, buteursRenseignes, type ButeursDuMatch } from "@/lib/buteurs";
 import { DEFAULT_HALF_DURATION, extraTimeDuration, halfDuration, matchDuration } from "@/lib/competition-format";
-import { couleursDesBarres } from "@/lib/couleurs-equipe";
 import { matchsQuiComptent } from "@/lib/exhibition";
 import type { Deroule } from "@/lib/fil-du-match";
 import { derniersResultats, type ResultatDeForme } from "@/lib/forme";
@@ -27,7 +26,6 @@ import { aDesStats, lignesStats, type LigneStat } from "@/lib/stats-match";
 import { etatDeLaSeance, SEANCE_VIDE } from "@/lib/tirs-au-but";
 import type { Categorie } from "@/lib/genre";
 import type { Competition, CompMatch, CompTeam, LineupEntry, Match } from "@/types";
-import { couleurs } from "~/theme";
 
 const f = FOOT.fr;
 
@@ -57,8 +55,11 @@ export interface ContexteDeFiche {
   bilanFaceAFace: { home: number; draw: number; away: number };
   stats: LigneStat[];
   aDesStats: boolean;
-  /** Chaque camp dans sa couleur, sur les barres (lib/couleurs-equipe, piste sombre). */
-  couleurs: { home: string; away: string } | null;
+  /**
+   * La couleur déclarée de chaque camp, pour les barres des stats : elles se
+   * peignent au rendu (lib/couleurs-equipe), sur la piste du thème affiché.
+   */
+  maillots: { home: string | null; away: string | null } | null;
 }
 
 /** Ce que `photoDeLaLigne` (lib/photos-sans-compte) lit d'une ligne de feuille. */
@@ -256,9 +257,7 @@ export function ficheDepuisCompetition(
     mvp: mvpDe(match, competition.format ? matchDuration(competition.format) : DUREE_MATCH_DEFAUT),
     contexte: {
       formes, poule, faceAFace, bilanFaceAFace, ...statsDe(match),
-      couleurs: couleursDesBarres(
-        equipeDe(match.homeTeamId)?.color ?? null, equipeDe(match.awayTeamId)?.color ?? null, couleurs.surfaceHaute,
-      ),
+      maillots: { home: equipeDe(match.homeTeamId)?.color ?? null, away: equipeDe(match.awayTeamId)?.color ?? null },
     },
     lignesPhoto,
     dureeMiTemps,
@@ -305,7 +304,7 @@ export function ficheDepuisAmical(match: Match): Fiche {
     // Un amical n'a ni poule, ni compétition où chercher une forme ou un face-à-face.
     contexte: {
       formes: { domicile: [], exterieur: [] }, poule: null, faceAFace: [], bilanFaceAFace: { home: 0, draw: 0, away: 0 },
-      couleurs: null, ...statsDe(match),
+      maillots: null, ...statsDe(match),
     },
     lignesPhoto: Object.fromEntries(
       [...(match.homeLineup ?? []), ...(match.awayLineup ?? [])].map((e) => [

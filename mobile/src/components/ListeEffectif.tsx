@@ -7,7 +7,7 @@ import { effectifParPoste } from "@/lib/fiche-club";
 import { EtatVide } from "~/components/EtatVide";
 import { useAuth } from "~/lib/auth";
 import { initiales } from "~/lib/initiales";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /** Une ligne d'effectif, d'où qu'elle vienne : une équipe de compétition, un club. */
 export interface LigneDEffectif {
@@ -26,6 +26,8 @@ export interface LigneDEffectif {
  * reconnaît à « Toi », et un joueur qui a un compte ouvre sa fiche.
  */
 export function ListeEffectif({ lignes, feminin }: { lignes: LigneDEffectif[]; feminin: boolean }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const { utilisateur } = useAuth();
   const groupes = effectifParPoste(lignes, "fr", feminin);
@@ -75,7 +77,7 @@ export function ListeEffectif({ lignes, feminin }: { lignes: LigneDEffectif[]; f
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   colonne: { gap: 16, paddingHorizontal: 16 },
   titre: { marginBottom: 6, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.15), color: couleurs.texteDiscret },
   nombre: { color: couleurs.bordureForte },
@@ -92,4 +94,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2, fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: 0.5,
     color: couleurs.primaire, backgroundColor: couleurs.primaireVoile,
   },
-});
+}));

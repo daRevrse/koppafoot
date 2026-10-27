@@ -1,9 +1,9 @@
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { cibleCompetition } from "@/lib/audience";
 import type { CompMatch } from "@/types";
+import { BarreDEtatSurNoir } from "~/components/BarreDEtatSurNoir";
 import { BarreOnglets } from "~/components/BarreOnglets";
 import { Apercu } from "~/components/competition/Apercu";
 import { BarreCompetition, EnTeteDeCompetition } from "~/components/competition/BandeauCompetition";
@@ -17,7 +17,7 @@ import { useAudience } from "~/hooks/useAudience";
 import { useCompetition } from "~/hooks/useCompetition";
 import { libellesDesOnglets, ongletsDeLaCompetition, type OngletCompetition } from "~/lib/page-competition";
 import { retourSelection } from "~/lib/retour";
-import { couleurs } from "~/theme";
+import { creerStyles } from "~/theme";
 
 /** Au-delà de ce défilement, le nom de l'en-tête est sorti de l'écran : la barre le reprend. */
 const SEUIL_COMPACT = 110;
@@ -27,6 +27,7 @@ const SEUIL_COMPACT = 110;
  * onglets qui restent collés sous la barre, et le panneau de l'onglet.
  */
 export function EcranCompetition({ cid }: { cid: string }) {
+  const styles = useStyles();
   const router = useRouter();
   const { competition, matchs, equipes, abonnes, introuvable } = useCompetition(cid);
   // Une visite par appareil et par jour, comme la page du site (lib/audience).
@@ -73,7 +74,7 @@ export function EcranCompetition({ cid }: { cid: string }) {
 
   return (
     <View style={styles.ecran}>
-      <StatusBar style="light" />
+      <BarreDEtatSurNoir />
       <BarreCompetition competition={competition} compact={compact} onRetour={retour} />
       <ScrollView
         stickyHeaderIndices={[1]}
@@ -92,8 +93,8 @@ export function EcranCompetition({ cid }: { cid: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingBottom: 48 },
   panneau: { paddingTop: 16, minHeight: 400 },
-});
+}));

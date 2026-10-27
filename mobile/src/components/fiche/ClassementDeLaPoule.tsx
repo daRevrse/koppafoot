@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { COLONNES_CLASSEMENT } from "@/i18n/foot";
 import type { GroupStanding } from "@/lib/poules";
 import { Ecusson } from "~/components/Ecusson";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 const c = COLONNES_CLASSEMENT.fr;
 
@@ -16,6 +16,7 @@ export function ClassementDeLaPoule({ poule, domicile, exterieur }: {
   domicile: string | null;
   exterieur: string | null;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.cadre}>
       <Text style={styles.titre}>{`POULE ${poule.group}`}</Text>
@@ -44,7 +45,7 @@ export function ClassementDeLaPoule({ poule, domicile, exterieur }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, padding: 16, backgroundColor: couleurs.surface },
   titre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: couleurs.texteDiscret, marginBottom: 8 },
   rangee: { flexDirection: "row", alignItems: "center" },
@@ -62,4 +63,4 @@ const styles = StyleSheet.create({
   nomEnAvant: { fontFamily: polices.texteNoir, color: couleurs.texte },
   chiffre: { fontFamily: polices.texteGras, fontSize: 13, color: couleurs.texteSecondaire, fontVariant: ["tabular-nums"] },
   points: { fontFamily: polices.texteNoir, fontSize: 13, color: couleurs.texte, fontVariant: ["tabular-nums"] },
-});
+}));

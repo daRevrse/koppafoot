@@ -6,22 +6,22 @@ import { matchsQuiComptent } from "@/lib/exhibition";
 import { computeForm, computeTopAssisters, computeTopScorers, type ResultatDeForme } from "@/lib/performances-competition";
 import { couvertureLisible, parMatchLisible, statsDeJeu, titreDuRecord } from "@/lib/stats-competition";
 import type { Competition, CompMatch, CompTeam } from "@/types";
-import { Bloc, stylesBloc } from "~/components/competition/Bloc";
+import { Bloc, useStylesBloc } from "~/components/competition/Bloc";
 import { Ecusson } from "~/components/Ecusson";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs, type Couleurs } from "~/theme";
 
 /** Au-delà, la liste se replie : « Voir les 34 buteurs ». */
 const REPLI = 10;
 
 // Les couleurs du podium (ScorersTab du site) : or, argent, bronze.
-const PODIUM = ["#FBBF24", "#CBD5E1", "#FB923C"];
+const couleursDuPodium = (couleurs: Couleurs) => [couleurs.accent, couleurs.argent, couleurs.bronze];
 
 // La forme du rail du site, avec les lettres et les pastilles de l'application.
-const FORME: Record<ResultatDeForme, { lettre: string; mot: string; fond: string; texte: string }> = {
+const pastillesDeForme = (couleurs: Couleurs): Record<ResultatDeForme, { lettre: string; mot: string; fond: string; texte: string }> => ({
   W: { lettre: "V", mot: "Victoire", fond: "#059669", texte: "#fff" },
-  D: { lettre: "N", mot: "Nul", fond: couleurs.surfaceHaute, texte: couleurs.texteSecondaire },
+  D: { lettre: "N", mot: "Nul", fond: couleurs.pastilleNeutre, texte: couleurs.texteSecondaire },
   L: { lettre: "D", mot: "Défaite", fond: "#ef4444", texte: "#fff" },
-};
+});
 
 interface LigneJoueur { cle: string; nom: string; equipe: CompTeam | undefined; valeur: number }
 
@@ -32,6 +32,9 @@ function ListeDeJoueurs({ titre, lignes, unite, podium, vide }: {
   podium?: boolean;
   vide: string;
 }) {
+  const stylesBloc = useStylesBloc();
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const [tout, setTout] = useState(false);
   const montrees = tout ? lignes : lignes.slice(0, REPLI);
   return (
@@ -39,7 +42,7 @@ function ListeDeJoueurs({ titre, lignes, unite, podium, vide }: {
       {lignes.length === 0 ? <Text style={stylesBloc.vide}>{vide}</Text> : null}
       {montrees.map((l, i) => (
         <View key={l.cle} style={stylesBloc.ligne} accessible accessibilityLabel={`${i + 1}, ${l.nom}, ${l.valeur} ${unite(l.valeur)}`}>
-          <Text style={[styles.rang, podium && i < 3 && { color: PODIUM[i] }]}>{i + 1}</Text>
+          <Text style={[styles.rang, podium && i < 3 && { color: couleursDuPodium(couleurs)[i] }]}>{i + 1}</Text>
           <View style={styles.joueur}>
             <Text style={styles.nom} numberOfLines={1}>{l.nom}</Text>
             {l.equipe ? (
@@ -73,6 +76,9 @@ export function StatsCompetition({ competition, matchs, equipes, onOuvrir }: {
   equipes: CompTeam[];
   onOuvrir: (mid: string) => void;
 }) {
+  const stylesBloc = useStylesBloc();
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   if (matchs === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
   const parId = new Map(equipes.map((e) => [e.id, e]));
   const officiels = matchsQuiComptent(matchs);
@@ -83,6 +89,7 @@ export function StatsCompetition({ competition, matchs, equipes, onOuvrir }: {
     cle: `${p.teamId}-${p.playerName}`, nom: p.playerName, equipe: parId.get(p.teamId), valeur: p.assists,
   }));
   const formes = computeForm(officiels, equipes);
+  const FORME = pastillesDeForme(couleurs);
   const jeu = competition.statsPubliques ? statsDeJeu(matchs) : null;
 
   return (
@@ -158,7 +165,7 @@ export function StatsCompetition({ competition, matchs, equipes, onOuvrir }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   chargement: { paddingVertical: 40 },
   colonne: { gap: 16 },
   rang: { width: 20, textAlign: "right", fontFamily: polices.texteNoir, fontSize: 12, color: couleurs.texteDiscret },
@@ -186,4 +193,4 @@ const styles = StyleSheet.create({
   caseMoyenne: { marginTop: 2, fontFamily: polices.texte, fontSize: 11, color: couleurs.texteDiscret },
   presse: { backgroundColor: couleurs.surfaceHaute },
   record: { width: 36, textAlign: "center", fontFamily: polices.titre, fontSize: 20, color: couleurs.primaire },
-});
+}));

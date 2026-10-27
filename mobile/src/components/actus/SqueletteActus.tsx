@@ -1,9 +1,10 @@
-import { Animated, StyleSheet, View } from "react-native";
+import { Animated, View } from "react-native";
 import { useRespiration } from "~/hooks/useRespiration";
-import { couleurs } from "~/theme";
+import { creerStyles } from "~/theme";
 
 /** La forme d'Actus, le temps du premier chargement : la une, une journée, deux articles. */
 export function SqueletteActus() {
+  const styles = useStyles();
   const opacite = useRespiration();
   return (
     <Animated.View
@@ -24,10 +25,10 @@ export function SqueletteActus() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   une: { aspectRatio: 4 / 3, backgroundColor: couleurs.surface },
   journee: { width: 160, height: 18, marginHorizontal: 16, marginTop: 28, backgroundColor: couleurs.surfaceHaute },
   carte: { marginHorizontal: 16, marginTop: 12, padding: 16, gap: 10, backgroundColor: couleurs.surface },
   ligne: { height: 12, backgroundColor: couleurs.bordure },
   ligneCourte: { width: "45%" },
-});
+}));

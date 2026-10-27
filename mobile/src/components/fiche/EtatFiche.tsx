@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
-import { StyleSheet, View } from "react-native";
+import { View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { BarreDEtatSurNoir } from "~/components/BarreDEtatSurNoir";
 import { Bouton } from "~/components/Bouton";
 import { SqueletteDirect } from "~/components/direct/SqueletteDirect";
 import { EtatVide } from "~/components/EtatVide";
-import { couleurs } from "~/theme";
+import { creerStyles } from "~/theme";
 
 /**
  * Une page qui n'est pas encore là (une fiche, une compétition) : le bandeau
@@ -14,6 +15,7 @@ export function EtatFiche({ introuvable, texte = "Ce match n'existe pas ou n'est
   introuvable: boolean;
   texte?: string;
 }) {
+  const styles = useStyles();
   const router = useRouter();
   if (introuvable) {
     return (
@@ -26,14 +28,15 @@ export function EtatFiche({ introuvable, texte = "Ce match n'existe pas ou n'est
   }
   return (
     <View style={styles.ecran}>
+      <BarreDEtatSurNoir />
       <SafeAreaView edges={["top"]} style={styles.bandeau} />
       <SqueletteDirect />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   // La hauteur du tableau d'affichage, pour que rien ne saute à l'arrivée du match.
   bandeau: { height: 240, backgroundColor: "#000" },
-});
+}));

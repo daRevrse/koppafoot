@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { ComponentProps, ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import { couleurs, polices } from "~/theme";
+import { Text, View } from "react-native";
+import { creerStyles, polices, useCouleurs } from "~/theme";
 
 interface Props {
   icone: ComponentProps<typeof Ionicons>["name"];
@@ -12,6 +12,8 @@ interface Props {
 
 /** Une liste vide, un chargement raté : une icône, une phrase, et de quoi repartir. */
 export function EtatVide({ icone, texte, children }: Props) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   return (
     <View style={styles.bloc}>
       <Ionicons name={icone} size={36} color={couleurs.texteDiscret} />
@@ -21,7 +23,7 @@ export function EtatVide({ icone, texte, children }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   bloc: { alignItems: "center", paddingHorizontal: 32, paddingVertical: 40, gap: 14 },
   texte: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire, textAlign: "center" },
-});
+}));

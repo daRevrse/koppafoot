@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { categorieAffichee, LIBELLES_CATEGORIE } from "@/lib/genre";
 import type { Competition } from "@/types";
 import { periodeCourte, STATUT_DE_CARTE } from "~/lib/annuaire";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * Une compétition de l'annuaire (CompetitionDirectoryCard du site, sa forme
@@ -17,6 +17,8 @@ export function CarteAnnuaire({ competition: c, suivie, onEtoile, onPress }: {
   onEtoile: () => void;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const statut = STATUT_DE_CARTE[c.status];
   const vignette = c.logoUrl ?? c.bannerUrl;
   const periode = periodeCourte(c.startDate, c.endDate);
@@ -37,8 +39,8 @@ export function CarteAnnuaire({ competition: c, suivie, onEtoile, onPress }: {
         </View>
         <View style={styles.textes}>
           <View style={styles.statut}>
-            <View style={[styles.point, { backgroundColor: statut.couleur }]} />
-            <Text style={[styles.statutTexte, { color: statut.couleur }]}>{statut.libelle.toUpperCase()}</Text>
+            <View style={[styles.point, { backgroundColor: couleurs[statut.ton] }]} />
+            <Text style={[styles.statutTexte, { color: couleurs[statut.ton] }]}>{statut.libelle.toUpperCase()}</Text>
           </View>
           <Text style={styles.nom} numberOfLines={2}>
             {c.name}
@@ -64,7 +66,7 @@ export function CarteAnnuaire({ competition: c, suivie, onEtoile, onPress }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   carte: {
     flexDirection: "row", alignItems: "center", backgroundColor: couleurs.surface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure,
@@ -83,4 +85,4 @@ const styles = StyleSheet.create({
   categorie: { fontFamily: polices.texteNoir, fontSize: 9, color: couleurs.primaire },
   detail: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
   etoile: { paddingHorizontal: 16, alignSelf: "stretch", justifyContent: "center" },
-});
+}));

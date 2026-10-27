@@ -1,6 +1,7 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
+import { couleursDesBarres } from "@/lib/couleurs-equipe";
 import type { Fiche } from "~/lib/fiche-match";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * Les compteurs du match (components/match/MatchStats) : les deux nombres,
@@ -8,8 +9,11 @@ import { couleurs, espacement, polices } from "~/theme";
  * viennent de lib/stats-match, comme sur le site et dans la console.
  */
 export function StatsDuMatch({ fiche }: { fiche: Fiche }) {
-  const { stats, couleurs: teintes } = fiche.contexte;
+  const styles = useStyles();
+  const couleurs = useCouleurs();
+  const { stats, maillots } = fiche.contexte;
   if (stats.length === 0) return null;
+  const teintes = maillots ? couleursDesBarres(maillots.home, maillots.away, couleurs.surfaceHaute) : null;
   const home = teintes?.home ?? "#10b981";
   const away = teintes?.away ?? couleurs.texteSecondaire;
 
@@ -47,7 +51,7 @@ export function StatsDuMatch({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, padding: 16, gap: 18, backgroundColor: couleurs.surface },
   ligne: { gap: 6 },
   chiffres: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 },
@@ -63,4 +67,4 @@ const styles = StyleSheet.create({
   camp: { flexDirection: "row", alignItems: "center", gap: 6, flexShrink: 1 },
   point: { width: 8, height: 8, borderRadius: 4 },
   legendeTexte: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.05), color: couleurs.texteSecondaire, flexShrink: 1 },
-});
+}));

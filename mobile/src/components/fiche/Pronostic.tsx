@@ -9,7 +9,7 @@ import { useAuth } from "~/lib/auth";
 import type { Fiche } from "~/lib/fiche-match";
 import { comptesDesPronostics, monPronostic, pronostiquer } from "~/lib/interactions-match";
 import { retourImpact } from "~/lib/retour";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * « Qui gagne ? » (components/match/PredictionPoll) : trois segments, et
@@ -17,6 +17,8 @@ import { couleurs, espacement, polices } from "~/theme";
  * jusqu'au coup d'envoi ; après, la barre ne fait plus que montrer.
  */
 export function Pronostic({ fiche }: { fiche: Fiche }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { utilisateur } = useAuth();
   const router = useRouter();
   const uid = utilisateur?.uid ?? null;
@@ -130,11 +132,11 @@ export function Pronostic({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, padding: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   entete: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 12 },
   titre: { fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), color: couleurs.texteDiscret },
   consigne: { flexShrink: 1, fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
   chargement: { paddingVertical: 24 },
   hautTexte: { flexShrink: 1 },
-});
+}));

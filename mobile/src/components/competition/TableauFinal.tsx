@@ -6,7 +6,7 @@ import { PointDirect } from "~/components/direct/PointDirect";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
 import { colonnesDuTableau } from "~/lib/page-competition";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const f = FOOT.fr;
 
@@ -23,6 +23,7 @@ function Camp({ equipeId, nom, logo, score, montrerScore, gagnant, estompe, plac
   estompe: boolean;
   place: string | null;
 }) {
+  const styles = useStyles();
   return (
     <View style={[styles.camp, gagnant && styles.campGagnant, estompe && styles.estompe]}>
       {equipeId ? (
@@ -43,6 +44,7 @@ function Camp({ equipeId, nom, logo, score, montrerScore, gagnant, estompe, plac
 
 /** Un match du tableau (BracketMatch) : les deux camps, le vainqueur en avant, le perdant estompé. */
 function MatchDuTableau({ m, onOuvrir }: { m: CompMatch; onOuvrir: (m: CompMatch) => void }) {
+  const styles = useStyles();
   const enDirect = m.status === "live";
   const joue = m.status === "completed";
   const domicileGagne = joue && m.winnerTeamId != null && m.winnerTeamId === m.homeTeamId;
@@ -82,6 +84,8 @@ function MatchDuTableau({ m, onOuvrir }: { m: CompMatch; onOuvrir: (m: CompMatch
  * la petite finale à part, dessous.
  */
 export function TableauFinal({ matchs, onOuvrir }: { matchs: CompMatch[] | null; onOuvrir: (m: CompMatch) => void }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   if (matchs === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
   const { colonnes, petiteFinale } = colonnesDuTableau(matchs);
   if (colonnes.length === 0 && !petiteFinale) {
@@ -109,7 +113,7 @@ export function TableauFinal({ matchs, onOuvrir }: { matchs: CompMatch[] | null;
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   chargement: { paddingVertical: 40 },
   colonne: { gap: 24 },
   tours: { gap: 16, paddingHorizontal: 16 },
@@ -142,4 +146,4 @@ const styles = StyleSheet.create({
   },
   texteDirect: { fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: 1, color: couleurs.direct },
   petiteFinale: { alignSelf: "center", width: LARGEUR_TOUR, gap: 12 },
-});
+}));

@@ -3,7 +3,7 @@ import { FOOT } from "@/i18n/foot";
 import { minuteDuDirect, type Entry } from "@/lib/direct-shared";
 import { Ecusson } from "~/components/Ecusson";
 import { PointDirect } from "~/components/direct/PointDirect";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices } from "~/theme";
 
 /** Le vocabulaire du site : « MT », « TAB », « Fin », « Annulé ». */
 const f = FOOT.fr;
@@ -11,6 +11,7 @@ const f = FOOT.fr;
 function Camp({ nom, logo, score, battu, enDirect }: {
   nom: string; logo: string | null; score: number | null; battu: boolean; enDirect: boolean;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.camp}>
       <Ecusson url={logo} nom={nom} taille={20} />
@@ -35,6 +36,7 @@ export function LigneMatch({ entree, onPress, etiquette }: {
   /** Au-dessus des deux camps : la poule ou le tour, le jour d'un match de l'Aperçu. */
   etiquette?: string | null;
 }) {
+  const styles = useStyles();
   const { match } = entree;
   const enDirect = match.status === "live";
   const joue = match.status === "completed";
@@ -84,7 +86,7 @@ export function LigneMatch({ entree, onPress, etiquette }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ligne: {
     flexDirection: "row", alignItems: "center", gap: 8, paddingLeft: 8, paddingRight: 12, paddingVertical: 8,
     backgroundColor: couleurs.surface, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure,
@@ -100,4 +102,4 @@ const styles = StyleSheet.create({
   battu: { color: couleurs.texteDiscret },
   score: { minWidth: 14, textAlign: "right", fontFamily: polices.texteNoir, fontSize: 13, color: couleurs.texte },
   scoreDirect: { color: couleurs.direct },
-});
+}));

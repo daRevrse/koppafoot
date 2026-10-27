@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { libelleDuJour } from "@/lib/dates";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 const LARGEUR = 48;
 const ECART = 6;
@@ -27,6 +27,7 @@ function etiquette(cle: string, aujourdhui: string): { haut: string; bas: string
 }
 
 export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onChange }: Props) {
+  const styles = useStyles();
   const liste = useRef<FlatList<string>>(null);
   const index = jours.indexOf(jour);
 
@@ -81,7 +82,7 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   frise: { flexGrow: 0, flexShrink: 0, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: couleurs.bordure },
   inactive: { opacity: 0.4 },
   rangee: { paddingHorizontal: MARGE },
@@ -94,4 +95,4 @@ const styles = StyleSheet.create({
   pointPlein: { backgroundColor: couleurs.primaire },
   souligne: { alignSelf: "stretch", height: 2, marginTop: 4 },
   souligneChoisi: { backgroundColor: "#10b981" },
-});
+}));

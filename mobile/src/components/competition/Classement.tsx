@@ -8,7 +8,7 @@ import { Bloc } from "~/components/competition/Bloc";
 import { Puces } from "~/components/competition/Puces";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const c = COLONNES_CLASSEMENT.fr;
 const diff = (n: number) => (n > 0 ? `+${n}` : `${n}`);
@@ -24,6 +24,8 @@ export function Classement({ competition, matchs, equipes }: {
   matchs: CompMatch[] | null;
   equipes: CompTeam[];
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const [choix, setChoix] = useState<string | null>(null);
   if (matchs === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
@@ -88,7 +90,7 @@ export function Classement({ competition, matchs, equipes }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   chargement: { paddingVertical: 40 },
   rangee: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
   entete: { paddingBottom: 8 },
@@ -115,4 +117,4 @@ const styles = StyleSheet.create({
   },
   pastille: { width: 10, height: 10, backgroundColor: couleurs.primaire },
   legendeTexte: { fontFamily: polices.texteDemi, fontSize: 12, color: couleurs.texteSecondaire },
-});
+}));

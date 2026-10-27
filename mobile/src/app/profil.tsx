@@ -1,14 +1,14 @@
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as yup from "yup";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { nomPersonne, villeRequise } from "@/lib/champs-valides";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
-import { stylesAuth } from "~/components/EcranAuth";
+import { useStylesAuth } from "~/components/EcranAuth";
 import { useAuth, type ChampsProfil } from "~/lib/auth";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices } from "~/theme";
 
 // Les règles du site, écrites une fois dans lib/champs-valides.
 const schema = yup.object({
@@ -20,6 +20,8 @@ const schema = yup.object({
 type Cle = keyof ChampsProfil;
 
 export default function EcranProfil() {
+  const stylesAuth = useStylesAuth();
+  const styles = useStyles();
   const { utilisateur, completerProfil, deconnexion } = useAuth();
   const [valeurs, setValeurs] = useState<ChampsProfil>({ firstName: "", lastName: "", locationCity: "" });
   const [erreurs, setErreurs] = useState<Partial<Record<Cle, string>>>({});
@@ -79,10 +81,10 @@ export default function EcranProfil() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingHorizontal: 24, paddingTop: 32, paddingBottom: 32 },
   titre: { fontFamily: polices.titre, fontSize: 26, color: couleurs.texte },
   phrase: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteDiscret, marginTop: 4, marginBottom: 28 },
   formulaire: { gap: 16 },
-});
+}));

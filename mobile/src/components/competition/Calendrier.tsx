@@ -8,7 +8,7 @@ import { EtatVide } from "~/components/EtatVide";
 import {
   etiquetteDuMatch, filtresDuCalendrier, joursDuCalendrier, matchsDuFiltre, type FiltreCalendrier,
 } from "~/lib/page-competition";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const titreDuJour = (date: string | null) => {
   if (!date) return "DATE À DÉFINIR";
@@ -25,6 +25,8 @@ export function Calendrier({ competition, matchs, onOuvrir }: {
   matchs: CompMatch[] | null;
   onOuvrir: (m: CompMatch) => void;
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const [filtre, setFiltre] = useState<FiltreCalendrier>("tous");
   if (matchs === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
 
@@ -59,7 +61,7 @@ export function Calendrier({ competition, matchs, onOuvrir }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   chargement: { paddingVertical: 40 },
   jours: { gap: 20 },
   jour: {
@@ -67,4 +69,4 @@ const styles = StyleSheet.create({
     letterSpacing: espacement(11, 0.1), color: couleurs.texte,
   },
   liste: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
-});
+}));

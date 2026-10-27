@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
-import { StyleSheet, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { initiales } from "~/lib/initiales";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices } from "~/theme";
 
 /**
  * Le blason d'une équipe, ou ses initiales.
@@ -10,6 +10,7 @@ import { couleurs, polices } from "~/theme";
  * rangées là où une adresse était attendue, et le site en a tiré des 404.
  */
 export function Ecusson({ url, nom, taille = 22 }: { url: string | null; nom: string; taille?: number }) {
+  const styles = useStyles();
   const dimensions = { width: taille, height: taille, borderRadius: taille / 2 };
   if (url && url.startsWith("http")) {
     // Un disque clair, comme le site pose les blasons sur leur propre fond :
@@ -33,8 +34,8 @@ export function Ecusson({ url, nom, taille = 22 }: { url: string | null; nom: st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   rond: { backgroundColor: couleurs.surfaceHaute, alignItems: "center", justifyContent: "center" },
   disque: { backgroundColor: couleurs.fondEcusson, alignItems: "center", justifyContent: "center" },
   initiales: { fontFamily: polices.texteGras, color: couleurs.texteSecondaire },
-});
+}));
