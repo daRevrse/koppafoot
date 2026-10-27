@@ -6,3 +6,8 @@ import { couleurs } from "~/theme";
 export function ouvrirSurLeSite(chemin: string): void {
   void WebBrowser.openBrowserAsync(urlDuSite(chemin), { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
 }
+
+/** Un article d'Actus chez son éditeur, dans le même navigateur intégré : on revient d'un geste. */
+export function ouvrirChezLEditeur(url: string): void {
+  void WebBrowser.openBrowserAsync(url, { toolbarColor: couleurs.fond, controlsColor: couleurs.primaire });
+}

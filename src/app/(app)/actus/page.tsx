@@ -1,6 +1,8 @@
 import { ExternalLink } from "lucide-react";
 import ArticleHero from "@/components/actus/ArticleHero";
-import { getSportsArticles, type Article } from "@/lib/news-rss";
+import { getSportsArticles } from "@/lib/news-rss";
+import { filParJour, type Article } from "@/lib/fil-actus";
+import { cleDuJour, decalerDeJours } from "@/lib/dates";
 import { LOCALE, type Langue } from "@/i18n/config";
 import { textes } from "@/i18n/textes";
 import { langueServeur } from "@/i18n/serveur";
@@ -58,17 +60,15 @@ export async function generateMetadata() {
 /** Deux lignes de trois : au-dela, la grille defile sur elle-meme. */
 const GRID_FULL = 2 * 3;
 
-/** « aujourd'hui », « hier », sinon « samedi 16 août ». */
-function dayHeading(iso: string, langue: Langue, t: Textes): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return t.plusTot;
+/** « aujourd'hui », « hier », sinon « samedi 16 août ». La journée vient de `filParJour`. */
+function dayHeading(cle: string | null, now: Date, langue: Langue, t: Textes): string {
+  if (cle === null) return t.plusTot;
 
-  const midnight = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((midnight(new Date()) - midnight(d)) / 86_400_000);
-  if (days <= 0) return t.aujourdhui;
-  if (days === 1) return t.hier;
+  const today = cleDuJour(now);
+  if (cle === today) return t.aujourdhui;
+  if (cle === decalerDeJours(today, -1)) return t.hier;
 
-  return d.toLocaleDateString(LOCALE[langue], { weekday: "long", day: "numeric", month: "long" });
+  return new Date(`${cle}T00:00:00`).toLocaleDateString(LOCALE[langue], { weekday: "long", day: "numeric", month: "long" });
 }
 
 /** « 14:05 », l'heure, dans la journée déjà annoncée par le titre. */
@@ -76,17 +76,6 @@ function hour(iso: string, langue: Langue): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString(LOCALE[langue], { hour: "2-digit", minute: "2-digit" });
-}
-
-function byDay(articles: Article[], langue: Langue, t: Textes): { heading: string; items: Article[] }[] {
-  const groups: { heading: string; items: Article[] }[] = [];
-  for (const a of articles) {
-    const heading = a.at ? dayHeading(a.at, langue, t) : t.plusTot;
-    const last = groups[groups.length - 1];
-    if (last && last.heading === heading) last.items.push(a);
-    else groups.push({ heading, items: [a] });
-  }
-  return groups;
 }
 
 function ArticleCard({ article, langue }: { article: Article; langue: Langue }) {
@@ -127,32 +116,20 @@ export default async function ActusPage() {
   const [articles, langue] = await Promise.all([getSportsArticles(), langueServeur()]);
   const t = T[langue];
 
-  const days = byDay(articles, langue, t);
-  const today = days[0]?.heading === t.aujourdhui ? days[0] : null;
-
-  // Les cinq premiers du jour passent en grand, ceux qui ont une photo
-  // d'abord : le hero est le seul endroit où elle se voit en entier. Il ne
-  // dépend pas d'en avoir une, Google Actualités n'en donne jamais.
-  const heroItems = today
-    ? [...today.items].sort((a, b) => Number(!!b.image) - Number(!!a.image)).slice(0, 5)
-    : [];
-  const heroIds = new Set(heroItems.map((a) => a.id));
-
-  const sections = days
-    .map((d) =>
-      d === today ? { ...d, items: d.items.filter((a) => !heroIds.has(a.id)) } : d,
-    )
-    .filter((d) => d.items.length > 0);
+  // La une (cinq articles du jour, photos d'abord) et les journées : le même
+  // découpage que l'onglet Actus de l'application (lib/fil-actus).
+  const now = new Date();
+  const { une, journees } = filParJour(articles, now);
 
   return (
     <div className="mx-auto max-w-6xl space-y-14 pb-24 pt-4">
-      {days.length === 0 ? (
+      {articles.length === 0 ? (
         <p className="border border-gray-200/70 bg-white px-6 py-16 text-center text-base font-bold text-gray-400">
           {t.injoignable}
         </p>
       ) : (
         <>
-          <ArticleHero articles={heroItems} />
+          <ArticleHero articles={une} />
 
           {/* La zone partenaire des Actus, sous la une. Rien sans marque à
               l'affiche (`empty:hidden`). */}
@@ -160,14 +137,14 @@ export default async function ActusPage() {
             <Emplacement emplacement="actus" />
           </div>
 
-          {sections.map((day) => (
-            <section key={day.heading} className="space-y-5">
+          {journees.map((day) => (
+            <section key={day.cle ?? "plus-tot"} className="space-y-5">
               <div className="flex items-baseline justify-between gap-4 border-b border-gray-200/70 pb-3">
                 <h2 className="font-display text-2xl font-black tracking-tight text-gray-900 first-letter:uppercase sm:text-3xl">
-                  {day.heading}
+                  {dayHeading(day.cle, now, langue, t)}
                 </h2>
                 <span className="shrink-0 text-[11px] font-black uppercase tracking-[0.15em] text-gray-400">
-                  {t.articles(day.items.length)}
+                  {t.articles(day.articles.length)}
                 </span>
               </div>
 
@@ -175,7 +152,7 @@ export default async function ActusPage() {
                   repousser la journée suivante hors de l'écran. */}
               <div
                 className={
-                  day.items.length > GRID_FULL
+                  day.articles.length > GRID_FULL
                     ? "max-h-[46rem] overflow-y-auto pr-1"
                     : undefined
                 }
@@ -183,7 +160,7 @@ export default async function ActusPage() {
                 {/* Classes litterales : Tailwind lit le source, une classe
                     construite par interpolation ne serait jamais generee. */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {day.items.map((a) => (
+                  {day.articles.map((a) => (
                     <ArticleCard key={a.id} article={a} langue={langue} />
                   ))}
                 </div>

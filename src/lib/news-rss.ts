@@ -14,23 +14,9 @@
 // Dégrade en silence (renvoie []) : la page ne doit pas casser parce qu'un
 // serveur tiers tousse au moment du rendu.
 
-export interface Article {
-  id: string;
-  title: string;
-  /** Le média qui publie, affiché, et c'est la moindre des choses. */
-  source: string;
-  url: string;
-  /** ISO, ou "" si le flux n'a pas donné de date lisible. */
-  at: string;
-  /**
-   * Vignette de l'article, telle que le flux de l'éditeur la donne.
-   *
-   * Toujours `null` pour Google Actualités. Ce qui a été essayé de ce côté :
-   * gratter la balise og:image de la page intermédiaire. Ça rend LA MÊME
-   * vignette générique pour tous les articles, pas celle du sujet.
-   */
-  image: string | null;
-}
+// Le type vit avec le découpage du fil, sans SDK : l'application le lit aussi.
+import type { Article } from "@/lib/fil-actus";
+export type { Article };
 
 /**
  * Les requêtes qui composent le fil. L'ordre compte : en cas de doublon, la
