@@ -126,6 +126,8 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="club/[id]" />
         {/* L'en-tête des onglets les ouvre : le compte, la cloche. */}
         <Stack.Screen name="compte" />
+        <Stack.Screen name="parametres" />
+        <Stack.Screen name="offre" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="competitions" />
         <Stack.Screen name="recherche" options={{ animation: "fade" }} />
