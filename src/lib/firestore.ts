@@ -52,6 +52,7 @@ import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { normaliserPoste, type Poste } from "@/lib/postes";
 import { lireCategorie, lireGenre, type Categorie } from "@/lib/genre";
 import { equipeArbitraleLue, toMatch } from "@/lib/match-mappers";
+import { toBooking } from "@/lib/booking-mappers";
 // La notification se lit aussi dans l'application : son convertisseur vit
 // dans un module sans SDK, réexporté ici pour ceux qui l'importaient d'ici.
 import { toNotification } from "@/lib/notification-mappers";
@@ -3393,37 +3394,6 @@ export async function getPostsByUser(userId: string, currentUserId?: string, max
 // ============================================
 // Venue Owner Business Logic
 // ============================================
-
-function toBooking(id: string, d: FirestoreBooking): Booking {
-  return {
-    id,
-    venueId: d.venue_id,
-    venueName: d.venue_name,
-    ownerId: d.owner_id,
-    userId: d.user_id,
-    userName: d.user_name,
-    date: d.date,
-    time: d.time,
-    duration: d.duration,
-    totalPrice: d.total_price,
-    status: d.status,
-    kind: d.kind ?? (d.match_id ? "match" : "demande"),
-    matchId: d.match_id ?? null,
-    competitionId: d.competition_id ?? null,
-    matchLabel: d.match_label ?? null,
-    contact: d.contact ?? null,
-    message: d.message ?? null,
-    proposition: d.proposition ?? null,
-    reglementVu: d.reglement_vu ?? null,
-    note: d.note ?? null,
-    cancelledBy: d.cancelled_by ?? null,
-    serieId: d.serie_id ?? null,
-    teamId: d.team_id ?? null,
-    teamName: d.team_name ?? null,
-    createdAt: formatDate(d.created_at),
-    updatedAt: formatDate(d.updated_at),
-  };
-}
 
 export async function getVenuesByOwner(ownerId: string): Promise<Venue[]> {
   const q = query(collection(db, "venues"), where("owner_id", "==", ownerId), orderBy("created_at", "desc"));
