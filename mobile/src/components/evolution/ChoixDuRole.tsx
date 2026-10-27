@@ -11,7 +11,7 @@ import { useAuth } from "~/lib/auth";
 import { activerLeRole } from "~/lib/direct-firestore";
 import { retourImpact } from "~/lib/retour";
 import { nomDuRole, patchDActivation, ROLES } from "~/lib/roles";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const ICONE: Record<EvolutionRole, ComponentProps<typeof Ionicons>["name"]> = {
   player: "person-outline",
@@ -30,6 +30,7 @@ function Pastilles({ options, valeur, onChange, erreur = false }: {
   onChange: (v: string) => void;
   erreur?: boolean;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.pastilles}>
       {options.map((o) => {
@@ -50,7 +51,10 @@ function Pastilles({ options, valeur, onChange, erreur = false }: {
   );
 }
 
-const Etiquette = ({ children }: { children: string }) => <Text style={styles.etiquette}>{children.toUpperCase()}</Text>;
+function Etiquette({ children }: { children: string }) {
+  const styles = useStyles();
+  return <Text style={styles.etiquette}>{children.toUpperCase()}</Text>;
+}
 
 /**
  * Le choix du rôle (ChoixDuRole du site) : trois cartes — joueur, manager,
@@ -59,6 +63,8 @@ const Etiquette = ({ children }: { children: string }) => <Text style={styles.et
  * Sans compte, une carte mène à l'inscription.
  */
 export function ChoixDuRole() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const { utilisateur, profil, rafraichirProfil } = useAuth();
   const [choisi, setChoisi] = useState<EvolutionRole | null>(null);
@@ -185,7 +191,7 @@ export function ChoixDuRole() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   colonne: { gap: 14, padding: 16 },
   intro: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texteSecondaire },
   carte: {
@@ -211,4 +217,4 @@ const styles = StyleSheet.create({
   pastilleTexteActif: { color: couleurs.fond },
   erreur: { fontFamily: polices.texte, fontSize: 12, color: couleurs.erreur },
   note: { marginTop: -6, fontFamily: polices.texte, fontSize: 12, color: couleurs.texteDiscret },
-});
+}));

@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import type { Article } from "@/lib/fil-actus";
 import { useMouvementReduit } from "~/hooks/useMouvementReduit";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, palettes, polices } from "~/theme";
 
 /**
  * La une du jour (ArticleHero du site) : un article à la fois, en grand, et on
@@ -17,6 +17,7 @@ import { couleurs, espacement, polices } from "~/theme";
  * lieu d'image.
  */
 export function UneDuJour({ articles, onOuvrir }: { articles: Article[]; onOuvrir: (a: Article) => void }) {
+  const styles = useStyles();
   const { width } = useWindowDimensions();
   const [rang, setRang] = useState(0);
   const liste = useRef<FlatList<Article>>(null);
@@ -67,6 +68,7 @@ export function UneDuJour({ articles, onOuvrir }: { articles: Article[]; onOuvri
 }
 
 function Volet({ article, numero, largeur, onPress }: { article: Article; numero: number; largeur: number; onPress: () => void }) {
+  const styles = useStyles();
   const [photoCassee, setPhotoCassee] = useState(false);
   const photo = article.image && !photoCassee ? article.image : null;
   return (
@@ -111,9 +113,10 @@ function Volet({ article, numero, largeur, onPress }: { article: Article; numero
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   // 4:3 et non le 16:9 du site : sur un téléphone, le titre a besoin de la hauteur.
-  volet: { aspectRatio: 4 / 3, overflow: "hidden", backgroundColor: couleurs.surface, justifyContent: "flex-end" },
+  // Sombre dans les deux thèmes, comme les en-têtes noirs : son texte est blanc, photo ou pas.
+  volet: { aspectRatio: 4 / 3, overflow: "hidden", backgroundColor: palettes.sombre.surface, justifyContent: "flex-end" },
   photo: { opacity: 0.8 },
   numero: {
     position: "absolute", right: -12, top: -36, fontFamily: polices.titre, fontSize: 200, lineHeight: 220,
@@ -122,7 +125,7 @@ const styles = StyleSheet.create({
   texte: { padding: 20, gap: 10 },
   source: {
     fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11, 0.2), textTransform: "uppercase",
-    color: couleurs.primaire,
+    color: palettes.sombre.primaire,
   },
   titre: { fontFamily: polices.titre, fontSize: 26, lineHeight: 29, color: "#ffffff" },
   lire: { flexDirection: "row", alignItems: "center", gap: 6 },
@@ -135,4 +138,4 @@ const styles = StyleSheet.create({
   repere: { flex: 1, paddingVertical: 12 },
   trait: { height: 3, backgroundColor: couleurs.bordure },
   traitActif: { backgroundColor: couleurs.texte },
-});
+}));

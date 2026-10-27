@@ -7,13 +7,13 @@ import { matchDuration } from "@/lib/competition-format";
 import { estLigneDossard } from "@/lib/dossards";
 import { computeSquadStats } from "@/lib/player-stats";
 import type { Competition, CompMatch, CompTeam } from "@/types";
-import { stylesBloc } from "~/components/competition/Bloc";
+import { useStylesBloc } from "~/components/competition/Bloc";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
 import { usePhotosDesLignes } from "~/hooks/usePhotos";
 import { initiales } from "~/lib/initiales";
 import { equipesRangees } from "~/lib/page-competition";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const joueurs = (n: number, feminin: boolean) => `${n} ${feminin ? "joueuse" : "joueur"}${n > 1 ? "s" : ""}`;
 
@@ -24,6 +24,8 @@ function Effectif({ competition, equipe, matchs, feminin }: {
   matchs: CompMatch[];
   feminin: boolean;
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const lignes = computeSquadStats(matchs, equipe.id, equipe.players, matchDuration(competition.format));
   const photos = usePhotosDesLignes(equipe.players, equipe.claimedByTeamId);
@@ -94,6 +96,9 @@ export function Equipes({ competition, matchs, equipes }: {
   matchs: CompMatch[] | null;
   equipes: CompTeam[];
 }) {
+  const stylesBloc = useStylesBloc();
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const [ouverte, setOuverte] = useState<string | null>(null);
   if (equipes.length === 0) return <EtatVide icone="people-outline" texte="Aucune équipe inscrite." />;
   const feminin = competition.category === "women";
@@ -131,7 +136,7 @@ export function Equipes({ competition, matchs, equipes }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   premiere: { borderTopWidth: 0 },
   presse: { backgroundColor: couleurs.surfaceHaute },
@@ -140,8 +145,8 @@ const styles = StyleSheet.create({
   details: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, marginTop: 2 },
   detail: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
   badge: { paddingHorizontal: 5, paddingVertical: 1, fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: 0.5 },
-  invitee: { color: "#7dd3fc", backgroundColor: "rgba(56,189,248,0.12)" },
-  disqualifiee: { color: couleurs.erreur, backgroundColor: "rgba(248,113,113,0.12)" },
+  invitee: { color: couleurs.info, backgroundColor: couleurs.infoVoile },
+  disqualifiee: { color: couleurs.erreur, backgroundColor: couleurs.directVoile },
 
   effectif: { paddingHorizontal: 12, paddingVertical: 12, backgroundColor: couleurs.fond, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
   aucun: { paddingVertical: 12, textAlign: "center", fontFamily: polices.texteGras, fontSize: 12, color: couleurs.texteDiscret },
@@ -166,4 +171,4 @@ const styles = StyleSheet.create({
   zero: { color: couleurs.texteDiscret },
   fiche: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 12 },
   ficheTexte: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.primaire },
-});
+}));

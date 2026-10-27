@@ -4,13 +4,14 @@ import { repartirCent } from "@/lib/repartition";
 import { Ecusson } from "~/components/Ecusson";
 import { BarreRepartition, TexteDeSegment } from "~/components/fiche/BarreRepartition";
 import type { Fiche } from "~/lib/fiche-match";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices } from "~/theme";
 
 /**
  * Le face-à-face (onglet `h2h` de la page compétition) : le bilan d'abord,
  * dessiné comme le pronostic, puis les rencontres. Chacune ouvre sa fiche.
  */
 export function FaceAFace({ fiche }: { fiche: Fiche }) {
+  const styles = useStyles();
   const router = useRouter();
   const { faceAFace, bilanFaceAFace: bilan } = fiche.contexte;
   if (faceAFace.length === 0) return null;
@@ -79,7 +80,7 @@ export function FaceAFace({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   bloc: { marginHorizontal: 16, gap: 20 },
   liste: { borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   rencontre: {
@@ -91,4 +92,4 @@ const styles = StyleSheet.create({
   aDroite: { textAlign: "right" },
   score: { fontFamily: polices.titre, fontSize: 16, color: couleurs.texte, fontVariant: ["tabular-nums"] },
   tiret: { color: couleurs.texteDiscret },
-});
+}));

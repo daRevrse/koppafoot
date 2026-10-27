@@ -9,7 +9,7 @@ import { Ecusson } from "~/components/Ecusson";
 import { useAuth } from "~/lib/auth";
 import { lireTousLesClubs, lireToutesLesCompetitions } from "~/lib/fiche-firestore";
 import { clubsTrouves, competitionsTrouvees, rechercheLancee, type ClubTrouve } from "~/lib/recherche";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 function Ligne({ visuel, titre, detail, externe, onPress }: {
   visuel: ReactNode;
@@ -18,6 +18,8 @@ function Ligne({ visuel, titre, detail, externe, onPress }: {
   externe?: boolean;
   onPress: () => void;
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   return (
     <Pressable accessibilityRole="link" onPress={onPress} style={({ pressed }) => [styles.ligne, pressed && styles.presse]}>
       <View style={styles.visuel}>{visuel}</View>
@@ -37,6 +39,8 @@ function Ligne({ visuel, titre, detail, externe, onPress }: {
  * dernière ligne passe la recherche à l'annuaire.
  */
 export default function EcranRecherche() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const { utilisateur } = useAuth();
   const [terme, setTerme] = useState("");
@@ -169,7 +173,7 @@ export default function EcranRecherche() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   barre: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
   retour: {
@@ -202,4 +206,4 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure,
   },
   annuaireTexte: { flex: 1, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.1), color: couleurs.primaire },
-});
+}));

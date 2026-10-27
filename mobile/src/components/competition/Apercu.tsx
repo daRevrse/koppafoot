@@ -5,13 +5,13 @@ import { computeTopScorers } from "@/lib/performances-competition";
 import { computeStandings } from "@/lib/poules";
 import type { Competition, CompMatch, CompTeam } from "@/types";
 import { Bouton } from "~/components/Bouton";
-import { Bloc, stylesBloc } from "~/components/competition/Bloc";
+import { Bloc, useStylesBloc } from "~/components/competition/Bloc";
 import { LigneMatch } from "~/components/direct/LigneMatch";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { etiquetteDuMatch, matchsDeLApercu, type OngletCompetition } from "~/lib/page-competition";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /** « Demain · Groupe A » : le jour d'un match de l'Aperçu, et sa poule ou son tour. */
 const etiquetteAvecJour = (m: CompMatch) =>
@@ -19,11 +19,13 @@ const etiquetteAvecJour = (m: CompMatch) =>
 
 /** Le meilleur joueur du tournoi, une fois la compétition terminée (MvpDuMatch du site, une échelle au-dessus). */
 function MeilleurJoueur({ competition, equipes }: { competition: Competition; equipes: CompTeam[] }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const equipe = equipes.find((e) => e.id === competition.mvpTeamId);
   const titre = competition.category === "women" ? "Meilleure joueuse du tournoi" : "Meilleur joueur du tournoi";
   return (
     <View style={styles.mvp}>
-      <Ionicons name="trophy" size={26} color="#FBBF24" />
+      <Ionicons name="trophy" size={26} color={couleurs.accent} />
       <View style={styles.flexible}>
         <Text style={styles.mvpTitre}>{titre.toUpperCase()}</Text>
         <Text style={styles.mvpNom} numberOfLines={1}>{competition.mvpPlayerName}</Text>
@@ -35,6 +37,7 @@ function MeilleurJoueur({ competition, equipes }: { competition: Competition; eq
 
 /** Les inscriptions : ouvertes, on renvoie sur le site, où un manager inscrit son équipe ; closes, on le dit. */
 function Inscriptions({ competition }: { competition: Competition }) {
+  const styles = useStyles();
   if (competition.status === "registration") {
     return (
       <View style={[styles.bandeau, styles.bandeauOuvert]}>
@@ -70,6 +73,9 @@ export function Apercu({ competition, matchs, equipes, onOuvrir, onOnglet }: {
   onOuvrir: (m: CompMatch) => void;
   onOnglet: (o: OngletCompetition) => void;
 }) {
+  const stylesBloc = useStylesBloc();
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   if (matchs === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
   const { enDirect, aVenir, joues } = matchsDeLApercu(matchs);
   const tousLesMatchs = { libelle: "Tous les matchs", onPress: () => onOnglet("matchs") };
@@ -143,15 +149,15 @@ export function Apercu({ competition, matchs, equipes, onOuvrir, onOnglet }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   chargement: { paddingVertical: 40 },
   colonne: { gap: 16 },
   flexible: { flex: 1, minWidth: 0 },
   mvp: {
     flexDirection: "row", alignItems: "center", gap: 14, marginHorizontal: 16, padding: 16,
-    backgroundColor: "rgba(251,191,36,0.08)", borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(251,191,36,0.35)",
+    backgroundColor: couleurs.accentVoile, borderWidth: StyleSheet.hairlineWidth, borderColor: "rgba(251,191,36,0.35)",
   },
-  mvpTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.14), color: "#FBBF24" },
+  mvpTitre: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.14), color: couleurs.accent },
   mvpNom: { marginTop: 4, fontFamily: polices.titre, fontSize: 20, color: couleurs.texte },
   mvpEquipe: { marginTop: 2, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.texteDiscret },
   bandeau: {
@@ -166,4 +172,4 @@ const styles = StyleSheet.create({
   equipe: { marginTop: 2, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12), color: couleurs.texteDiscret },
   points: { fontFamily: polices.texteNoir, fontSize: 12, color: couleurs.texte },
   buts: { fontFamily: polices.titre, fontSize: 18, color: couleurs.texte },
-});
+}));

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { Article } from "@/lib/fil-actus";
 import { heureDeLArticle } from "~/lib/actus";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * Un article du fil (ArticleCard de la page Actus) : la photo de l'éditeur
@@ -12,6 +12,8 @@ import { couleurs, espacement, polices } from "~/theme";
  * rien n'est recopié.
  */
 export function CarteArticle({ article, onPress }: { article: Article; onPress: () => void }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   // Une photo que l'éditeur refuse de servir : pas de cadre vide à sa place.
   const [photoCassee, setPhotoCassee] = useState(false);
   const heure = heureDeLArticle(article.at);
@@ -48,7 +50,7 @@ export function CarteArticle({ article, onPress }: { article: Article; onPress: 
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   carte: {
     marginHorizontal: 16, marginTop: 12, backgroundColor: couleurs.surface,
     borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure,
@@ -64,4 +66,4 @@ const styles = StyleSheet.create({
     textTransform: "uppercase", color: couleurs.texteDiscret,
   },
   point: { color: couleurs.bordureForte },
-});
+}));

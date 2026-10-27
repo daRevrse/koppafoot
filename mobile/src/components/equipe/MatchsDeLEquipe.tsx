@@ -5,17 +5,19 @@ import { rangerLesMatchs, resultatDuMatch, type MatchDuClub } from "@/lib/fiche-
 import { PointDirect } from "~/components/direct/PointDirect";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs, type Couleurs } from "~/theme";
 
-const PASTILLE: Record<"V" | "N" | "D", { fond: string; texte: string }> = {
+const pastilles = (couleurs: Couleurs): Record<"V" | "N" | "D", { fond: string; texte: string }> => ({
   V: { fond: "#059669", texte: "#fff" },
-  N: { fond: couleurs.surfaceHaute, texte: couleurs.texteSecondaire },
+  N: { fond: couleurs.pastilleNeutre, texte: couleurs.texteSecondaire },
   D: { fond: "#ef4444", texte: "#fff" },
-};
-const LISERE: Record<"V" | "N" | "D", string> = { V: "#10b981", N: couleurs.bordureForte, D: "#fca5a5" };
+});
+const liseres = (couleurs: Couleurs): Record<"V" | "N" | "D", string> => ({ V: "#10b981", N: couleurs.bordureForte, D: "#fca5a5" });
 
 /** Une ligne (MatchsDuClub du site) : le jour, l'adversaire, l'étape et le terrain, le score et le résultat. */
 function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; onOuvrir: (m: MatchDuClub) => void }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const resultat = resultatDuMatch(m);
   const enDirect = m.statut === "en_direct";
   const contexte = [m.etape, m.domicile ? "Domicile" : "Extérieur"].filter(Boolean).join(" · ");
@@ -27,7 +29,7 @@ function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; o
       style={({ pressed }) => [
         styles.ligne,
         premiere && styles.premiere,
-        { borderLeftColor: enDirect ? couleurs.direct : resultat ? LISERE[resultat] : "transparent" },
+        { borderLeftColor: enDirect ? couleurs.direct : resultat ? liseres(couleurs)[resultat] : "transparent" },
         pressed && styles.presse,
       ]}
     >
@@ -48,8 +50,8 @@ function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; o
       ) : resultat ? (
         <View style={styles.resultat}>
           <Text style={styles.score}>{`${m.pour}–${m.contre}`}</Text>
-          <View style={[styles.pastille, { backgroundColor: PASTILLE[resultat].fond }]}>
-            <Text style={[styles.pastilleTexte, { color: PASTILLE[resultat].texte }]}>{resultat}</Text>
+          <View style={[styles.pastille, { backgroundColor: pastilles(couleurs)[resultat].fond }]}>
+            <Text style={[styles.pastilleTexte, { color: pastilles(couleurs)[resultat].texte }]}>{resultat}</Text>
           </View>
         </View>
       ) : null}
@@ -60,6 +62,7 @@ function Ligne({ m, premiere, onOuvrir }: { m: MatchDuClub; premiere: boolean; o
 
 /** Les matchs de l'équipe : à venir (le direct d'abord, puis le plus proche), puis joués (le plus récent d'abord). */
 export function MatchsDeLEquipe({ matchs, onOuvrir }: { matchs: MatchDuClub[]; onOuvrir: (m: MatchDuClub) => void }) {
+  const styles = useStyles();
   const { aVenir, joues } = rangerLesMatchs(matchs);
   if (aVenir.length === 0 && joues.length === 0) return <EtatVide icone="calendar-outline" texte="Aucun match pour l'instant." />;
   return (
@@ -79,7 +82,7 @@ export function MatchsDeLEquipe({ matchs, onOuvrir }: { matchs: MatchDuClub[]; o
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   colonne: { gap: 16, paddingHorizontal: 16 },
   titre: { marginBottom: 6, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.15), color: couleurs.texteDiscret },
   nombre: { color: couleurs.bordureForte },
@@ -102,4 +105,4 @@ const styles = StyleSheet.create({
   score: { fontFamily: polices.titre, fontSize: 16, color: couleurs.texte },
   pastille: { width: 20, height: 20, alignItems: "center", justifyContent: "center" },
   pastilleTexte: { fontFamily: polices.texteNoir, fontSize: 10 },
-});
+}));

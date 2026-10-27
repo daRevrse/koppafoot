@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices } from "~/theme";
 
 export interface SegmentRepartition {
   cle: string;
@@ -31,6 +31,7 @@ export function BarreRepartition({
   /** Des largeurs égales tant qu'il n'y a pas de chiffres à montrer (le pronostic sans vote). */
   largeursEgales?: boolean;
 }) {
+  const styles = useStyles();
   return (
     <View style={styles.barre} accessibilityRole={onChoisir ? undefined : "summary"} accessibilityLabel={libelle}>
       {segments.map((s, i) => {
@@ -68,10 +69,11 @@ export function BarreRepartition({
 
 /** Le texte d'en haut d'un segment, à composer avec un écusson. */
 export function TexteDeSegment({ children, vert = false }: { children: ReactNode; vert?: boolean }) {
+  const styles = useStyles();
   return <Text style={[styles.hautTexte, vert && styles.texteVert]}>{children}</Text>;
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   barre: { flexDirection: "row", overflow: "hidden", borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   segment: {
     flexBasis: 0, minWidth: 92, paddingHorizontal: 12, paddingVertical: 10, gap: 12,
@@ -84,4 +86,4 @@ const styles = StyleSheet.create({
   hautTexte: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texte },
   bas: { fontFamily: polices.titre, fontSize: 18, color: couleurs.texte },
   texteVert: { color: "#04150d" },
-});
+}));

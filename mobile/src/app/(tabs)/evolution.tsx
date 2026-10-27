@@ -1,4 +1,4 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text } from "react-native";
+import { ActivityIndicator, ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bouton } from "~/components/Bouton";
 import { FicheDuClubContenu } from "~/components/club/EcranClub";
@@ -11,12 +11,17 @@ import { useFicheJoueur } from "~/hooks/useFicheJoueur";
 import { useAuth } from "~/lib/auth";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { titreDeLOnglet } from "~/lib/roles";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices, useCouleurs } from "~/theme";
 
-const Chargement = () => <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
+function Chargement() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
+  return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
+}
 
 /** Un joueur, un arbitre : sa propre fiche, celle que les autres voient. */
 function MaFiche({ uid }: { uid: string }) {
+  const styles = useStyles();
   const { fiche, forme } = useFicheJoueur(uid);
   if (fiche === undefined) return <Chargement />;
   if (fiche?.genre !== "fiche") {
@@ -31,6 +36,7 @@ function MaFiche({ uid }: { uid: string }) {
 
 /** Un manager : la fiche du club qu'il dirige. */
 function MonClub({ uid }: { uid: string }) {
+  const styles = useStyles();
   const { fiche: moi } = useFicheJoueur(uid);
   const club = moi?.genre === "fiche" ? moi.equipes.find((e) => e.dirige) ?? null : null;
   const fiche = useFicheDuClub(club?.id ?? null);
@@ -57,6 +63,7 @@ function MonClub({ uid }: { uid: string }) {
  * conséquences (KoppaFoot+, les équipes gelées) n'ont pas encore leur parcours.
  */
 export default function EcranEvolution() {
+  const styles = useStyles();
   const { utilisateur, profil } = useAuth();
   const role = profil?.evolutionRole ?? null;
   const uid = utilisateur?.uid ?? null;
@@ -81,9 +88,9 @@ export default function EcranEvolution() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingBottom: 48 },
   chargement: { paddingVertical: 48 },
   soustitre: { paddingHorizontal: 16, paddingTop: 2, fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: 2, color: couleurs.primaire },
-});
+}));

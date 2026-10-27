@@ -2,27 +2,28 @@ import {
   DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
 } from "@expo-google-fonts/dm-sans";
 import { Outfit_700Bold, Outfit_900Black, useFonts } from "@expo-google-fonts/outfit";
-import { DarkTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
+import { ApparenceProvider, useApparence } from "~/lib/apparence";
 import { AuthProvider, useAuth } from "~/lib/auth";
 import { FournisseurNotifications } from "~/lib/notifications";
 import { useNotificationTouchee } from "~/lib/notification-touchee";
 import { lienDeLaNotification, ouvrirLeLien, suivreLeJeton } from "~/lib/push";
-import { couleurs } from "~/theme";
+import { palettes, type Couleurs, type Schema } from "~/theme";
 
 void SplashScreen.preventAutoHideAsync();
 
 // Les fenêtres de connexion s'ouvrent PAR-DESSUS les onglets.
 export const unstable_settings = { anchor: "(tabs)" };
 
-/** Le fond des écrans et des transitions : sans lui, un éclair blanc entre deux écrans. */
-const THEME_NAVIGATION: Theme = {
-  ...DarkTheme,
+/** Le fond des écrans et des transitions : sans lui, un éclair d'une autre couleur entre deux écrans. */
+const themeDeNavigation = (base: Theme, couleurs: Couleurs): Theme => ({
+  ...base,
   colors: {
-    ...DarkTheme.colors,
+    ...base.colors,
     primary: couleurs.primaire,
     background: couleurs.fond,
     card: couleurs.fond,
@@ -30,6 +31,10 @@ const THEME_NAVIGATION: Theme = {
     border: couleurs.bordure,
     notification: couleurs.direct,
   },
+});
+const THEMES_NAVIGATION: Record<Schema, Theme> = {
+  sombre: themeDeNavigation(DarkTheme, palettes.sombre),
+  clair: themeDeNavigation(DefaultTheme, palettes.clair),
 };
 
 export default function RacineLayout() {
@@ -38,16 +43,31 @@ export default function RacineLayout() {
     DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
   });
   return (
-    <AuthProvider>
-      <AccueilProvider>
-        <ThemeProvider value={THEME_NAVIGATION}>
-          <StatusBar style="light" />
-          <FournisseurNotifications>
-            <Navigation policesPretes={policesPretes} />
-          </FournisseurNotifications>
-        </ThemeProvider>
-      </AccueilProvider>
-    </AuthProvider>
+    <ApparenceProvider>
+      <AuthProvider>
+        <AccueilProvider>
+          <Habillage>
+            <FournisseurNotifications>
+              <Navigation policesPretes={policesPretes} />
+            </FournisseurNotifications>
+          </Habillage>
+        </AccueilProvider>
+      </AuthProvider>
+    </ApparenceProvider>
+  );
+}
+
+/**
+ * La navigation et la barre d'état dans le thème affiché. Les écrans à
+ * en-tête noir (club, match…) reprennent la barre claire pour eux.
+ */
+function Habillage({ children }: { children: ReactNode }) {
+  const { schema } = useApparence();
+  return (
+    <ThemeProvider value={THEMES_NAVIGATION[schema]}>
+      <StatusBar style={schema === "clair" ? "dark" : "light"} />
+      {children}
+    </ThemeProvider>
   );
 }
 
@@ -65,8 +85,10 @@ export default function RacineLayout() {
 function Navigation({ policesPretes }: { policesPretes: boolean }) {
   const { chargement, utilisateur, profilManquant } = useAuth();
   const accueil = useAccueil();
+  const apparence = useApparence();
   const router = useRouter();
-  const pret = policesPretes && !chargement && accueil.pret;
+  // Le thème choisi est lu avant de retirer l'écran de lancement : pas d'image dans l'autre.
+  const pret = policesPretes && !chargement && accueil.pret && apparence.pret;
 
   useEffect(() => {
     if (pret) void SplashScreen.hideAsync();

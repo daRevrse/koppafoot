@@ -6,7 +6,7 @@ import { marquesDesJoueurs } from "@/lib/recit-du-match";
 import { Terrain } from "~/components/fiche/Terrain";
 import type { Fiche } from "~/lib/fiche-match";
 import { retourSelection } from "~/lib/retour";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 /**
  * Les compositions du site (components/match/MatchLineups) : une bascule
@@ -15,6 +15,7 @@ import { couleurs, espacement, polices } from "~/theme";
  * photo, la pastille garde son numéro — c'est le cas courant chez les amateurs.
  */
 export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string, string | null> }) {
+  const styles = useStyles();
   const router = useRouter();
   const versJoueur = (uid: string) => router.push({ pathname: "/joueur/[uid]", params: { uid } });
   // L'extérieur d'abord si le domicile n'a pas de feuille, comme sur le site.
@@ -95,7 +96,7 @@ export function Compos({ fiche, photos }: { fiche: Fiche; photos: Record<string,
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   bloc: { paddingHorizontal: 16, gap: 12 },
   bascule: { flexDirection: "row", borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   choix: { flex: 1, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: couleurs.surface },
@@ -104,7 +105,8 @@ const styles = StyleSheet.create({
   choixTexte: { fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11, 0.05), color: couleurs.texteDiscret, textAlign: "center" },
   choixTexteActif: { color: couleurs.fond },
   formation: { color: couleurs.texteDiscret },
-  formationActive: { color: "rgba(8,13,11,0.5)" },
+  // Le fond de la page, à moitié : la pastille active est de la couleur du texte.
+  formationActive: { color: `${couleurs.fond}80` },
   vide: { backgroundColor: couleurs.surface, paddingHorizontal: 16, paddingVertical: 40, alignItems: "center", gap: 6 },
   videTitre: { fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), color: couleurs.texteDiscret },
   videTexte: { fontFamily: polices.texteDemi, fontSize: 12, color: couleurs.texteDiscret, textAlign: "center" },
@@ -115,4 +117,4 @@ const styles = StyleSheet.create({
   remplacant: { fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteSecondaire },
   numero: { color: couleurs.texteDiscret },
   entre: { color: couleurs.primaire },
-});
+}));

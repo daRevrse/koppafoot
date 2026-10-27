@@ -6,7 +6,7 @@ import { CATEGORIES_PUSH, type PushCategory } from "@/lib/push-categories";
 import { useAuth } from "~/lib/auth";
 import { db } from "~/lib/firebase";
 import { activerPushMobile, desactiverPushMobile, etatPushMobile, type EtatPushMobile } from "~/lib/push";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices, useCouleurs } from "~/theme";
 
 /**
  * L'interrupteur des notifications de CE téléphone, dans l'onglet Compte.
@@ -16,6 +16,8 @@ import { couleurs, polices } from "~/theme";
  * notifications doit retrouver ici un interrupteur qui marche.
  */
 export function ReglagePush({ uid }: { uid: string }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { profil, rafraichirProfil } = useAuth();
   const [etat, setEtat] = useState<EtatPushMobile | null>(null);
   const [occupe, setOccupe] = useState(false);
@@ -102,7 +104,7 @@ export function ReglagePush({ uid }: { uid: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   bloc: { gap: 6, padding: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   ligne: { flexDirection: "row", alignItems: "center", gap: 12 },
   textes: { flex: 1, gap: 2 },
@@ -111,4 +113,4 @@ const styles = StyleSheet.create({
   note: { fontFamily: polices.texte, fontSize: 12, color: couleurs.texteSecondaire },
   categories: { gap: 8, paddingTop: 4 },
   categorie: { fontFamily: polices.texte, fontSize: 14, color: couleurs.texte },
-});
+}));

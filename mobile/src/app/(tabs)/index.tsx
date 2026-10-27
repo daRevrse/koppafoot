@@ -25,13 +25,15 @@ import {
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { retourSelection } from "~/lib/retour";
 import { routeDeLaCompetition, routeDuMatch } from "~/lib/routes";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices, useCouleurs } from "~/theme";
 
 const heure = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
 const AUCUN_JOUR: ReadonlySet<string> = new Set();
 
 export default function EcranDirect() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { feed, majA, horsLigne, chargement, rafraichir } = useDirect();
   const suivi = useSuivi();
   const router = useRouter();
@@ -184,7 +186,7 @@ export default function EcranDirect() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   // L'entrée vers l'annuaire, au bout des filtres : une pastille cerclée, pas
   // remplie — elle mène ailleurs, elle ne filtre pas.
   versAnnuaire: {
@@ -201,4 +203,4 @@ const styles = StyleSheet.create({
   },
   bandeauTexte: { flex: 1, fontFamily: polices.texteGras, fontSize: 12, color: couleurs.texteSecondaire },
   liste: { paddingBottom: 24 },
-});
+}));

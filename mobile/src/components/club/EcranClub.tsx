@@ -1,11 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { avecVia } from "@/lib/audience";
+import { BarreDEtatSurNoir } from "~/components/BarreDEtatSurNoir";
 import { BarreOnglets } from "~/components/BarreOnglets";
 import { Ecusson } from "~/components/Ecusson";
 import { MatchsDeLEquipe } from "~/components/equipe/MatchsDeLEquipe";
@@ -17,7 +17,7 @@ import type { FicheClub } from "~/lib/fiche-du-club";
 import { initiales } from "~/lib/initiales";
 import { ouvrirLeLien } from "~/lib/push";
 import { retourSelection } from "~/lib/retour";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const blanc = (opacite: number) => `rgba(255,255,255,${opacite})`;
 const PASTILLE: Record<"V" | "N" | "D", { fond: string; texte: string }> = {
@@ -30,6 +30,7 @@ type OngletClub = "effectif" | "matchs" | "competitions";
 
 /** L'en-tête du club (BandeauEquipe du site) : sombre, sa bannière derrière. */
 function EnTeteClub({ fiche }: { fiche: FicheClub }) {
+  const styles = useStyles();
   const couleur = fiche.genre === "fiche" ? fiche.couleur : null;
   const banniere = fiche.genre === "fiche" ? fiche.banniere : null;
   return (
@@ -72,6 +73,8 @@ function EnTeteClub({ fiche }: { fiche: FicheClub }) {
  * matchs et les compétitions. L'onglet Évolution d'un manager le reprend.
  */
 export function FicheDuClubContenu({ fiche }: { fiche: FicheClub }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const [onglet, setOnglet] = useState<OngletClub>("effectif");
   if (fiche.genre === "fantome") {
@@ -233,6 +236,7 @@ export function FicheDuClubContenu({ fiche }: { fiche: FicheClub }) {
 
 /** La fiche d'un club (/teams/[id] du site, sa partie publique). */
 export function EcranClub({ id }: { id: string }) {
+  const styles = useStyles();
   const router = useRouter();
   const fiche = useFicheDuClub(id);
   if (!fiche) return <EtatFiche introuvable={fiche === null} texte="Ce club n'existe pas ou n'est plus disponible." />;
@@ -241,7 +245,7 @@ export function EcranClub({ id }: { id: string }) {
     void Share.share({ message: `${fiche.nom} sur KoppaFoot\n${urlDuSite(avecVia(`/teams/${id}`, "partage"))}` }).catch(() => {});
   return (
     <View style={styles.ecran}>
-      <StatusBar style="light" />
+      <BarreDEtatSurNoir />
       <SafeAreaView edges={["top"]} style={styles.barreFond}>
         <View style={styles.barre}>
           <Pressable accessibilityRole="button" accessibilityLabel="Revenir à l'écran précédent" onPress={retour} hitSlop={8} style={styles.bouton}>
@@ -259,7 +263,7 @@ export function EcranClub({ id }: { id: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   barreFond: { backgroundColor: "#000" },
   barre: { height: 56, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16 },
@@ -323,4 +327,4 @@ const styles = StyleSheet.create({
   presse: { backgroundColor: couleurs.surfaceHaute },
   compNom: { fontFamily: polices.texteGras, fontSize: 14, color: couleurs.texte },
   compDetail: { marginTop: 2, fontFamily: polices.texteGras, fontSize: 11, color: couleurs.texteDiscret },
-});
+}));

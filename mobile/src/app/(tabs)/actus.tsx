@@ -12,7 +12,7 @@ import { EtatVide } from "~/components/EtatVide";
 import { useActus } from "~/hooks/useActus";
 import { nombreDArticles, titreDeLaJournee } from "~/lib/actus";
 import { ouvrirChezLEditeur } from "~/lib/navigateur";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const heure = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
@@ -28,6 +28,8 @@ interface Journee {
  * son éditeur. Le découpage est celui du site (lib/fil-actus).
  */
 export default function EcranActus() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { articles, majA, horsLigne, chargement, rafraichir } = useActus();
 
   // Les journées se comptent depuis le chargement : c'est lui qui dit « aujourd'hui ».
@@ -90,7 +92,7 @@ export default function EcranActus() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   bandeau: {
     flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12, paddingVertical: 8,
@@ -109,4 +111,4 @@ const styles = StyleSheet.create({
     fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11), textTransform: "uppercase",
     color: couleurs.texteDiscret,
   },
-});
+}));

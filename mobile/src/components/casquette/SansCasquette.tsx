@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Bouton } from "~/components/Bouton";
 import { PAGES_DU_SITE } from "~/lib/espace-casquette";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const CASQUETTES: {
   icone: ComponentProps<typeof Ionicons>["name"];
@@ -43,6 +43,8 @@ const CASQUETTES: {
  * à sa présentation, et l'on propose d'abord d'en créer un.
  */
 export function SansCasquette({ connecte }: { connecte: boolean }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   return (
     <View style={styles.cadre}>
@@ -81,7 +83,7 @@ export function SansCasquette({ connecte }: { connecte: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   titre: {
     paddingHorizontal: 16, paddingTop: 16, fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11),
@@ -101,4 +103,4 @@ const styles = StyleSheet.create({
   casquetteTitre: { fontFamily: polices.texteGras, fontSize: 14, color: couleurs.texte },
   casquetteTexte: { fontFamily: polices.texte, fontSize: 12, lineHeight: 16, color: couleurs.texteDiscret },
   compte: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: couleurs.bordure },
-});
+}));

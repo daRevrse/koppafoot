@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, Text, View } from "react-native";
 import { useAuth } from "~/lib/auth";
 import { initiales } from "~/lib/initiales";
 import { useNotifications } from "~/lib/notifications";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /** La cloche et sa pastille : le nombre de notifications non lues, « 9+ » au-delà. */
 function Cloche() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const { nonLues } = useNotifications();
   return (
@@ -31,6 +33,8 @@ function Cloche() {
 
 /** Le compte : la photo ou les initiales ; sans compte, la silhouette. */
 function BoutonCompte() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const { utilisateur, profil } = useAuth();
   const nom = profil ? `${profil.firstName} ${profil.lastName}`.trim() : "";
@@ -58,6 +62,8 @@ function BoutonCompte() {
 
 /** La barre de recherche de l'en-tête : un champ qui n'en est pas un, il ouvre l'écran de recherche. */
 function BarreDeRecherche() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   return (
     <Pressable
@@ -78,6 +84,7 @@ function BarreDeRecherche() {
  * Sans compte, pas de cloche : rien à sonner.
  */
 export function EnTeteOnglet({ titre, surTitre, recherche = false }: { titre: string; surTitre?: string; recherche?: boolean }) {
+  const styles = useStyles();
   const { utilisateur } = useAuth();
   return (
     <View style={[styles.entete, recherche && styles.enteteRecherche]}>
@@ -97,7 +104,7 @@ export function EnTeteOnglet({ titre, surTitre, recherche = false }: { titre: st
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   entete: { flexDirection: "row", alignItems: "flex-end", gap: 12, paddingHorizontal: 16, paddingTop: 8 },
   enteteRecherche: { alignItems: "center", paddingBottom: 4 },
   recherche: {
@@ -120,4 +127,4 @@ const styles = StyleSheet.create({
   avatar: { width: 30, height: 30, borderRadius: 15 },
   avatarVide: { backgroundColor: couleurs.primaireVoile, alignItems: "center", justifyContent: "center" },
   avatarTexte: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.primaire },
-});
+}));

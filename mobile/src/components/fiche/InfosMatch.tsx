@@ -9,7 +9,7 @@ import { FormeDesEquipes } from "~/components/fiche/Forme";
 import { Pronostic } from "~/components/fiche/Pronostic";
 import { useSuivi } from "~/hooks/useSuivi";
 import type { Fiche } from "~/lib/fiche-match";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 // Les infos du site (components/match/MatchInfoList) : le pronostic, la
 // forme des deux équipes, puis le coup d'envoi, le lieu et la compétition.
@@ -24,6 +24,7 @@ function Ligne({ visuel, label, valeur, note, onPress, action }: {
   onPress?: () => void;
   action?: ReactNode;
 }) {
+  const styles = useStyles();
   const contenu = (
     <>
       <View style={styles.visuel}>{visuel}</View>
@@ -44,11 +45,14 @@ function Ligne({ visuel, label, valeur, note, onPress, action }: {
   );
 }
 
-const icone = (nom: ComponentProps<typeof Ionicons>["name"]) => (
-  <Ionicons name={nom} size={18} color={couleurs.texteDiscret} />
-);
+function Icone({ nom }: { nom: ComponentProps<typeof Ionicons>["name"] }) {
+  const couleurs = useCouleurs();
+  return <Ionicons name={nom} size={18} color={couleurs.texteDiscret} />;
+}
 
 export function InfosMatch({ fiche }: { fiche: Fiche }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   const suivi = useSuivi();
   const lignes: ReactNode[] = [];
@@ -57,7 +61,7 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
     const valeur = [fiche.date ? dateLongue(fiche.date) : null, fiche.heure].filter(Boolean).join(" · ");
     const proche = fiche.date ? libelleDuJour(fiche.date) : null;
     lignes.push(
-      <Ligne key="coup" visuel={icone("calendar-outline")} label="Coup d'envoi" valeur={valeur}
+      <Ligne key="coup" visuel={<Icone nom="calendar-outline" />} label="Coup d'envoi" valeur={valeur}
         note={proche && PROCHES.includes(proche) ? proche : null} />,
     );
   }
@@ -66,7 +70,7 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
   if (nom || ville) {
     const recherche = [nom, ville].filter(Boolean).join(", ");
     lignes.push(
-      <Ligne key="lieu" visuel={icone("location-outline")} label="Lieu" valeur={(nom || ville) as string}
+      <Ligne key="lieu" visuel={<Icone nom="location-outline" />} label="Lieu" valeur={(nom || ville) as string}
         note={nom ? ville : null}
         onPress={() => void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(recherche)}`)} />,
     );
@@ -77,7 +81,7 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
     lignes.push(
       <Ligne
         key="comp"
-        visuel={c.logo ? <Ecusson url={c.logo} nom={c.nom} taille={24} /> : icone("trophy-outline")}
+        visuel={c.logo ? <Ecusson url={c.logo} nom={c.nom} taille={24} /> : <Icone nom="trophy-outline" />}
         label="Compétition"
         valeur={c.nom}
         note={c.sousTitre}
@@ -115,7 +119,7 @@ export function InfosMatch({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   colonne: { gap: 16 },
   section: { marginHorizontal: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   titre: {
@@ -134,4 +138,4 @@ const styles = StyleSheet.create({
   valeur: { fontFamily: polices.texteGras, fontSize: 14, color: couleurs.texte },
   lien: { color: couleurs.texte },
   note: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.1), color: couleurs.texteDiscret },
-});
+}));

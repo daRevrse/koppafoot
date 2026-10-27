@@ -4,7 +4,7 @@ import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { Bouton } from "~/components/Bouton";
 import { useAuth } from "~/lib/auth";
 import { googleDisponible, messageErreurGoogle } from "~/lib/google";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices } from "~/theme";
 
 /**
  * « Continuer avec Google », puis « ou » avant le formulaire e-mail.
@@ -13,6 +13,7 @@ import { couleurs, espacement, polices } from "~/theme";
  * seul. Rien ne s'affiche là où le module n'existe pas (Expo Go, iOS).
  */
 export function ConnexionGoogle({ onErreur }: { onErreur: (message: string | null) => void }) {
+  const styles = useStyles();
   const { connexionGoogle } = useAuth();
   const [occupe, setOccupe] = useState(false);
 
@@ -42,8 +43,8 @@ export function ConnexionGoogle({ onErreur }: { onErreur: (message: string | nul
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   separateur: { flexDirection: "row", alignItems: "center", gap: 12 },
   trait: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: couleurs.bordure },
   ou: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10), color: couleurs.texteDiscret },
-});
+}));

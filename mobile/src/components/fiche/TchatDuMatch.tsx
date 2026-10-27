@@ -5,7 +5,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, Text
 import { TCHAT_MAX, tchatOuvert, type MessageDuTchat } from "@/lib/tchat";
 import { useAuth } from "~/lib/auth";
 import { envoyerMessage, signalerMessage, supprimerMessage } from "~/lib/interactions-match";
-import { couleurs, polices } from "~/theme";
+import { creerStyles, polices, useCouleurs } from "~/theme";
 
 const heure = (ms: number | null) =>
   ms == null ? "" : new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
@@ -23,6 +23,8 @@ export function TchatDuMatch({ mid, cid, statut, messages, peutModerer }: {
   messages: MessageDuTchat[];
   peutModerer: boolean;
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const { utilisateur } = useAuth();
   const router = useRouter();
   const [texte, setTexte] = useState("");
@@ -174,7 +176,7 @@ export function TchatDuMatch({ mid, cid, statut, messages, peutModerer }: {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { marginHorizontal: 16, backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure },
   bandeau: {
     paddingHorizontal: 16, paddingVertical: 10, fontFamily: polices.texteDemi, fontSize: 12, color: couleurs.texteSecondaire,
@@ -204,4 +206,4 @@ const styles = StyleSheet.create({
   compteur: { marginTop: 4, textAlign: "right", fontFamily: polices.texte, fontSize: 11, color: couleurs.texteDiscret },
   connexion: { paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1, borderColor: couleurs.bordure, alignItems: "center" },
   connexionTexte: { fontFamily: polices.texteDemi, fontSize: 14, color: couleurs.texteSecondaire },
-});
+}));

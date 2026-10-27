@@ -8,7 +8,7 @@ import { competitionHref } from "@/lib/direct-shared";
 import type { UserProfile } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { CarteInvitation } from "~/components/compte/CarteInvitation";
-import { GroupeCompte, LigneCompte } from "~/components/compte/MenuCompte";
+import { GroupeCompte, LigneCompte, LigneTheme } from "~/components/compte/MenuCompte";
 import { EnTeteCompetition } from "~/components/direct/EnTeteCompetition";
 import { EnTetePage } from "~/components/EnTetePage";
 import { EtatVide } from "~/components/EtatVide";
@@ -20,7 +20,7 @@ import { nomDeLOffre, PAGES_D_AIDE } from "~/lib/compte";
 import { initiales } from "~/lib/initiales";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { routeDeLaCompetition } from "~/lib/routes";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * L'écran Compte : ce que la feuille du bouton Compte du site propose
@@ -30,6 +30,7 @@ import { couleurs, espacement, polices } from "~/theme";
  * déconnexion et, loin du reste, la suppression du compte.
  */
 export default function EcranCompte() {
+  const styles = useStyles();
   const { utilisateur, profil, deconnexion } = useAuth();
   const router = useRouter();
 
@@ -76,7 +77,8 @@ export default function EcranCompte() {
         </GroupeCompte>
 
         <GroupeCompte titre="Réglages">
-          <LigneCompte premiere icone="settings-outline" libelle="Paramètres" detail="Notifications" onPress={() => router.push("/parametres")} />
+          <LigneTheme premiere />
+          <LigneCompte icone="settings-outline" libelle="Paramètres" detail="Notifications, thème" onPress={() => router.push("/parametres")} />
           <LigneCompte icone="diamond-outline" libelle={nomDeLOffre(profil)} onPress={() => router.push("/offre")} />
         </GroupeCompte>
 
@@ -99,6 +101,8 @@ export default function EcranCompte() {
 
 /** Sans compte : « Visiteur », et ce qu'un compte ouvre (compte.faitesPlus du site). */
 function CarteVisiteur() {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const router = useRouter();
   return (
     <View style={styles.visiteur}>
@@ -125,6 +129,8 @@ function CarteVisiteur() {
 }
 
 function CarteProfil({ profil, email }: { profil: UserProfile; email: string | null }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const nom = `${profil.firstName} ${profil.lastName}`.trim();
   return (
     <View style={styles.carte}>
@@ -155,6 +161,7 @@ function CarteProfil({ profil, email }: { profil: UserProfile; email: string | n
 }
 
 function CompetitionsSuivies({ suivies }: { suivies: readonly string[] }) {
+  const styles = useStyles();
   const router = useRouter();
   const suivi = useSuivi();
   const { competitions, erreur, garder } = useCompetitionsSuivies(suivies);
@@ -206,6 +213,7 @@ function CompetitionsSuivies({ suivies }: { suivies: readonly string[] }) {
 }
 
 function SqueletteLignes() {
+  const styles = useStyles();
   const opacite = useRespiration();
   return (
     <Animated.View
@@ -220,7 +228,7 @@ function SqueletteLignes() {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   contenu: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 32, gap: 20 },
   boutons: { alignSelf: "stretch", gap: 12 },
@@ -250,4 +258,4 @@ const styles = StyleSheet.create({
   ligne: { backgroundColor: couleurs.surface },
   squelette: { gap: 1 },
   ligneSquelette: { height: 50, backgroundColor: couleurs.surface },
-});
+}));

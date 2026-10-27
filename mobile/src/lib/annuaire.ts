@@ -44,14 +44,17 @@ export function sectionsDeLAnnuaire(competitions: Competition[]): { titre: strin
     .filter((s) => s.competitions.length > 0);
 }
 
-/** Le statut d'une carte de l'annuaire (CompetitionDirectoryCard) et la couleur de sa pastille. */
-export const STATUT_DE_CARTE: Record<CompetitionStatus, { libelle: string; couleur: string }> = {
-  draft: { libelle: "Brouillon", couleur: "#9ca3af" },
-  registration: { libelle: "Inscriptions ouvertes", couleur: "#60a5fa" },
-  registration_closed: { libelle: "À venir", couleur: "#fbbf24" },
-  group_stage: { libelle: "En cours", couleur: "#34d399" },
-  knockout: { libelle: "En cours", couleur: "#34d399" },
-  completed: { libelle: "Terminée", couleur: "#9ca3af" },
+/**
+ * Le statut d'une carte de l'annuaire (CompetitionDirectoryCard) et le rôle
+ * de la palette qui peint sa pastille : gris, bleu, ambre, vert, dans les deux thèmes.
+ */
+export const STATUT_DE_CARTE: Record<CompetitionStatus, { libelle: string; ton: "texteDiscret" | "info" | "accent" | "primaire" }> = {
+  draft: { libelle: "Brouillon", ton: "texteDiscret" },
+  registration: { libelle: "Inscriptions ouvertes", ton: "info" },
+  registration_closed: { libelle: "À venir", ton: "accent" },
+  group_stage: { libelle: "En cours", ton: "primaire" },
+  knockout: { libelle: "En cours", ton: "primaire" },
+  completed: { libelle: "Terminée", ton: "texteDiscret" },
 };
 
 const jour = (iso: string, annee: boolean) => {

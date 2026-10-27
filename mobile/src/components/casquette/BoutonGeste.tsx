@@ -1,5 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text } from "react-native";
-import { couleurs, espacement, polices } from "~/theme";
+import { ActivityIndicator, Pressable, Text } from "react-native";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /**
  * Le bouton d'un geste de l'Espace casquette (« Je couvre », « Confirmer »,
@@ -16,6 +16,8 @@ export function BoutonGeste({ libelle, onPress, variante = "plein", occupe = fal
   inactif?: boolean;
   accessibilityLabel?: string;
 }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const plein = variante === "plein";
   return (
     <Pressable
@@ -43,11 +45,11 @@ export function BoutonGeste({ libelle, onPress, variante = "plein", occupe = fal
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   bouton: { minWidth: 92, minHeight: 36, paddingHorizontal: 12, alignItems: "center", justifyContent: "center" },
   plein: { backgroundColor: couleurs.bouton },
   contour: { borderWidth: 1, borderColor: couleurs.bordureForte },
   presse: { opacity: 0.8 },
   attente: { opacity: 0.5 },
   texte: { fontFamily: polices.texteNoir, fontSize: 10, letterSpacing: espacement(10, 0.12) },
-});
+}));

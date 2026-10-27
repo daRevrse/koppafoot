@@ -7,34 +7,36 @@ import { joueursDuRemplacement } from "@/lib/recit-du-match";
 import type { Genre } from "@/lib/genre";
 import { JoueurDuMatch } from "~/components/fiche/JoueurDuMatch";
 import { derouleDeLaFiche, type Fiche } from "~/lib/fiche-match";
-import { couleurs, espacement, polices } from "~/theme";
+import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 // Le fil du site (components/match/MatchTimeline) : chaque fait du côté de
 // son acteur, la minute sur l'axe central, les repères en travers. Le récit
 // lui-même vient de lib/fil-du-match, partagé avec le site.
 
 const t = TEXTES_FIL.fr;
-const VERT = "#34d399";
 
 function Marqueur({ e, annule }: { e: EvenementDuFil; annule: boolean }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const eteint = couleurs.texteDiscret;
   switch (e.type) {
     case "goal":
-      return <Ionicons name="football" size={14} color={annule ? eteint : VERT} />;
+      return <Ionicons name="football" size={14} color={annule ? eteint : couleurs.primaire} />;
     case "yellow_card":
-      return <View style={[styles.carton, { backgroundColor: couleurs.accent }]} />;
+      // Le jaune du carton, pas l'ambre du texte : il foncerait en thème clair.
+      return <View style={[styles.carton, styles.cartonJaune]} />;
     case "red_card":
       return <View style={[styles.carton, { backgroundColor: couleurs.direct }]} />;
     case "substitution":
       return <Ionicons name="swap-horizontal" size={14} color="#60a5fa" />;
     case "save":
-      return <Ionicons name="hand-left" size={13} color={VERT} />;
+      return <Ionicons name="hand-left" size={13} color={couleurs.primaire} />;
     case "foul":
       return <Ionicons name="warning" size={13} color="#fb923c" />;
     case "offside":
       return <Ionicons name="flag" size={13} color={eteint} />;
     case "penalty":
-      return <Ionicons name="locate" size={13} color={annule ? eteint : VERT} />;
+      return <Ionicons name="locate" size={13} color={annule ? eteint : couleurs.primaire} />;
     default:
       return null;
   }
@@ -42,6 +44,8 @@ function Marqueur({ e, annule }: { e: EvenementDuFil; annule: boolean }) {
 
 /** Un fait rangé dans son camp. Le joueur d'abord, l'action ensuite, en petit. */
 function Ligne({ e, droite }: { e: EvenementDuFil; droite: boolean }) {
+  const styles = useStyles();
+  const couleurs = useCouleurs();
   const enCours = e.type === "goal" && e.varStatus === "checking";
   const issue = e.type === "penalty" ? issuePenalty(e.detail) : null;
   const annule = (e.type === "goal" && e.varStatus === "cancelled") || issue === "retire";
@@ -61,7 +65,7 @@ function Ligne({ e, droite }: { e: EvenementDuFil; droite: boolean }) {
           <>
             {remplacement.entre ? (
               <View style={[styles.joueurChangement, droite ? styles.rangee : styles.rangeeInverse]}>
-                <Ionicons name="arrow-up" size={11} color={VERT} accessibilityLabel="Entre" />
+                <Ionicons name="arrow-up" size={11} color={couleurs.primaire} accessibilityLabel="Entre" />
                 <Text style={[styles.nom, aligne]}>{remplacement.entre}</Text>
               </View>
             ) : null}
@@ -104,6 +108,7 @@ export function FilDuMatch({ fiche, photoHomme, genreHomme }: {
 }
 
 function Fil({ fiche }: { fiche: Fiche }) {
+  const styles = useStyles();
   const events = fiche.liveState?.events ?? [];
   const vide = fiche.statut === "completed"
     ? "Aucun fait de jeu enregistré sur ce match"
@@ -162,7 +167,7 @@ function Fil({ fiche }: { fiche: Fiche }) {
   );
 }
 
-const styles = StyleSheet.create({
+const useStyles = creerStyles((couleurs) => ({
   cadre: { backgroundColor: couleurs.surface, padding: 16, gap: 14 },
   // L'axe central, derrière les minutes.
   axe: { position: "absolute", top: 24, bottom: 24, left: "50%", width: 1, marginLeft: -0.5, backgroundColor: couleurs.bordure },
@@ -203,5 +208,6 @@ const styles = StyleSheet.create({
   barre: { color: couleurs.texteDiscret, textDecorationLine: "line-through" },
   var: { marginTop: 4, paddingHorizontal: 6, paddingVertical: 2, fontFamily: polices.texteNoir, fontSize: 9, letterSpacing: 0.8 },
   varAnnule: { backgroundColor: couleurs.directVoile, color: couleurs.direct },
-  varAttente: { backgroundColor: "rgba(245,158,11,0.12)", color: couleurs.accent },
-});
+  varAttente: { backgroundColor: couleurs.accentVoile, color: couleurs.accent },
+  cartonJaune: { backgroundColor: "#FBBF24" },
+}));
