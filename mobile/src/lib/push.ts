@@ -105,8 +105,8 @@ export function lienDeLaNotification(r: Notifications.NotificationResponse | nul
 /**
  * Ouvrir une adresse du site dans l'application : ce qu'annonce une
  * notification touchée, le match d'une forme, celui d'une fiche de club. Un
- * match, une compétition, une équipe, un club, un joueur ou un amical
- * s'ouvrent dans leur écran ; le reste (une réservation, un espace
+ * match, une compétition, une équipe, un club, un joueur, un amical ou le
+ * classement des joueurs s'ouvrent dans leur écran ; le reste (une réservation, un espace
  * d'organisateur) sur le site, dans le navigateur intégré. `natif` : les
  * écrans de l'application sont ouverts (l'accueil est passé, le profil
  * existe) — sinon, le site.

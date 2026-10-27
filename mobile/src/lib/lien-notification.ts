@@ -14,6 +14,7 @@ export type Destination =
   | { genre: "amical"; id: string }
   | { genre: "club"; id: string }
   | { genre: "joueur"; uid: string }
+  | { genre: "classement" }
   | { genre: "site"; lien: string };
 
 /** Un morceau d'adresse décodé ; `null` s'il est mal encodé (« %E9 » seul). */
@@ -37,6 +38,7 @@ export function destinationDuLien(lien: string): Destination {
     if (a === "matches" && b && c === undefined) return { genre: "amical", id: b };
     if (a === "teams" && b && c === undefined) return { genre: "club", id: b };
     if (a === "profile" && b && c === undefined) return { genre: "joueur", uid: b };
+    if (a === "top-players" && b === undefined) return { genre: "classement" };
   }
   return { genre: "site", lien };
 }
@@ -53,6 +55,8 @@ export function ecranDeLaDestination(d: Destination, cid: string | null): Href |
       return { pathname: "/club/[id]", params: { id: d.id } };
     case "joueur":
       return { pathname: "/joueur/[uid]", params: { uid: d.uid } };
+    case "classement":
+      return "/classement";
     case "competition":
       return cid ? { pathname: "/competition/[cid]", params: { cid } } : null;
     case "match":

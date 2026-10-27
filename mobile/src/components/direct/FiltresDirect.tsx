@@ -9,10 +9,12 @@ import { creerStyles, polices } from "~/theme";
  * direct (n) » porte son point, qui ne pulse que s'il y a un match en cours ;
  * active, elle se teinte de rouge, les autres de vert.
  */
-export function FiltresDirect({ filtre, enDirect, onChange, fin }: {
+export function FiltresDirect({ filtre, enDirect, onChange, apres, fin }: {
   filtre: FiltreDirect;
   enDirect: number;
   onChange: (f: FiltreDirect) => void;
+  /** Au bout des pastilles, dans leur défilement : le départ vers le classement. */
+  apres?: ReactNode;
   /** Calé à droite, hors du défilement des pastilles : l'entrée vers l'annuaire. */
   fin?: ReactNode;
 }) {
@@ -45,6 +47,7 @@ export function FiltresDirect({ filtre, enDirect, onChange, fin }: {
           </Pressable>
         );
       })}
+      {apres}
     </ScrollView>
     {fin ? <View style={styles.fin}>{fin}</View> : null}
     </View>
