@@ -5,9 +5,9 @@ import { useAuth } from "~/lib/auth";
 import { titreDeLOnglet } from "~/lib/roles";
 import { couleurs, polices } from "~/theme";
 
-// La barre du bas : Direct, Actus, Évolution, Espace casquette. Espace
-// casquette n'a encore que son en-tête. Le compte et la cloche sont dans
-// l'en-tête (EnTeteOnglet), les compétitions au bout des filtres du Direct.
+// La barre du bas : Direct, Actus, Évolution, Espace casquette. Le compte et
+// la cloche sont dans l'en-tête (EnTeteOnglet), les compétitions au bout des
+// filtres du Direct.
 /** L'icône de l'onglet Évolution : la courbe sans rôle, puis celle du rôle. */
 const ICONE_DU_ROLE: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
   player: "person-outline", manager: "briefcase-outline", referee: "flag-outline",
