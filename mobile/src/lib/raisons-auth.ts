@@ -6,6 +6,7 @@ const PHRASES: Record<string, string> = {
   pronostic: "Crée ton compte pour donner ton pronostic.",
   tchat: "Connecte-toi pour écrire dans le tchat du match.",
   role: "Crée ton compte pour choisir ton rôle : joueur, manager ou arbitre.",
+  casquette: "Crée ton compte pour demander une casquette : organisateur, scoreur ou propriétaire de terrain.",
 };
 
 /** La phrase d'une raison connue ; sinon celle de l'écran par défaut. */
