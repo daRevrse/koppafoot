@@ -13,6 +13,12 @@ describe("destinationDuLien", () => {
     expect(destinationDuLien("/teams")).toEqual({ genre: "site", lien: "/teams" });
   });
 
+  it("lit le classement des joueurs", () => {
+    expect(destinationDuLien("/top-players")).toEqual({ genre: "classement" });
+    expect(destinationDuLien("/top-players/")).toEqual({ genre: "classement" });
+    expect(destinationDuLien("/top-players/x")).toEqual({ genre: "site", lien: "/top-players/x" });
+  });
+
   it("lit un amical", () => {
     expect(destinationDuLien("/matches/abc")).toEqual({ genre: "amical", id: "abc" });
   });
@@ -47,6 +53,10 @@ describe("ecranDeLaDestination", () => {
   it("ouvre la fiche d'un club ou d'un joueur, sans slug à lire", () => {
     expect(ecranDeLaDestination({ genre: "club", id: "club1" }, null)).toEqual({ pathname: "/club/[id]", params: { id: "club1" } });
     expect(ecranDeLaDestination({ genre: "joueur", uid: "u1" }, null)).toEqual({ pathname: "/joueur/[uid]", params: { uid: "u1" } });
+  });
+
+  it("ouvre le classement des joueurs", () => {
+    expect(ecranDeLaDestination({ genre: "classement" }, null)).toBe("/classement");
   });
 
   it("rend la main au site quand le slug ne mène à aucune compétition", () => {

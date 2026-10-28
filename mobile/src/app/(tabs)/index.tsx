@@ -87,6 +87,20 @@ export default function EcranDirect() {
         filtre={filtre}
         enDirect={enDirect}
         onChange={choisirFiltre}
+        apres={
+          // Le classement, comme sur le site en téléphone : une pastille ambre
+          // au bout des filtres. Ce n'est pas un filtre, c'est un départ.
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Top performances, le classement des joueurs"
+            onPress={() => router.push("/classement")}
+            style={({ pressed }) => [styles.versClassement, pressed && styles.versClassementPresse]}
+          >
+            <Ionicons name="flame" size={13} color={couleurs.accent} />
+            <Text style={styles.versClassementTexte}>Top performances</Text>
+            <Ionicons name="chevron-forward" size={12} color={couleurs.accent} />
+          </Pressable>
+        }
         fin={
           <Pressable
             accessibilityRole="link"
@@ -195,6 +209,12 @@ const useStyles = creerStyles((couleurs) => ({
   },
   versAnnuairePresse: { backgroundColor: couleurs.surfaceHaute },
   versAnnuaireTexte: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.texteSecondaire },
+  versClassement: {
+    flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 10, paddingVertical: 5,
+    borderRadius: 999, backgroundColor: couleurs.accentVoile,
+  },
+  versClassementPresse: { opacity: 0.7 },
+  versClassementTexte: { fontFamily: polices.texteNoir, fontSize: 11, color: couleurs.accent },
   ecran: { flex: 1, backgroundColor: couleurs.fond },
   // Les titres du site : font-display font-black, en capitales.
   bandeau: {
