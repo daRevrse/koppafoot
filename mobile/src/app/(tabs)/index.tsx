@@ -19,22 +19,20 @@ import { useDirect } from "~/hooks/useDirect";
 import { useMouvementReduit } from "~/hooks/useMouvementReduit";
 import { useSuivi } from "~/hooks/useSuivi";
 import {
-  basculerRepli, compterEnDirect, groupesDuTableau, jourLePlusProche, joursAvecMatchs, joursDeLaFrise, sectionsDuDirect,
-  type FiltreDirect, type SectionDuDirect,
+  basculerRepli, compterEnDirect, groupesDuTableau, jourLePlusProche, joursAvecMatchs, joursDeLaFrise,
+  libelleDeLaMiseAJour, sectionsDuDirect, type FiltreDirect, type SectionDuDirect,
 } from "~/lib/direct-tableau";
 import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { retourSelection } from "~/lib/retour";
 import { routeDeLaCompetition, routeDuMatch } from "~/lib/routes";
 import { creerStyles, polices, useCouleurs } from "~/theme";
 
-const heure = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
-
 const AUCUN_JOUR: ReadonlySet<string> = new Set();
 
 export default function EcranDirect() {
   const styles = useStyles();
   const couleurs = useCouleurs();
-  const { feed, majA, horsLigne, chargement, rafraichir } = useDirect();
+  const { feed, majA, horsLigne, miseAJourLente, chargement, rafraichir } = useDirect();
   const suivi = useSuivi();
   const router = useRouter();
   const [aujourdhui] = useState(() => cleDuJour(new Date()));
@@ -124,10 +122,12 @@ export default function EcranDirect() {
         )
       ) : (
         <>
-          {horsLigne && majA ? (
+          {(horsLigne || miseAJourLente) && majA ? (
             <View style={styles.bandeau}>
-              <Ionicons name="cloud-offline-outline" size={16} color={couleurs.texteSecondaire} />
-              <Text style={styles.bandeauTexte}>Pas de connexion — mis à jour à {heure(majA)}</Text>
+              <Ionicons name={horsLigne ? "cloud-offline-outline" : "sync-outline"} size={16} color={couleurs.texteSecondaire} />
+              <Text style={styles.bandeauTexte}>
+                {horsLigne ? "Pas de connexion — mis à jour" : "Mise à jour en cours — dernier tableau"} {libelleDeLaMiseAJour(majA)}
+              </Text>
             </View>
           ) : null}
           <SectionList<Entry, SectionDuDirect>

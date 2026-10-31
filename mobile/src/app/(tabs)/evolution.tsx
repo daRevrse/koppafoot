@@ -2,6 +2,7 @@ import { ActivityIndicator, ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Bouton } from "~/components/Bouton";
 import { FicheDuClubContenu } from "~/components/club/EcranClub";
+import { DefilementClavier } from "~/components/DefilementClavier";
 import { EnTeteOnglet } from "~/components/EnTeteOnglet";
 import { EtatVide } from "~/components/EtatVide";
 import { ChoixDuRole } from "~/components/evolution/ChoixDuRole";
@@ -73,9 +74,9 @@ export default function EcranEvolution() {
   else if (uid && role === "manager") contenu = <MonClub uid={uid} />;
   else {
     contenu = (
-      <ScrollView contentContainerStyle={styles.contenu} keyboardShouldPersistTaps="handled">
+      <DefilementClavier contentContainerStyle={styles.contenu}>
         <ChoixDuRole />
-      </ScrollView>
+      </DefilementClavier>
     );
   }
 

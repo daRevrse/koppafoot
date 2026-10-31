@@ -1,10 +1,11 @@
 import { useRouter } from "expo-router";
 import { useState, type ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { View } from "react-native";
 import { isSuperAdmin } from "@/lib/hats";
 import { cibleMatch } from "@/lib/audience";
 import { ongletTchatVisible } from "@/lib/tchat";
 import { BarreDEtatSurNoir } from "~/components/BarreDEtatSurNoir";
+import { DefilementClavier } from "~/components/DefilementClavier";
 import { ClassementDeLaPoule } from "~/components/fiche/ClassementDeLaPoule";
 import { Compos } from "~/components/fiche/Compos";
 import { BarreFiche, EnTeteMatch } from "~/components/fiche/EnTeteMatch";
@@ -90,11 +91,10 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
     <View style={styles.ecran}>
       <BarreDEtatSurNoir />
       <BarreFiche fiche={fiche} maintenant={maintenant} compact={compact} onRetour={retour} />
-      <ScrollView
+      <DefilementClavier
         stickyHeaderIndices={[1]}
-        // Le champ du tchat reste au-dessus du clavier (iOS ; Android redimensionne seul).
+        // Le champ du tchat reste au-dessus du clavier (iOS ; sur Android, DefilementClavier).
         automaticallyAdjustKeyboardInsets
-        keyboardShouldPersistTaps="handled"
         scrollEventThrottle={32}
         onScroll={(e) => {
           const replie = e.nativeEvent.contentOffset.y > SEUIL_COMPACT;
@@ -113,7 +113,7 @@ export function EcranFiche({ fiche }: { fiche: Fiche }) {
           }}
         />
         <View style={styles.panneau}>{panneau}</View>
-      </ScrollView>
+      </DefilementClavier>
     </View>
   );
 }

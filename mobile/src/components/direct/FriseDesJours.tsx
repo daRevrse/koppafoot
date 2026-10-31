@@ -30,11 +30,14 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
   const styles = useStyles();
   const liste = useRef<FlatList<string>>(null);
   const index = jours.indexOf(jour);
+  const mesuree = useRef(false);
 
   // Le jour choisi reste au centre : à l'arrivée (onLayout), puis à chaque choix.
+  // Rien avant la mesure : la liste ne connaît pas encore sa largeur, le calcul
+  // serait faux, et son animation pourrait écraser le bon recentrage qui suit.
   const centrer = useCallback(
     (anime: boolean) => {
-      if (index >= 0) liste.current?.scrollToIndex({ index, viewPosition: 0.5, animated: anime });
+      if (index >= 0 && mesuree.current) liste.current?.scrollToIndex({ index, viewPosition: 0.5, animated: anime });
     },
     [index],
   );
@@ -56,7 +59,10 @@ export function FriseDesJours({ jours, jour, aujourdhui, avecMatchs, actif, onCh
       style={[styles.frise, !actif && styles.inactive]}
       contentContainerStyle={styles.rangee}
       getItemLayout={(_, i) => ({ length: LARGEUR + ECART, offset: MARGE + (LARGEUR + ECART) * i, index: i })}
-      onLayout={() => centrer(false)}
+      onLayout={() => {
+        mesuree.current = true;
+        centrer(false);
+      }}
       renderItem={({ item }) => {
         const choisi = item === jour;
         const aDesMatchs = avecMatchs.has(item);
