@@ -7,10 +7,23 @@
 // comme le Direct du site une fois connecté.
 // ============================================
 
-import { decalerDeJours } from "@/lib/dates";
+import { cleDuJour, decalerDeJours, libelleDuJour } from "@/lib/dates";
 import { kickoff, ordreDesCompetitions, type CompetitionFeed, type Entry } from "@/lib/direct-shared";
 import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION } from "@/lib/friendlies-shared";
 import type { Competition, CompMatch } from "@/types";
+
+/**
+ * Quand date le tableau qu'on montre faute de mieux. Passé aujourd'hui, le jour
+ * aussi : l'heure seule ferait croire qu'il est de ce matin.
+ */
+export function libelleDeLaMiseAJour(majA: Date): string {
+  const heure = `à ${majA.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+  const jour = cleDuJour(majA);
+  const aujourdhui = cleDuJour(new Date());
+  if (jour === aujourdhui) return heure;
+  if (jour === decalerDeJours(aujourdhui, -1)) return `hier ${heure}`;
+  return `le ${libelleDuJour(jour)} ${heure}`;
+}
 
 export type FiltreDirect = "tous" | "direct" | "favoris";
 

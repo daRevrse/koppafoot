@@ -3,8 +3,24 @@ import { FRIENDLY_COMP_ID, FRIENDLY_COMPETITION } from "@/lib/friendlies-shared"
 import type { Competition, CompMatch } from "@/types";
 import {
   appliquerEcoutes, compterEnDirect, fusionnerAmicaux, groupesDuTableau, jourLePlusProche, joursAvecMatchs,
-  basculerRepli, joursDeLaFrise, remplacerMatchs, sectionsDuDirect,
+  basculerRepli, joursDeLaFrise, libelleDeLaMiseAJour, remplacerMatchs, sectionsDuDirect,
 } from "~/lib/direct-tableau";
+
+describe("libelleDeLaMiseAJour", () => {
+  const ilYA = (jours: number) => new Date(Date.now() - jours * 86_400_000);
+
+  it("donne l'heure seule pour aujourd'hui", () => {
+    expect(libelleDeLaMiseAJour(new Date())).toMatch(/^à \d\d:\d\d$/);
+  });
+
+  it("dit « hier » pour hier", () => {
+    expect(libelleDeLaMiseAJour(ilYA(1))).toMatch(/^hier à \d\d:\d\d$/);
+  });
+
+  it("donne la date au-delà : l'heure seule ferait croire que c'est aujourd'hui", () => {
+    expect(libelleDeLaMiseAJour(ilYA(3))).toMatch(/^le .+ à \d\d:\d\d$/);
+  });
+});
 
 const comp = (id: string): Competition => ({ id, slug: id, name: id } as Competition);
 const match = (id: string, p: Partial<CompMatch> = {}): CompMatch =>
