@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ReactNode } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { DefilementClavier } from "~/components/DefilementClavier";
 import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 /** Le cadre commun aux fenêtres de connexion, d'inscription et de mot de passe. */
@@ -24,11 +25,11 @@ export function EcranAuth({ titre, phrase, children }: { titre: string; phrase: 
         </Pressable>
       </View>
       <KeyboardAvoidingView style={styles.ecran} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.contenu} keyboardShouldPersistTaps="handled">
+        <DefilementClavier contentContainerStyle={styles.contenu}>
           <Text style={styles.titre}>{titre.toUpperCase()}</Text>
           <Text style={styles.phrase}>{phrase}</Text>
           <View style={styles.formulaire}>{children}</View>
-        </ScrollView>
+        </DefilementClavier>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

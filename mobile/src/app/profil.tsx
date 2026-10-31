@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as yup from "yup";
 import { getAuthErrorMessage } from "@/lib/auth-errors";
 import { nomPersonne, villeRequise } from "@/lib/champs-valides";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
+import { DefilementClavier } from "~/components/DefilementClavier";
 import { useStylesAuth } from "~/components/EcranAuth";
 import { useAuth, type ChampsProfil } from "~/lib/auth";
 import { creerStyles, polices } from "~/theme";
@@ -64,7 +65,7 @@ export default function EcranProfil() {
   return (
     <SafeAreaView style={styles.ecran} edges={["top", "bottom"]}>
       <KeyboardAvoidingView style={styles.ecran} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.contenu} keyboardShouldPersistTaps="handled">
+        <DefilementClavier contentContainerStyle={styles.contenu}>
           <Text style={styles.titre}>Bienvenue !</Text>
           <Text style={styles.phrase}>{utilisateur?.email ?? "Complète ton profil pour continuer"}</Text>
           <View style={styles.formulaire}>
@@ -75,7 +76,7 @@ export default function EcranProfil() {
             <Bouton titre="Continuer" occupe={occupe} onPress={continuer} />
             <Bouton titre="Se déconnecter" variante="lien" onPress={quitter} />
           </View>
-        </ScrollView>
+        </DefilementClavier>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
