@@ -16,7 +16,7 @@ import type { CompetitionFeed } from "@/lib/direct-shared";
  * heure fait le reste. Les locales d'abord, c'est le sujet du produit.
  *
  * Les trois lectures sont indépendantes, donc lancées de front. Chacune
- * dégrade en liste vide de son côté (quota football-data atteint, Firestore
+ * dégrade de son côté (football-data en panne : voir lib/world-board ; Firestore
  * injoignable) sans emporter les autres.
  */
 export async function getDirectBoard(): Promise<CompetitionFeed[]> {

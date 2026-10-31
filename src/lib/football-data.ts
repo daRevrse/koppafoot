@@ -1,9 +1,9 @@
 // Server-only client for football-data.org (real football content on the home).
 // Token in FOOTBALL_DATA_TOKEN (.env.local). MUST NOT be imported into a client
-// component. Rate-limit aware (free tier ~10 req/min): reads the provider's
-// X-RequestsAvailable / X-RequestCounter-Reset headers and self-throttles, on top
-// of ISR caching (next.revalidate). Every function degrades gracefully (returns
-// [] / null) so the home never breaks when the token is missing or quota is hit.
+// component. Free tier ~10 req/min, HTTP 429 beyond that; ISR caching
+// (next.revalidate) keeps us under it. Every function degrades gracefully (returns
+// [] / null) so the home never breaks when the token is missing or quota is hit,
+// except getTodayFootball, whose caller must tell an outage from an empty day.
 
 const BASE = "https://api.football-data.org/v4";
 
@@ -161,34 +161,31 @@ interface ApiScorer {
   playedMatches?: number | null;
 }
 
-async function fdFetch<T>(path: string, revalidate: number): Promise<T | null> {
+/** Lève quand le fournisseur n'a pas donné sa réponse : jeton absent, quota dépassé (429), panne, réseau coupé. */
+async function fdFetchOuLeve<T>(path: string, revalidate: number): Promise<T> {
   const token = process.env.FOOTBALL_DATA_TOKEN;
-  if (!token) {
-    // Silencieux, cette absence donnait un tableau mondial vide sans que rien
-    // ne l'explique : en production la variable n'etait pas definie, et le
-    // symptome ressemblait a une panne de l'API.
-    console.warn("football-data: FOOTBALL_DATA_TOKEN absent, aucune donnee mondiale");
-    return null;
+  // Ca se dit : silencieuse, cette absence donnait un tableau mondial vide sans
+  // que rien ne l'explique. En production la variable n'etait pas definie, et le
+  // symptome ressemblait a une panne de l'API.
+  if (!token) throw new Error("FOOTBALL_DATA_TOKEN absent, aucune donnee mondiale");
+  const res = await fetch(`${BASE}${path}`, {
+    headers: { "X-Auth-Token": token },
+    next: { revalidate },
+  });
+  if (!res.ok) {
+    const reste = res.headers.get("X-Requests-Available-Minute");
+    const remise = res.headers.get("X-RequestCounter-Reset");
+    throw new Error(`HTTP ${res.status} on ${path} (remaining ${reste ?? "?"}, reset in ${remise ?? "?"}s)`);
   }
+  return (await res.json()) as T;
+}
+
+/** La même, pour qui peut se passer de la donnée. */
+async function fdFetch<T>(path: string, revalidate: number): Promise<T | null> {
   try {
-    const res = await fetch(`${BASE}${path}`, {
-      headers: { "X-Auth-Token": token },
-      next: { revalidate },
-    });
-    // Heed the provider's throttling guidance.
-    const remaining = res.headers.get("X-RequestsAvailable");
-    const reset = res.headers.get("X-RequestCounter-Reset");
-    if (remaining != null && Number(remaining) <= 0) {
-      console.warn(`football-data: quota exhausted (reset in ${reset}s), skipping ${path}`);
-      return null;
-    }
-    if (!res.ok) {
-      console.warn(`football-data: HTTP ${res.status} on ${path} (remaining ${remaining ?? "?"})`);
-      return null;
-    }
-    return (await res.json()) as T;
+    return await fdFetchOuLeve<T>(path, revalidate);
   } catch (err) {
-    console.error(`football-data fetch failed for ${path}:`, err);
+    console.warn(`football-data: ${err instanceof Error ? err.message : String(err)}`);
     return null;
   }
 }
@@ -283,12 +280,17 @@ function jour(decalage: number): string {
 const JOURS_AVANT = 2;
 const JOURS_APRES = 7;
 
+/**
+ * Lève si le fournisseur n'a pas répondu, à la différence du reste de ce module :
+ * une panne n'est pas une journée sans match, et lib/world-board ne traite pas les
+ * deux de la même façon.
+ */
 export async function getTodayFootball(): Promise<TodayFootball> {
-  const data = await fdFetch<{ matches: ApiMatch[] }>(
+  const data = await fdFetchOuLeve<{ matches: ApiMatch[] }>(
     `/matches?dateFrom=${jour(-JOURS_AVANT)}&dateTo=${jour(JOURS_APRES)}`,
     90,
   );
-  const matches = data?.matches ?? [];
+  const matches = data.matches ?? [];
   const now = Date.now();
   const live: FootballMatch[] = [];
   const finished: FootballMatch[] = [];
