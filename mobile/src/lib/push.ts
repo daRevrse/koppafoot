@@ -26,6 +26,11 @@ import { ouvrirSurLeSite } from "~/lib/navigateur";
 //
 // LE JETON EST PAR APPAREIL, la préférence est par compte : couper ici retire
 // le jeton de CE téléphone, pas ceux de l'ordinateur. D'où la trace locale.
+//
+// LA TRACE NE PROUVE PAS QUE LE COMPTE A LE JETON : le serveur retire ceux qu'il
+// croit morts, et l'interrupteur resterait allumé sur un téléphone qui ne sonne
+// plus. Un téléphone qui a choisi les notifications redépose donc le sien à
+// chaque ouverture (reposerLeJeton).
 // ============================================
 
 /** Le canal Android des notifications Koppafoot (repris par app.json, `defaultChannel`). */
@@ -80,18 +85,40 @@ export async function desactiverPushMobile(uid: string): Promise<EtatPushMobile>
   return Platform.OS === "android" ? "inactif" : "non-supporte";
 }
 
+/** Range le jeton de ce téléphone sur le compte, à la place de l'ancien s'il a changé. */
+async function remplacerLeJeton(uid: string, ancien: string, jeton: string): Promise<void> {
+  const compte = doc(db, "users", uid);
+  if (ancien !== jeton) await updateDoc(compte, { fcm_tokens: arrayRemove(ancien) }).catch(() => {});
+  await updateDoc(compte, { fcm_tokens: arrayUnion(jeton) }).catch(() => {});
+  await AsyncStorage.setItem(CLE_JETON, jeton).catch(() => {});
+}
+
+/**
+ * À l'ouverture : un téléphone qui a choisi les notifications (sa trace le dit)
+ * remet son jeton sur le compte, qui a pu le perdre. Il rattrape aussi un jeton
+ * changé pendant que l'application était fermée. Sans trace, on ne s'invite
+ * pas : la permission ne se demande qu'au geste.
+ */
+export async function reposerLeJeton(uid: string): Promise<void> {
+  if (Platform.OS !== "android") return;
+  const [perm, ancien] = await Promise.all([Notifications.getPermissionsAsync(), AsyncStorage.getItem(CLE_JETON)]);
+  if (!perm.granted || !ancien) return;
+  const { data: jeton } = await Notifications.getDevicePushTokenAsync();
+  if (typeof jeton !== "string" || !jeton) return;
+  await remplacerLeJeton(uid, ancien, jeton);
+}
+
 /**
  * Le jeton peut changer (réinstallation des services Google, restauration) :
  * on remplace l'ancien par le nouveau sur le compte, sans rien redemander.
  */
 export function suivreLeJeton(uid: string): () => void {
+  void reposerLeJeton(uid).catch(() => {});
   const abonnement = Notifications.addPushTokenListener(async ({ data }) => {
     if (typeof data !== "string" || !data) return;
     const ancien = await AsyncStorage.getItem(CLE_JETON).catch(() => null);
     if (!ancien || ancien === data) return;
-    await updateDoc(doc(db, "users", uid), { fcm_tokens: arrayRemove(ancien) }).catch(() => {});
-    await updateDoc(doc(db, "users", uid), { fcm_tokens: arrayUnion(data) }).catch(() => {});
-    await AsyncStorage.setItem(CLE_JETON, data).catch(() => {});
+    await remplacerLeJeton(uid, ancien, data);
   });
   return () => abonnement.remove();
 }
