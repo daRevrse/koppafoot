@@ -1,7 +1,3 @@
-import {
-  DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
-} from "@expo-google-fonts/dm-sans";
-import { Outfit_700Bold, Outfit_900Black, useFonts } from "@expo-google-fonts/outfit";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -12,6 +8,7 @@ import { AuthProvider, useAuth } from "~/lib/auth";
 import { ecouterLesLiens, lienRetenu, oublierLeLien } from "~/lib/lien-entrant";
 import { FournisseurNotifications } from "~/lib/notifications";
 import { useNotificationTouchee } from "~/lib/notification-touchee";
+import { usePolicesPretes } from "~/lib/polices";
 import { lienDeLaNotification, ouvrirLeLien, suivreLeJeton } from "~/lib/push";
 import { palettes, type Couleurs, type Schema } from "~/theme";
 
@@ -39,10 +36,7 @@ const THEMES_NAVIGATION: Record<Schema, Theme> = {
 };
 
 export default function RacineLayout() {
-  const [policesPretes] = useFonts({
-    Outfit_700Bold, Outfit_900Black,
-    DMSans_400Regular, DMSans_500Medium, DMSans_600SemiBold, DMSans_700Bold, DMSans_900Black,
-  });
+  const policesPretes = usePolicesPretes();
   return (
     <ApparenceProvider>
       <AuthProvider>
