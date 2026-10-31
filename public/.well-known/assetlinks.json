@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.koppafoot.app",
+      "sha256_cert_fingerprints": [
+        "A3:09:B8:8E:DB:52:F0:A9:8B:57:59:39:5F:3A:A8:99:2E:2B:2B:4F:D1:61:11:9C:46:18:F7:BE:B8:D8:61:3F"
+      ]
+    }
+  }
+]

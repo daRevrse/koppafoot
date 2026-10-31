@@ -1,4 +1,31 @@
-import { destinationDuLien, ecranDeLaDestination } from "~/lib/lien-notification";
+import { cheminDuSite, destinationDuLien, ecranDeLaDestination } from "~/lib/lien-notification";
+
+describe("cheminDuSite", () => {
+  it("rend le chemin d'une adresse du site, avec sa requête", () => {
+    expect(cheminDuSite("https://www.koppafoot.com/c/g2/matches/m1?via=partage")).toBe("/c/g2/matches/m1?via=partage");
+    expect(cheminDuSite("https://koppafoot.com/teams/club1")).toBe("/teams/club1");
+    expect(cheminDuSite("HTTPS://WWW.KOPPAFOOT.COM/teams/Club1")).toBe("/teams/Club1");
+  });
+
+  it("ne rend rien pour la page d'accueil : le Direct s'ouvre de lui-même", () => {
+    expect(cheminDuSite("https://www.koppafoot.com")).toBeNull();
+    expect(cheminDuSite("https://www.koppafoot.com/")).toBeNull();
+  });
+
+  it("refuse ce qui n'est pas le site, même déguisé", () => {
+    for (const url of [
+      "koppafoot:///c/g2",
+      "http://www.koppafoot.com/c/g2",
+      "https://evil.example/c/g2",
+      "https://www.koppafoot.com.evil.example/c/g2",
+      "https://www.koppafoot.com@evil.example/c/g2",
+      "/c/g2",
+      "",
+    ]) {
+      expect(cheminDuSite(url)).toBeNull();
+    }
+  });
+});
 
 describe("destinationDuLien", () => {
   it("lit un match de compétition, une compétition, une équipe", () => {

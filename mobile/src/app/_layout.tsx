@@ -5,10 +5,11 @@ import { Outfit_700Bold, Outfit_900Black, useFonts } from "@expo-google-fonts/ou
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter, type Theme } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { AccueilProvider, useAccueil } from "~/lib/accueil";
 import { ApparenceProvider, useApparence } from "~/lib/apparence";
 import { AuthProvider, useAuth } from "~/lib/auth";
+import { ecouterLesLiens, lienRetenu, oublierLeLien } from "~/lib/lien-entrant";
 import { FournisseurNotifications } from "~/lib/notifications";
 import { useNotificationTouchee } from "~/lib/notification-touchee";
 import { lienDeLaNotification, ouvrirLeLien, suivreLeJeton } from "~/lib/push";
@@ -125,6 +126,20 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
     dejaOuverte.current = id;
     void ouvrirLeLien(lien, ecransOuverts);
   }, [pret, reponse, ecransOuverts]);
+
+  // UN LIEN DU SITE touché ailleurs (WhatsApp, un e-mail) ouvre son écran, lui
+  // aussi. Il attend que l'accueil soit passé et le profil rempli : un compte
+  // tout neuf arrive quand même là où on l'envoyait. Le tour de boucle laisse
+  // d'abord la pile appliquer la garde.
+  const lienEntrant = useSyncExternalStore(ecouterLesLiens, lienRetenu, lienRetenu);
+  useEffect(() => {
+    if (!pret || !ecransOuverts || !lienEntrant) return;
+    const t = setTimeout(() => {
+      oublierLeLien();
+      void ouvrirLeLien(lienEntrant, true);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [pret, ecransOuverts, lienEntrant]);
 
   if (!pret) return null;
 
