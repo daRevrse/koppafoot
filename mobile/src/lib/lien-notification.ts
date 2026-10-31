@@ -17,6 +17,18 @@ export type Destination =
   | { genre: "classement" }
   | { genre: "site"; lien: string };
 
+// L'hôte s'arrête au premier « / » : « koppafoot.com.evil.example » ne passe pas.
+const ADRESSE_DU_SITE = /^https:\/\/(?:www\.)?koppafoot\.com(\/.+)$/i;
+
+/**
+ * Le chemin d'une adresse complète du site (un lien touché dans WhatsApp), de
+ * la forme qu'attend destinationDuLien. `null` pour tout le reste, la page
+ * d'accueil comprise : le Direct s'ouvre de lui-même.
+ */
+export function cheminDuSite(url: string): string | null {
+  return ADRESSE_DU_SITE.exec(url)?.[1] ?? null;
+}
+
 /** Un morceau d'adresse décodé ; `null` s'il est mal encodé (« %E9 » seul). */
 function decoder(morceau: string): string | null {
   try {

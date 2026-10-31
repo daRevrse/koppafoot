@@ -17,7 +17,19 @@ export { lienInterne } from "@/lib/push-categories";
 //
 // Une catégorie absente passe : voir lib/push-categories, un réglage ne doit
 // jamais faire taire plus que ce qui a été explicitement décoché.
+//
+// UN JETON NE SE RETIRE QUE S'IL EST MORT, et FCM le dit en deux réponses :
+// l'application a disparu du téléphone, ou le jeton n'en est pas un. Le reste
+// (FCM en panne, quota dépassé, message refusé, clé de service qui ne va pas)
+// ne dit rien du téléphone. Retirer sur ces erreurs-là viderait tous les comptes
+// à la première panne, sans que personne ne le voie : l'interrupteur de
+// l'application lit une trace locale et resterait allumé.
 // ============================================
+
+const JETON_MORT = new Set([
+  "messaging/registration-token-not-registered",
+  "messaging/invalid-registration-token",
+]);
 
 export async function sendPushToUser(
   userId: string,
@@ -49,7 +61,7 @@ export async function sendPushToUser(
   });
 
   const invalidTokens = response.responses
-    .map((r, i) => (r.error ? tokens[i] : null))
+    .map((r, i) => (r.error && JETON_MORT.has(r.error.code) ? tokens[i] : null))
     .filter(Boolean) as string[];
 
   if (invalidTokens.length) {

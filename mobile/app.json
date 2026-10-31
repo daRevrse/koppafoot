@@ -17,7 +17,26 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.koppafoot.app",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/c/" },
+            { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/matches/" },
+            { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/teams/" },
+            { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/profile/" },
+            { "scheme": "https", "host": "www.koppafoot.com", "path": "/top-players" }
+          ]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
