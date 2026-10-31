@@ -1,0 +1,40 @@
+# Ce qu'un build de l'application envoie à EAS : l'application et les modules
+# partagés du site, rien d'autre (docs/ pèse à lui seul 120 Mo).
+#
+# DÈS QUE CE FICHIER EXISTE, EAS N'APPLIQUE PLUS AUCUN .gitignore : il copie le
+# dossier de travail, fichiers ignorés compris. Tout ce que les .gitignore
+# écartent doit donc être écarté ici. Un mobile/.env.local qui partirait ferait
+# pointer l'application vers le serveur local du poste qui a lancé le build.
+/*
+!/mobile
+!/src
+!/package.json
+!/package-lock.json
+!/tsconfig.json
+
+# Les secrets et les caches, à toutes les profondeurs.
+node_modules
+.env*
+*.pem
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.tsbuildinfo
+*.orig.*
+.DS_Store
+.metro-health-check*
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Ce que l'application génère sur le poste. Un dossier android/ qui partirait
+# ferait croire à EAS que le projet gère son code natif à la main.
+/mobile/.expo
+/mobile/.kotlin
+/mobile/dist
+/mobile/web-build
+/mobile/expo-env.d.ts
+/mobile/android
+/mobile/ios
