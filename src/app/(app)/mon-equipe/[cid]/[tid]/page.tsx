@@ -21,6 +21,7 @@ import ChampPhotoDuJoueur from "@/components/team/ChampPhotoDuJoueur";
 import ModalConsentementsEffectif from "@/components/consentement/ModalConsentementsEffectif";
 import ConfirmationImportClub from "@/components/competition/ConfirmationImportClub";
 import type { ApercuImport, Correspondances } from "@/lib/fusion-import";
+import { messageDeReprise, type ResumeReprise } from "@/lib/rattachement-equipe";
 import { usePhotosDesLignes } from "@/hooks/usePhotosDesComptes";
 import { getTeamsByManager } from "@/lib/firestore";
 import { computeSquadStats } from "@/lib/player-stats";
@@ -157,7 +158,13 @@ export default function MyTeamPage() {
         toast.error(data.error ?? "La création a échoué");
         return;
       }
-      toast.success("L'équipe est maintenant dans tes équipes");
+      // Ce que la création a repris de l'effectif (lib/rattachement-equipe) :
+      // une phrase plus longue qu'un toast ordinaire, laissée plus longtemps.
+      const repris = (data.repris ?? null) as ResumeReprise | null;
+      toast.success(
+        repris ? messageDeReprise(team?.name ?? "L'équipe", repris) : "L'équipe est maintenant dans tes équipes",
+        { duration: repris?.comptes ? 8000 : 5000 },
+      );
       if (user) setClubs(await getTeamsByManager(user.uid));
       await reloadTeam();
     } catch {
@@ -602,8 +609,8 @@ export default function MyTeamPage() {
             <div className=" border border-dashed border-gray-200/70 bg-gray-50/60 p-4">
               <p className="text-sm font-bold text-gray-700">Pas encore dans tes équipes</p>
               <p className="mt-0.5 text-xs font-semibold text-gray-500">
-                Ajoute « {team.name} » à tes équipes : tu la retrouves dans « Mes équipes », avec un effectif
-                permanent à importer dans chacune de tes compétitions.
+                Ajoute « {team.name} » à tes équipes : tu la retrouves dans « Mes équipes », avec les joueurs
+                de cet effectif, et un effectif permanent à importer dans chacune de tes compétitions.
               </p>
               <button
                 type="button"
