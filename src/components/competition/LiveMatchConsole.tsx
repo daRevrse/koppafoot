@@ -8,7 +8,7 @@ import {
   CheckCircle2, Loader2, Flame, Trophy, Shield, Goal,
   ArrowRightLeft, AlertTriangle, X, LogOut, GraduationCap,
   MonitorPlay, Ban, Check, Hand, Flag, BarChart3, Info, Target,
-  ClipboardList, Trash2, WifiOff, CloudUpload, Ellipsis, ArrowLeftRight, Timer, CloudLightning, Shirt,
+  ClipboardList, Trash2, WifiOff, CloudUpload, Ellipsis, ArrowLeftRight, Timer, CloudLightning, Shirt, Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { classerCandidatsMVP, type CandidatMVP } from "@/lib/mvp";
@@ -54,6 +54,9 @@ import MatchStats from "@/components/match/MatchStats";
 import TerrainsFaceAFace, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
 import { nomCourt } from "@/components/match/TerrainCompo";
 import { estLigneDossard, lignesDeSecours } from "@/lib/dossards";
+import {
+  appliquerNumeros, lireNumero, numeroModifiable, numerosDeLaFeuille, numerosEnDouble,
+} from "@/lib/numeros-du-jour";
 import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
@@ -368,6 +371,13 @@ export default function LiveMatchConsole({
   // Per-side match-sheet drafts (playerId -> role). Seeded from any saved lineup.
   const [homeSheet, setHomeSheet] = useState<Record<string, SheetRole>>({});
   const [awaySheet, setAwaySheet] = useState<Record<string, SheetRole>>({});
+  // LES DOSSARDS DU JOUR (lib/numeros-du-jour) : le numéro que chaque joueur
+  // porte sur la feuille de CE match, quand il diffère de l'effectif. Semés
+  // depuis la feuille enregistrée, comme les rôles : une feuille déjà validée
+  // garde les numéros qu'elle a constatés.
+  const [numerosDuJour, setNumerosDuJour] = useState<{ home: Record<string, string>; away: Record<string, string> }>(
+    () => ({ home: {}, away: {} }),
+  );
   const [savingSide, setSavingSide] = useState<Side | null>(null);
   // Mobile shows ONE match sheet at a time: stacking both put the kickoff
   // button several screens down. On md+ the two sit side by side and this
@@ -655,12 +665,14 @@ export default function LiveMatchConsole({
   useEffect(() => {
     if (!match) return;
     setHomeSheet(seedSheet(match.homeLineup.length > 0 ? match.homeLineup : compoTypes.home ?? []));
+    setNumerosDuJour((n) => ({ ...n, home: numerosDeLaFeuille(match.homeLineup) }));
     setGardiensChoisis((g) => ({ ...g, home: gardienDeDepart(match.homeLineup)?.playerId ?? undefined }));
   }, [match?.homeLineup, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!match) return;
     setAwaySheet(seedSheet(match.awayLineup.length > 0 ? match.awayLineup : compoTypes.away ?? []));
+    setNumerosDuJour((n) => ({ ...n, away: numerosDeLaFeuille(match.awayLineup) }));
     setGardiensChoisis((g) => ({ ...g, away: gardienDeDepart(match.awayLineup)?.playerId ?? undefined }));
   }, [match?.awayLineup, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1115,8 +1127,46 @@ export default function LiveMatchConsole({
   const aGauche: Side = cotesInverses !== (periodeCotes >= 2 && periodeCotes <= 6) ? "away" : "home";
 
   const [menuOuvert, setMenuOuvert] = useState(false);
+  // La fenêtre des dossards du direct (voir ModaleDossards).
+  const [dossardsOuverts, setDossardsOuverts] = useState(false);
 
   // ----- Match-sheet builder -----
+
+  /** Le numéro que ce joueur porte sur la feuille de ce match. */
+  const numeroDuJour = (side: Side, p: CompPlayer): string =>
+    numeroModifiable(p.id) ? numerosDuJour[side][p.id] ?? p.number ?? "" : p.number ?? "";
+
+  /** Changer le numéro d'un joueur sur la feuille en préparation. Rien ne s'écrit avant la validation. */
+  const changerNumero = (side: Side, playerId: string, brut: string): boolean => {
+    const numero = lireNumero(brut);
+    if (numero === null) {
+      toast.error("Un dossard, c'est un nombre de 0 à 99");
+      return false;
+    }
+    setNumerosDuJour((n) => ({ ...n, [side]: { ...n[side], [playerId]: numero } }));
+    return true;
+  };
+
+  /**
+   * Les nouveaux numéros d'une feuille DÉJÀ JOUÉE, depuis le direct. Seuls les
+   * camps qui changent s'écrivent, et leur feuille garde son état : on corrige
+   * un numéro, on ne revalide rien.
+   */
+  const enregistrerDossards = (numeros: { home: Record<string, string>; away: Record<string, string> }) => {
+    if (!match) return;
+    let ecrits = 0;
+    for (const side of ["home", "away"] as const) {
+      const feuille = appliquerNumeros(side === "home" ? match.homeLineup : match.awayLineup, numeros[side]);
+      if (!feuille) continue;
+      ecrits += 1;
+      suivre(
+        pilote.poserFeuille(side, feuille, side === "home" ? match.homeLineupReady : match.awayLineupReady),
+        "Les dossards n'ont pas été enregistrés",
+      );
+    }
+    setDossardsOuverts(false);
+    if (ecrits > 0) toast.success("Dossards mis à jour pour ce match");
+  };
 
   const toggleSheetRole = (side: Side, playerId: string) => {
     const sheet = side === "home" ? homeSheet : awaySheet;
@@ -1211,7 +1261,8 @@ export default function LiveMatchConsole({
       .map((p) => ({
         playerId: p.id,
         name: p.name,
-        number: p.number,
+        // Le numéro du jour, quand le scoreur l'a changé (lib/numeros-du-jour).
+        number: numeroDuJour(side, p),
         role: (sheet[p.id] as "starter" | "substitute"),
         // Le compte, quand la ligne a ete revendiquee : c'est lui qui permet
         // de reconnaitre le joueur d'une equipe a l'autre (voir lib/types).
@@ -2479,6 +2530,8 @@ export default function LiveMatchConsole({
                 depuisLaCompoType={match.homeLineup.length === 0 && (compoTypes.home?.length ?? 0) > 0}
                 saving={savingSide === "home"}
                 onToggle={(pid) => toggleSheetRole("home", pid)}
+                numeroDe={(p) => numeroDuJour("home", p)}
+                onNumero={(pid, brut) => changerNumero("home", pid, brut)}
                 onValidate={() => handleValidateSheet("home")}
                 onDossards={pilote.ajouterDossards && dossardsRestants("home") ? () => tirerDossards("home") : undefined}
                 avecGardien={gardienExige(match.homeTeamId, sansGardien)}
@@ -2498,6 +2551,8 @@ export default function LiveMatchConsole({
                 depuisLaCompoType={match.awayLineup.length === 0 && (compoTypes.away?.length ?? 0) > 0}
                 saving={savingSide === "away"}
                 onToggle={(pid) => toggleSheetRole("away", pid)}
+                numeroDe={(p) => numeroDuJour("away", p)}
+                onNumero={(pid, brut) => changerNumero("away", pid, brut)}
                 onValidate={() => handleValidateSheet("away")}
                 onDossards={pilote.ajouterDossards && dossardsRestants("away") ? () => tirerDossards("away") : undefined}
                 avecGardien={gardienExige(match.awayTeamId, sansGardien)}
@@ -3181,6 +3236,15 @@ export default function LiveMatchConsole({
             >
               <ArrowLeftRight size={13} className="shrink-0" /> Inverser les côtés
             </button>
+            {/* LES DOSSARDS DU JOUR, en plein match : un numéro mal saisi se
+                voit souvent au premier but. Pour ce match seulement. */}
+            <button
+              type="button"
+              onClick={() => { setMenuOuvert(false); setDossardsOuverts(true); }}
+              className="flex items-center gap-2 px-3 py-2 text-left text-[11px] font-black uppercase tracking-wide text-white/80 hover:bg-white/10"
+            >
+              <Shirt size={13} className="shrink-0" /> Dossards
+            </button>
             {/* LA CASE « SANS GARDIEN », après le coup d'envoi. Un petits poteaux
                 peut démarrer case décochée — le manager avait mis un gardien
                 sur sa feuille — : on la corrige ici, sans revenir aux feuilles.
@@ -3595,6 +3659,20 @@ export default function LiveMatchConsole({
         )}
       </AnimatePresence>
 
+      {/* Les dossards du jour, ouverts depuis le menu du direct. */}
+      <AnimatePresence>
+        {dossardsOuverts && match && !isCompleted && (
+          <ModaleDossards
+            homeTeamName={match.homeTeamName}
+            awayTeamName={match.awayTeamName}
+            homeLineup={match.homeLineup}
+            awayLineup={match.awayLineup}
+            onFermer={() => setDossardsOuverts(false)}
+            onEnregistrer={enregistrerDossards}
+          />
+        )}
+      </AnimatePresence>
+
       {/* SOUS LE MINIMUM DE JOUEURS : le match est interrompu, et il faut
           trancher. */}
       <AnimatePresence>
@@ -3835,6 +3913,8 @@ function LineupBuilder({
   ready,
   saving,
   onToggle,
+  numeroDe,
+  onNumero,
   onValidate,
   depuisLaCompoType,
   onDossards,
@@ -3852,6 +3932,10 @@ function LineupBuilder({
   ready: boolean;
   saving: boolean;
   onToggle: (playerId: string) => void;
+  /** Le numéro que ce joueur porte sur la feuille de ce match (lib/numeros-du-jour). */
+  numeroDe: (p: CompPlayer) => string;
+  /** Changer ce numéro pour ce match. Rend `false` quand la saisie est refusée. */
+  onNumero: (playerId: string, brut: string) => boolean;
   onValidate: () => void;
   /** La feuille affichee vient de la composition type du club, pas du match. */
   depuisLaCompoType: boolean;
@@ -3875,6 +3959,8 @@ function LineupBuilder({
 
   const starters = roster.filter((p) => sheet[p.id] === "starter").length;
   const subs = roster.filter((p) => sheet[p.id] === "substitute").length;
+  // Deux joueurs de la feuille sous le même numéro : signalé, pas bloqué.
+  const doubles = numerosEnDouble(roster.filter((p) => (sheet[p.id] ?? "out") !== "out").map(numeroDe));
 
   return (
     <div className="relative overflow-hidden border border-gray-200/70 bg-white p-4 shadow-gray-200/40 sm:p-7">
@@ -3951,6 +4037,15 @@ function LineupBuilder({
                 : "Touche 🧤 sur un titulaire pour désigner le gardien."}
             </p>
           )}
+          <p className="-mt-1 mb-3 text-[11px] font-bold text-gray-400">
+            Touche un numéro pour changer le dossard, pour ce match seulement.
+          </p>
+          {doubles.size > 0 && (
+            <p className="-mt-2 mb-3 flex items-center gap-1.5 text-[11px] font-bold text-amber-600">
+              <AlertTriangle size={12} className="shrink-0" />
+              {[...doubles].map((n) => `n°${n}`).join(", ")} porté{doubles.size > 1 ? "s" : ""} par deux joueurs sur cette feuille.
+            </p>
+          )}
           {/* The roster is the only thing that scrolls. On mobile it takes
               the viewport minus header, tabs and the pinned kickoff bar. */}
           <div
@@ -3973,13 +4068,23 @@ function LineupBuilder({
                         : "border-sky-500/30 bg-sky-50/60"
                   }`}
                 >
+                  {/* Le numéro, À CÔTÉ du bouton de rôle et non dedans,
+                      comme le 🧤 : le toucher change le dossard du jour. */}
+                  <div className="flex shrink-0 items-center py-3 pl-4">
+                    <CaseNumero
+                      numero={numeroDe(p)}
+                      initiale={p.name[0]?.toUpperCase() ?? ""}
+                      nom={p.name}
+                      modifiable={numeroModifiable(p.id)}
+                      modifie={numeroDe(p) !== (p.number ?? "")}
+                      enDouble={role !== "out" && doubles.has(numeroDe(p))}
+                      onValider={(brut) => onNumero(p.id, brut)}
+                    />
+                  </div>
                   <button
                     onClick={() => onToggle(p.id)}
-                    className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:scale-[0.99]"
+                    className="flex min-w-0 flex-1 items-center gap-3 py-3 pl-3 pr-4 text-left active:scale-[0.99]"
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-white text-sm font-black text-gray-900">
-                      {p.number || p.name[0]?.toUpperCase()}
-                    </span>
                     <span className="flex-1 truncate text-sm font-bold text-gray-900">{p.name}</span>
                     <RoleBadge role={role} />
                   </button>
@@ -4035,6 +4140,245 @@ function LineupBuilder({
           background: #e5e5e5;
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * LA CASE DU NUMÉRO d'une ligne de feuille, qu'on touche pour changer le
+ * dossard du jour (lib/numeros-du-jour). Le clavier numérique s'ouvre ; Entrée
+ * ou un appui ailleurs valide, Échap annule. Un numéro qui diffère de
+ * l'effectif est cerclé d'ambre, un numéro porté deux fois de rouge.
+ *
+ * Une ligne dont le numéro est l'identité (un dossard de secours, un « Joueur
+ * 9 ») le garde : la case n'est alors qu'un affichage, comme avant.
+ */
+function CaseNumero({
+  numero, initiale, nom, modifiable, modifie, enDouble, onValider,
+}: {
+  numero: string;
+  initiale: string;
+  nom: string;
+  modifiable: boolean;
+  modifie: boolean;
+  enDouble: boolean;
+  onValider: (brut: string) => boolean;
+}) {
+  const [edition, setEdition] = useState(false);
+  const [saisie, setSaisie] = useState(numero);
+  const base = "flex h-9 w-9 shrink-0 items-center justify-center bg-white text-sm font-black";
+
+  if (!modifiable) return <span className={`${base} text-gray-900`}>{numero || initiale}</span>;
+
+  if (edition) {
+    const valider = () => { if (onValider(saisie)) setEdition(false); };
+    return (
+      <input
+        autoFocus
+        type="text"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        enterKeyHint="done"
+        maxLength={2}
+        value={saisie}
+        onChange={(e) => setSaisie(e.target.value.replace(/\D/g, "").slice(0, 2))}
+        onBlur={valider}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); valider(); }
+          if (e.key === "Escape") setEdition(false);
+        }}
+        onFocus={(e) => e.target.select()}
+        aria-label={`Dossard de ${nom} pour ce match`}
+        className={`${base} border-2 border-gray-900 text-center text-gray-900 outline-none`}
+      />
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => { setSaisie(numero); setEdition(true); }}
+      aria-label={`Changer le dossard de ${nom}${numero ? `, n°${numero}` : ""}`}
+      title="Changer le dossard pour ce match"
+      className={`${base} relative border border-dashed transition-colors hover:border-gray-900 ${
+        enDouble
+          ? "border-red-400 text-red-600"
+          : modifie
+            ? "border-amber-400 text-amber-700"
+            : "border-gray-300 text-gray-900"
+      }`}
+    >
+      {numero || <span className="text-gray-300">{initiale}</span>}
+      <Pencil size={8} aria-hidden className="absolute bottom-0.5 right-0.5 text-gray-300" />
+    </button>
+  );
+}
+
+/**
+ * LES DOSSARDS DU JOUR, PENDANT LE DIRECT (lib/numeros-du-jour).
+ *
+ * Les deux feuilles telles qu'elles se jouent, titulaires puis remplaçants,
+ * chaque numéro modifiable. Rien ne part avant « Enregistrer », et seuls les
+ * camps qui changent s'écrivent. Le terrain, le choix du buteur et la fiche
+ * publique du match lisent tous la feuille : ils suivent d'eux-mêmes.
+ */
+function ModaleDossards({
+  homeTeamName, awayTeamName, homeLineup, awayLineup, onFermer, onEnregistrer,
+}: {
+  homeTeamName: string;
+  awayTeamName: string;
+  homeLineup: LineupEntry[];
+  awayLineup: LineupEntry[];
+  onFermer: () => void;
+  onEnregistrer: (numeros: { home: Record<string, string>; away: Record<string, string> }) => void;
+}) {
+  // Sur un écran étroit, une équipe à la fois ; sur la console couchée, les
+  // deux côte à côte, comme sur le terrain.
+  const [cote, setCote] = useState<Side>("home");
+  const [brouillon, setBrouillon] = useState(() => ({
+    home: numerosDeLaFeuille(homeLineup),
+    away: numerosDeLaFeuille(awayLineup),
+  }));
+  const camps = [
+    { side: "home" as Side, nom: homeTeamName, feuille: homeLineup },
+    { side: "away" as Side, nom: awayTeamName, feuille: awayLineup },
+  ];
+
+  return (
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-3">
+      <motion.div
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        onClick={onFermer}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9, y: 20 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="titre-dossards"
+        style={{ maxHeight: "calc(var(--console-h, 100dvh) * 0.94)" }}
+        className="relative flex w-full max-w-md flex-col bg-white p-4 shadow-2xl sm:max-w-2xl sm:p-5"
+      >
+        <div className="mb-3 flex shrink-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-gray-900 text-white">
+            <Shirt size={16} />
+          </div>
+          <h2 id="titre-dossards" className="min-w-0 flex-1 truncate text-base font-black text-gray-900">
+            Dossards{" "}
+            <span className="text-[11px] font-bold uppercase tracking-tight text-gray-400 italic">
+              · pour ce match seulement
+            </span>
+          </h2>
+          <button type="button" onClick={onFermer} aria-label="Fermer" className="shrink-0 text-gray-300 hover:text-gray-900">
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="mb-3 flex shrink-0 gap-1 bg-gray-100 p-1 sm:hidden">
+          {camps.map((c) => (
+            <button
+              key={c.side}
+              type="button"
+              onClick={() => setCote(c.side)}
+              aria-pressed={cote === c.side}
+              className={`min-w-0 flex-1 truncate px-2 py-2 text-xs font-black transition-colors ${
+                cote === c.side ? "bg-gray-900 text-white" : "text-gray-500"
+              }`}
+            >
+              {c.nom}
+            </button>
+          ))}
+        </div>
+
+        <div className="-mx-1 grid min-h-0 flex-1 content-start gap-x-5 overflow-y-auto px-1 sm:grid-cols-2">
+          {camps.map(({ side, nom, feuille }) => {
+            const numeros = brouillon[side];
+            const valeurDe = (e: LineupEntry) => numeros[e.playerId] ?? e.number ?? "";
+            const doubles = numerosEnDouble(feuille.map(valeurDe));
+            const groupes = [
+              { titre: "Titulaires", lignes: feuille.filter((e) => e.role === "starter") },
+              { titre: "Remplaçants", lignes: feuille.filter((e) => e.role === "substitute") },
+            ].filter((g) => g.lignes.length > 0);
+            return (
+              <section key={side} aria-label={nom} className={cote === side ? "" : "hidden sm:block"}>
+                <h3 className="mb-2 hidden truncate text-sm font-black text-gray-900 sm:block">{nom}</h3>
+                {doubles.size > 0 && (
+                  <p className="mb-2 flex items-center gap-1.5 text-[11px] font-bold text-amber-600">
+                    <AlertTriangle size={12} className="shrink-0" />
+                    {[...doubles].map((n) => `n°${n}`).join(", ")} porté{doubles.size > 1 ? "s" : ""} par deux joueurs.
+                  </p>
+                )}
+                {feuille.length === 0 ? (
+                  <p className="py-4 text-sm font-semibold text-gray-400">Pas de feuille pour cette équipe.</p>
+                ) : (
+                  groupes.map((g) => (
+                    <div key={g.titre} className="mb-3">
+                      <p className="mb-1 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">{g.titre}</p>
+                      <div className="space-y-1">
+                        {g.lignes.map((e) => {
+                          const valeur = valeurDe(e);
+                          const id = `dossard-${side}-${e.playerId}`;
+                          return (
+                            <label key={e.playerId} htmlFor={id} className="flex items-center gap-3 border border-gray-200/70 px-2.5 py-1.5">
+                              <input
+                                id={id}
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                maxLength={2}
+                                disabled={!numeroModifiable(e.playerId)}
+                                value={valeur}
+                                onChange={(ev) => {
+                                  const n = ev.target.value.replace(/\D/g, "").slice(0, 2);
+                                  setBrouillon((b) => ({ ...b, [side]: { ...b[side], [e.playerId]: n } }));
+                                }}
+                                onFocus={(ev) => ev.target.select()}
+                                aria-label={`Dossard de ${e.name}`}
+                                className={`h-9 w-11 shrink-0 border text-center text-sm font-black outline-none focus:border-gray-900 disabled:bg-gray-50 disabled:text-gray-400 ${
+                                  doubles.has(valeur)
+                                    ? "border-red-400 text-red-600"
+                                    : valeur !== (e.number ?? "")
+                                      ? "border-amber-400 text-amber-700"
+                                      : "border-gray-200 text-gray-900"
+                                }`}
+                              />
+                              <span className="min-w-0 flex-1 truncate text-sm font-bold text-gray-900">{e.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </section>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={onFermer}
+            className="flex-1 border border-gray-200/70 px-4 py-2.5 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              // Une case vidée retire le numéro ; « 07 » devient « 7 ».
+              const relu = (m: Record<string, string>) =>
+                Object.fromEntries(Object.entries(m).map(([k, v]) => [k, lireNumero(v) ?? v]));
+              onEnregistrer({ home: relu(brouillon.home), away: relu(brouillon.away) });
+            }}
+            className="flex-1 bg-gray-900 px-4 py-2.5 text-sm font-black uppercase tracking-widest text-white transition-colors hover:bg-black"
+          >
+            Enregistrer
+          </button>
+        </div>
+      </motion.div>
     </div>
   );
 }
