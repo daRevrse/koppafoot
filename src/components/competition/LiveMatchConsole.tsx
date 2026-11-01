@@ -34,7 +34,7 @@ import { libelleMinute } from "@/lib/minute-du-match";
 import { SEANCE_VIDE, TIRS_PAR_EQUIPE, etatDeLaSeance, type Seance, type Tir } from "@/lib/tirs-au-but";
 import {
   JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
-  actionDeBallon, autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
+  actionDeBallon, autre, balleApres, campsSousLeMinimum, dribblePossible, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
   scoreDeForfait, seanceDeTirs, verrou,
   type Jeu, type Transition,
 } from "@/lib/etat-du-jeu";
@@ -2799,6 +2799,13 @@ export default function LiveMatchConsole({
         const cle = actionDeBallon(side, possession.side);
         return deJeu(cle, EMOJI_EVENEMENT[cle]);
       })(),
+      // LE DRIBBLE, réussi ou raté, seulement avec le ballon (voir
+      // dribblePossible). Pas pour le gardien, qui n'a pas non plus le tir :
+      // sa fenêtre reste courte. Le ballon suit la saisie, comme ci-dessus.
+      ...(!estLeGardien && dribblePossible(side, possession.side) ? [
+        deJeu("dribble", EMOJI_EVENEMENT.dribble),
+        deJeu("dribble_failed", EMOJI_EVENEMENT.dribble_failed),
+      ] : []),
       ...(peutArreter ? [deJeu("save", "🧤")] : []),
       ...(estLeGardien ? [] : [deJeu("offside", "🚩")]),
       deJeu("foul", "⚠️"),

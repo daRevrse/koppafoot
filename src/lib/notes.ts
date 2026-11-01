@@ -77,6 +77,11 @@ const POIDS: Partial<Record<TypeEvenement, number>> = {
   // hors-jeu. Il y en a des dizaines par match : chacun doit peser peu.
   ball_won: 0.15,
   ball_lost: -0.1,
+  // Un dribble reussi vaut un peu moins qu'un ballon gagne. Le rate EST un
+  // ballon perdu, et pese autant : le scoreur qui saisit l'un ou l'autre pour
+  // le meme ballon ne change pas la note.
+  dribble: 0.1,
+  dribble_failed: -0.1,
   offside: -0.1,
   foul: -0.15,
   yellow_card: -0.5,
