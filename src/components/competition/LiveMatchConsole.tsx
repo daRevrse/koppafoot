@@ -34,7 +34,7 @@ import { libelleMinute } from "@/lib/minute-du-match";
 import { SEANCE_VIDE, TIRS_PAR_EQUIPE, etatDeLaSeance, type Seance, type Tir } from "@/lib/tirs-au-but";
 import {
   JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
-  actionDeBallon, autre, balleApres, campsSousLeMinimum, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
+  actionDeBallon, autre, balleApres, campsSousLeMinimum, dribblePossible, interrompre, lireJeu, miTemps, pause, relancer, reprendreLeMatch,
   scoreDeForfait, seanceDeTirs, verrou,
   type Jeu, type Transition,
 } from "@/lib/etat-du-jeu";
@@ -662,19 +662,27 @@ export default function LiveMatchConsole({
   // camp qui n'a rien.
   // Le gardien désigné suit la feuille enregistrée ; une feuille qui n'en a
   // pas laisse la proposition venir de l'effectif.
+  //
+  // CHAQUE FEUILLE SUR SON PROPRE CONTENU, et non sur le tableau du match :
+  // celui-ci est un nouveau tableau à chaque instantané du match, même quand
+  // rien n'y a changé. Valider la feuille de domicile réécrivait donc aussi
+  // le brouillon de l'extérieur, et le scoreur qui avait rempli les deux
+  // feuilles côte à côte perdait la seconde — rôles et dossards du jour.
+  const contenuHome = JSON.stringify(match?.homeLineup ?? []);
+  const contenuAway = JSON.stringify(match?.awayLineup ?? []);
   useEffect(() => {
     if (!match) return;
     setHomeSheet(seedSheet(match.homeLineup.length > 0 ? match.homeLineup : compoTypes.home ?? []));
     setNumerosDuJour((n) => ({ ...n, home: numerosDeLaFeuille(match.homeLineup) }));
     setGardiensChoisis((g) => ({ ...g, home: gardienDeDepart(match.homeLineup)?.playerId ?? undefined }));
-  }, [match?.homeLineup, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contenuHome, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!match) return;
     setAwaySheet(seedSheet(match.awayLineup.length > 0 ? match.awayLineup : compoTypes.away ?? []));
     setNumerosDuJour((n) => ({ ...n, away: numerosDeLaFeuille(match.awayLineup) }));
     setGardiensChoisis((g) => ({ ...g, away: gardienDeDepart(match.awayLineup)?.playerId ?? undefined }));
-  }, [match?.awayLineup, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contenuAway, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prevent accidental navigation while live
   useEffect(() => {
@@ -2799,6 +2807,13 @@ export default function LiveMatchConsole({
         const cle = actionDeBallon(side, possession.side);
         return deJeu(cle, EMOJI_EVENEMENT[cle]);
       })(),
+      // LE DRIBBLE, réussi ou raté, seulement avec le ballon (voir
+      // dribblePossible). Pas pour le gardien, qui n'a pas non plus le tir :
+      // sa fenêtre reste courte. Le ballon suit la saisie, comme ci-dessus.
+      ...(!estLeGardien && dribblePossible(side, possession.side) ? [
+        deJeu("dribble", EMOJI_EVENEMENT.dribble),
+        deJeu("dribble_failed", EMOJI_EVENEMENT.dribble_failed),
+      ] : []),
       ...(peutArreter ? [deJeu("save", "🧤")] : []),
       ...(estLeGardien ? [] : [deJeu("offside", "🚩")]),
       deJeu("foul", "⚠️"),

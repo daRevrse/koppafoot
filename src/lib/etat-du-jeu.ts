@@ -219,12 +219,14 @@ export function balleApres(type: TypeEvenement, cote: Cote): Cote | null {
     case "penalty":
     case "save":
     case "ball_won":
+    case "dribble":
       return cote;
     case "foul":
     case "offside":
     case "shot":
     case "shot_on_target":
     case "ball_lost":
+    case "dribble_failed":
       return autre(cote);
     default:
       return null;
@@ -245,6 +247,19 @@ export function balleApres(type: TypeEvenement, cote: Cote): Cote | null {
  */
 export function actionDeBallon(cote: Cote, ballon: Cote | null): "ball_won" | "ball_lost" {
   return ballon === cote ? "ball_lost" : "ball_won";
+}
+
+/**
+ * Un joueur de `cote` peut-il saisir un dribble, réussi ou raté ?
+ *
+ * ON NE DRIBBLE QU'AVEC LE BALLON : son équipe doit l'avoir. Quand personne
+ * ne l'a encore, le dribble est proposé à tous, et la saisie dit qui l'a
+ * (voir `balleApres`) : réussi, il reste à l'équipe du dribbleur ; raté, il
+ * passe en face. Un ballon, une saisie : après un dribble raté, l'adversaire
+ * a le ballon, et ses joueurs n'ont plus que « Perte de balle ».
+ */
+export function dribblePossible(cote: Cote, ballon: Cote | null): boolean {
+  return ballon === null || ballon === cote;
 }
 
 /**

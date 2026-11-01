@@ -179,7 +179,13 @@ export function lignesStats(
     // se lisent ici par equipe. Un ballon perdu n'est pas toujours gagne en
     // face — une touche n'est a personne —, d'ou deux lignes et non une.
     paire("recuperations", "Ballons récupérés", "ball_won"),
-    paire("pertes", "Ballons perdus", "ball_lost"),
+    // LE DRIBBLE RATE EST UN BALLON PERDU, comme le tir cadre est un tir : la
+    // console ne demande jamais les deux pour le meme ballon.
+    paire("pertes", "Ballons perdus", "ball_lost", "dribble_failed"),
+    // Les dribbles tentes, puis ceux qui ont reussi : la meme lecture que
+    // « Tirs » et « Tirs cadrés ».
+    paire("dribbles", "Dribbles", "dribble", "dribble_failed"),
+    paire("dribbles_reussis", "Dribbles réussis", "dribble"),
     paire("corners", "Corners", "corner"),
     paire("penaltys", "Penaltys obtenus", "penalty"),
     {

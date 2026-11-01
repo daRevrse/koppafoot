@@ -53,6 +53,10 @@ export type TypeEvenement =
   // `actionDeBallon` dans lib/etat-du-jeu) et comptent dans la note.
   | "ball_won"
   | "ball_lost"
+  // Le dribble, reussi ou rate (voir `dribblePossible` dans lib/etat-du-jeu).
+  // Le rate est aussi un ballon perdu : il compte avec eux, et pese comme eux.
+  | "dribble"
+  | "dribble_failed"
   // Un joueur prend les gants : le gardien d'un match AVEC gardien a quitte la
   // pelouse sans remplacant a son poste. Voir lib/gardiens.
   | "gants";
@@ -65,7 +69,7 @@ export type TypeEvenement =
  */
 export type TypeEvenementJoueur =
   | "goal" | "yellow_card" | "red_card" | "save" | "foul" | "offside"
-  | "shot" | "shot_on_target" | "sortie" | "ball_won" | "ball_lost" | "gants";
+  | "shot" | "shot_on_target" | "sortie" | "ball_won" | "ball_lost" | "dribble" | "dribble_failed" | "gants";
 
 /**
  * Ceux qui n'appartiennent a personne.
@@ -85,7 +89,7 @@ export const EVENEMENTS_EQUIPE: readonly TypeEvenementEquipe[] = [
 const MINEURS = new Set<TypeEvenement>([
   "save", "foul", "offside", "penalty", "sortie",
   "shot", "shot_on_target", "corner", "throw_in", "free_kick",
-  "ball_won", "ball_lost", "gants",
+  "ball_won", "ball_lost", "dribble", "dribble_failed", "gants",
 ]);
 
 export function estMineur(type: TypeEvenement): boolean {
@@ -103,7 +107,7 @@ export function estMineur(type: TypeEvenement): boolean {
  */
 const COMPTABLES = new Set<TypeEvenement>([
   "shot", "shot_on_target", "corner", "throw_in", "free_kick",
-  "ball_won", "ball_lost", "gants",
+  "ball_won", "ball_lost", "dribble", "dribble_failed", "gants",
 ]);
 
 export function estStatistique(type: TypeEvenement): boolean {
@@ -131,6 +135,8 @@ export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> =
     free_kick: "Coup franc",
     ball_won: "Gain de balle",
     ball_lost: "Perte de balle",
+    dribble: "Dribble réussi",
+    dribble_failed: "Dribble raté",
     gants: "Prend les gants",
   },
   en: {
@@ -152,6 +158,8 @@ export const LIBELLES_EVENEMENT: Record<Langue, Record<TypeEvenement, string>> =
     free_kick: "Free kick",
     ball_won: "Ball won",
     ball_lost: "Ball lost",
+    dribble: "Successful dribble",
+    dribble_failed: "Failed dribble",
     gants: "Takes the gloves",
   },
 };
@@ -183,6 +191,8 @@ export const EMOJI_EVENEMENT: Record<TypeEvenement, string> = {
   free_kick: "🧱",
   ball_won: "🛡️",
   ball_lost: "💨",
+  dribble: "🌀",
+  dribble_failed: "💥",
   gants: "🧤",
 };
 
