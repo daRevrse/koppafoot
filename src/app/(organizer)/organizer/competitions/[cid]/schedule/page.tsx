@@ -1272,7 +1272,7 @@ export default function CompetitionSchedulePage() {
             type="button"
             onClick={() => setAfficheOuverte(true)}
             disabled={!hasMatches || !competition?.slug}
-            title="L'affiche d'une journée ou des matchs du jour, à partager"
+            title="L'affiche d'une journée, des matchs du jour ou des meilleurs buteurs, à partager"
             className="flex items-center gap-2 border border-gray-200/70 bg-white px-4 py-2.5 text-sm font-semibold text-gray-600 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <ImageIcon size={16} />

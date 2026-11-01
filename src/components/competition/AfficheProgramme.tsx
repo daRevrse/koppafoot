@@ -7,6 +7,7 @@ import { avecVia } from "@/lib/audience";
 import { jourDeLome } from "@/lib/jour";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import { datesDisponibles, journeesDisponibles, titreDuProgramme, type ChoixDuProgramme } from "@/lib/programme";
+import { journeesJouees, momentDesButeurs, type ChoixDesButeurs } from "@/lib/buteurs-affiche";
 import type { CompMatch } from "@/types";
 
 // ============================================
@@ -18,6 +19,9 @@ import type { CompMatch } from "@/types";
 // UNE JOURNÉE OU DES DATES. L'onglet « Une journée » n'existe que si des
 // journées sont posées (lib/journees). Par défaut, ce qui se joue ensuite :
 // la prochaine date, ou la journée qui la contient.
+//
+// LES MEILLEURS BUTEURS (lib/og-buteurs), troisième onglet : après une
+// journée jouée, ou à ce jour. Une seule page, la même mécanique.
 //
 // PRÉPARÉES D'AVANCE, comme les affiches de phase finale
 // (AffichesPhaseFinale) : `navigator.share` exige une activation fraîche. Au-
@@ -37,7 +41,7 @@ function jourCourt(d: string): string {
 }
 
 /** Les pages de l'affiche pour ce choix, ou `[]` si la route n'en a pas ; `null` pendant le chargement. */
-function usePages(slug: string, requete: string | null): Page[] | null {
+function usePages(slug: string, chemin: "programme" | "buteurs", requete: string | null): Page[] | null {
   const [etat, setEtat] = useState<{ requete: string | null; pages: Page[] } | null>(null);
   useEffect(() => {
     if (!requete) return;
@@ -47,12 +51,12 @@ function usePages(slug: string, requete: string | null): Page[] | null {
       const pages: Page[] = [];
       for (let n = 1; n <= PAGES_MAX; n++) {
         try {
-          const reponse = await fetch(`/api/c/${slug}/affiche/programme?${requete}&page=${n}`);
+          const reponse = await fetch(`/api/c/${slug}/affiche/${chemin}?${requete}&page=${n}`);
           if (!reponse.ok) break;
           const image = await reponse.blob();
           const adresse = URL.createObjectURL(image);
           adresses.push(adresse);
-          pages.push({ fichier: new File([image], `programme-${slug}-${n}.png`, { type: image.type }), adresse });
+          pages.push({ fichier: new File([image], `${chemin}-${slug}-${n}.png`, { type: image.type }), adresse });
         } catch {
           break;
         }
@@ -63,7 +67,7 @@ function usePages(slug: string, requete: string | null): Page[] | null {
       vivant = false;
       adresses.forEach((a) => URL.revokeObjectURL(a));
     };
-  }, [slug, requete]);
+  }, [slug, chemin, requete]);
   return etat?.requete === requete ? etat.pages : null;
 }
 
@@ -78,27 +82,43 @@ export default function AfficheProgramme({ slug, nom, matchs, onFermer }: {
   const aujourdhui = jourDeLome();
   const prochaine = dates.find((d) => d >= aujourdhui) ?? dates[dates.length - 1] ?? null;
 
-  const [mode, setMode] = useState<"journee" | "dates">(journees.length ? "journee" : "dates");
+  const jouees = useMemo(() => journeesJouees(matchs), [matchs]);
+
+  const [mode, setMode] = useState<"journee" | "dates" | "buteurs">(journees.length ? "journee" : "dates");
   const [journee, setJournee] = useState<number | null>(
     () => journees.find((j) => prochaine && j.dates.includes(prochaine))?.journee ?? journees[journees.length - 1]?.journee ?? null,
   );
   const [choisies, setChoisies] = useState<string[]>(prochaine ? [prochaine] : []);
+  // Les buteurs : après la dernière journée jouée, ou à ce jour sans journée.
+  const [buteurs, setButeurs] = useState<ChoixDesButeurs>(
+    () => (jouees.length ? { journee: jouees[jouees.length - 1] } : { aCeJour: true }),
+  );
 
   const choix: ChoixDuProgramme | null = mode === "journee"
     ? journee != null ? { journee } : null
     : choisies.length ? { dates: [...choisies].sort() } : null;
-  // Les matchs dans l'adresse : une affiche d'avant le dernier score ne doit pas sortir du cache.
-  const version = useMemo(() => matchs.map((m) => `${m.status}${m.scoreHome ?? ""}${m.scoreAway ?? ""}${m.journee ?? ""}`).join(""), [matchs]);
-  const requete = choix
-    ? `${"journee" in choix ? `journee=${choix.journee}` : `dates=${choix.dates.join(",")}`}&v=${version.length}-${hash(version)}`
-    : null;
-  const pages = usePages(slug, requete);
+  // Les matchs dans l'adresse : une affiche d'avant le dernier score ne doit
+  // pas sortir du cache. Les événements aussi : un buteur nommé après coup
+  // change l'affiche des buteurs sans changer le score.
+  const version = useMemo(
+    () => matchs.map((m) => `${m.status}${m.scoreHome ?? ""}${m.scoreAway ?? ""}${m.journee ?? ""}${m.liveState?.events?.length ?? ""}`).join(""),
+    [matchs],
+  );
+  const v = `v=${version.length}-${hash(version)}`;
+  const requete = mode === "buteurs"
+    ? `${"aCeJour" in buteurs ? "a-ce-jour=1" : `journee=${buteurs.journee}`}&${v}`
+    : choix
+      ? `${"journee" in choix ? `journee=${choix.journee}` : `dates=${choix.dates.join(",")}`}&${v}`
+      : null;
+  const pages = usePages(slug, mode === "buteurs" ? "buteurs" : "programme", requete);
 
   const basculerDate = (d: string) =>
     setChoisies((l) => (l.includes(d) ? l.filter((x) => x !== d) : [...l, d]));
 
   const partager = async (page: Page) => {
-    const titre = choix ? titreDuProgramme(choix).toLowerCase() : "programme";
+    const titre = mode === "buteurs"
+      ? `meilleurs buteurs, ${momentDesButeurs(buteurs).toLowerCase()}`
+      : choix ? titreDuProgramme(choix).toLowerCase() : "programme";
     const resultat = await partagerLien({
       title: `${nom} : ${titre}`,
       text: `${nom} : ${titre}.`,
@@ -109,7 +129,7 @@ export default function AfficheProgramme({ slug, nom, matchs, onFermer }: {
     else if (resultat === "echec") toast.error("Partage impossible, télécharge l'affiche");
   };
 
-  const onglet = (m: "journee" | "dates", libelle: string) => (
+  const onglet = (m: "journee" | "dates" | "buteurs", libelle: string) => (
     <button
       type="button"
       role="tab"
@@ -125,7 +145,9 @@ export default function AfficheProgramme({ slug, nom, matchs, onFermer }: {
     <div className="fixed inset-0 modal-layer flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
       <div className="flex max-h-[92vh] w-full max-w-2xl flex-col modal-sheet rounded-t-3xl bg-white p-6">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold text-gray-900">Affiche du programme</h2>
+          <h2 className="font-display text-lg font-bold text-gray-900">
+            {mode === "buteurs" ? "Affiche des buteurs" : "Affiche du programme"}
+          </h2>
           <button type="button" onClick={onFermer} aria-label="Fermer" className="p-1.5 text-gray-400 hover:bg-gray-100">
             <X size={18} />
           </button>
@@ -134,10 +156,29 @@ export default function AfficheProgramme({ slug, nom, matchs, onFermer }: {
         <div role="tablist" className="flex gap-1">
           {journees.length > 0 && onglet("journee", "Une journée")}
           {onglet("dates", "Des dates")}
+          {onglet("buteurs", "Buteurs")}
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {mode === "journee"
+          {mode === "buteurs"
+            ? [...jouees.map((n): ChoixDesButeurs => ({ journee: n })), { aCeJour: true } as ChoixDesButeurs].map((c) => {
+              const cle = "aCeJour" in c ? "a-ce-jour" : `j${c.journee}`;
+              const actif = "aCeJour" in c ? "aCeJour" in buteurs : !("aCeJour" in buteurs) && buteurs.journee === c.journee;
+              return (
+                <button
+                  key={cle}
+                  type="button"
+                  aria-pressed={actif}
+                  onClick={() => setButeurs(c)}
+                  className={`border px-3 py-1.5 text-xs font-bold transition-colors ${
+                    actif ? "border-primary-600 bg-primary-50 text-primary-800" : "border-gray-200/70 text-gray-600 hover:border-gray-400"
+                  }`}
+                >
+                  {"aCeJour" in c ? "À ce jour" : `Après la journée ${c.journee}`}
+                </button>
+              );
+            })
+            : mode === "journee"
             ? journees.map((j) => (
               <button
                 key={j.journee}
@@ -166,7 +207,7 @@ export default function AfficheProgramme({ slug, nom, matchs, onFermer }: {
         </div>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          {!choix ? (
+          {!requete ? (
             <p className="py-10 text-center text-sm text-gray-500">Choisis une journée ou au moins une date.</p>
           ) : pages === null ? (
             <div className="flex items-center justify-center py-16 text-gray-400">
@@ -174,7 +215,9 @@ export default function AfficheProgramme({ slug, nom, matchs, onFermer }: {
             </div>
           ) : pages.length === 0 ? (
             <p className="py-10 text-center text-sm text-gray-500">
-              Pas d&apos;affiche pour ce choix : aucun match, ou la compétition est encore en brouillon.
+              {mode === "buteurs"
+                ? "Pas encore de buteur pour ce choix : un but compte quand son buteur est nommé dans la console."
+                : "Pas d’affiche pour ce choix : aucun match, ou la compétition est encore en brouillon."}
             </p>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2">
