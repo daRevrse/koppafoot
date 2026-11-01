@@ -99,8 +99,10 @@ export const INITIALES_POSTE: Record<Langue, Record<Poste, string>> = {
  * tomber en attaque. On teste donc du plus spécifique au plus vague, poste
  * par poste, et le premier qui répond gagne.
  */
+// « GB », gardien de but : l'abréviation des feuilles d'effectif tapées par les
+// organisateurs, au même titre que « GK » en anglais.
 const MOTIFS: readonly (readonly [Poste, readonly string[]])[] = [
-  ["goalkeeper", ["goalkeeper", "gardien", "keeper", "goalie", "portier", "goal", "gk"]],
+  ["goalkeeper", ["goalkeeper", "gardien", "keeper", "goalie", "portier", "goal", "gk", "gb"]],
   ["defender", ["defender", "defenseur", "defense", "arriere", "lateral", "central", "back", "def"]],
   ["midfielder", ["midfielder", "midfield", "milieu", "recuperateur", "meneur", "relayeur", "mid"]],
   ["forward", ["forward", "striker", "attaquant", "attaque", "avant", "ailier", "buteur", "att"]],

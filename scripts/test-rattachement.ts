@@ -92,7 +92,7 @@ const compteur = () => {
 
 const EFFECTIF: CompPlayer[] = [
   { id: "l1", name: "MENSAH  Koffi", number: "10", position: "Attaquant" },
-  { id: "l2", name: "Afi", number: "", position: "Gardien" },
+  { id: "l2", name: "Afi", number: "", position: "GB" },
   { id: "l3", name: "Kodjo Amouzou", number: "4", user_id: "uKodjo" },
   { id: "l4", name: "Yawo", number: "7", position: "n'importe quoi" },
   { id: "u_uParti", name: "Parti", number: "9" },
