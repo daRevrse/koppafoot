@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { uidAppelant } from "@/lib/appelant";
 import { lireRattachement } from "@/lib/rattachement-equipe";
-import { appliquerRattachement, verifierRattachement } from "@/lib/rattachement-serveur";
+import { DejaLiee, appliquerRattachement, verifierRattachement } from "@/lib/rattachement-serveur";
 
 /**
  * POST /api/competitions/rattacher-equipe { cid, teamId, rattacher }
  *
  * Rattacher après coup une équipe de compétition déjà reprise aux équipes de
  * son manager (lib/rattachement-equipe) : `rattacher` vaut « nouvelle » ou
- * l'identifiant d'une de ses équipes. C'est ce que fait désormais
+ * l'identifiant d'une de ses équipes. Rend `{ equipeId, repris }` : `repris`
+ * dit, pour une création, combien de joueurs sans compte l'équipe a reçus et
+ * combien en ont un (à inviter) ; `null` pour une liaison. C'est ce que fait désormais
  * l'acceptation d'une invitation ; cette route rattrape les équipes reprises
  * avant, qui n'étaient liées à rien.
  *
@@ -41,9 +43,11 @@ export async function POST(req: Request) {
     }
     const refus = await verifierRattachement(uid, rattachement);
     if (refus) return NextResponse.json({ error: refus.error }, { status: refus.status });
-    const equipeId = await appliquerRattachement(uid, cid, teamId, rattachement);
-    return NextResponse.json({ ok: true, equipeId });
+    const fait = await appliquerRattachement(uid, cid, teamId, rattachement);
+    return NextResponse.json({ ok: true, equipeId: fait?.equipeId ?? null, repris: fait?.repris ?? null });
   } catch (err) {
+    // Liée entre la vérification d'au-dessus et la transaction : un second clic.
+    if (err instanceof DejaLiee) return NextResponse.json({ error: err.message }, { status: 409 });
     console.error("POST /api/competitions/rattacher-equipe", err);
     return NextResponse.json({ error: "Le rattachement a échoué." }, { status: 500 });
   }

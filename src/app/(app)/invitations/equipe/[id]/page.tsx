@@ -9,7 +9,7 @@ import {
 import toast from "react-hot-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { getTeamsIManage } from "@/lib/firestore";
-import { choixParDefaut } from "@/lib/rattachement-equipe";
+import { choixParDefaut, messageDeReprise, type ResumeReprise } from "@/lib/rattachement-equipe";
 import type { Team } from "@/types";
 
 // ============================================
@@ -22,7 +22,9 @@ import type { Team } from "@/types";
 // le manager choisit : la lier à une de ses équipes, ou la créer dans ses
 // équipes. Sans ce choix, l'équipe restait celle du tournoi seul et
 // n'apparaissait jamais dans « Mes équipes ». Une équipe du même nom est
-// proposée d'abord, sinon la création.
+// proposée d'abord, sinon la création. Créer reprend l'effectif : les joueurs
+// sans compte deviennent des fiches de l'équipe, et la page dit combien de
+// joueurs, qui ont un compte, restent à inviter.
 // ============================================
 
 interface InviteInfo {
@@ -48,7 +50,9 @@ export default function TeamManagerInvitePage() {
   // d'elles, ou « nouvelle ».
   const [equipes, setEquipes] = useState<Team[] | null>(null);
   const [choix, setChoix] = useState("nouvelle");
-  const [resultat, setResultat] = useState<{ cid: string; teamId: string; equipeId: string | null; lie: boolean } | null>(null);
+  const [resultat, setResultat] = useState<{
+    cid: string; teamId: string; equipeId: string | null; lie: boolean; repris: ResumeReprise | null;
+  } | null>(null);
 
   useEffect(() => {
     if (!inviteId) return;
@@ -94,7 +98,10 @@ export default function TeamManagerInvitePage() {
         return;
       }
       setAccepted(true);
-      setResultat({ cid: data.cid, teamId: data.teamId, equipeId: data.equipeId ?? null, lie: choix !== "nouvelle" });
+      setResultat({
+        cid: data.cid, teamId: data.teamId, equipeId: data.equipeId ?? null,
+        lie: choix !== "nouvelle", repris: data.repris ?? null,
+      });
       toast.success("Tu gères maintenant cette équipe !");
     } catch (err) {
       console.error("Invite accept failed:", err);
@@ -165,7 +172,7 @@ export default function TeamManagerInvitePage() {
                 <p className="mt-2 text-xs font-semibold leading-relaxed text-gray-500">
                   {resultat.lie
                     ? "Elle est liée à ton équipe : reprends ton effectif depuis la page de l'équipe dans la compétition."
-                    : `« ${invite.teamName} » est maintenant aussi dans tes équipes.`}
+                    : messageDeReprise(invite.teamName, resultat.repris ?? { fiches: 0, comptes: 0, categorie: null })}
                 </p>
               )}
               {/* Vers l'équipe, et non vers un « espace manager » : cette
@@ -238,7 +245,7 @@ export default function TeamManagerInvitePage() {
                         <input type="radio" name="rattacher" value="nouvelle" checked={choix === "nouvelle"} onChange={() => setChoix("nouvelle")} />
                         <span className="min-w-0">
                           <span className="block font-bold text-gray-900">Créer « {invite.teamName} » dans mes équipes</span>
-                          <span className="block text-xs font-semibold text-gray-500">Une nouvelle équipe à toi, avec son nom et son logo.</span>
+                          <span className="block text-xs font-semibold text-gray-500">Une nouvelle équipe à toi, avec son nom, son logo et ses joueurs.</span>
                         </span>
                       </label>
                     </div>

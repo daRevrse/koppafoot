@@ -3,7 +3,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { notifierCompte } from "@/lib/notifier-serveur";
 import { lireRattachement } from "@/lib/rattachement-equipe";
-import { appliquerRattachement, verifierRattachement } from "@/lib/rattachement-serveur";
+import { appliquerRattachement, verifierRattachement, type RattachementFait } from "@/lib/rattachement-serveur";
 
 /**
  * Invitee side of the team-manager invitation.
@@ -12,7 +12,9 @@ import { appliquerRattachement, verifierRattachement } from "@/lib/rattachement-
  *        names, inviter, status). The doc id is the unguessable token;
  *        the invited email is only returned masked.
  * POST { rattacher? }, accept (Bearer token). `rattacher` : « nouvelle » ou
- *        l'identifiant d'une de ses équipes (lib/rattachement-equipe). The caller's verified email must match
+ *        l'identifiant d'une de ses équipes (lib/rattachement-equipe) ; la
+ *        réponse dit dans `repris` ce que la création a repris de
+ *        l'effectif. The caller's verified email must match
  *        the invited email; the team must still be unclaimed. On success
  *        the caller becomes owner+manager of the team and their account
  *        flips to the manager role.
@@ -159,14 +161,20 @@ export async function POST(
 
     // L'invitation est acceptée quoi qu'il arrive ici : un rattachement raté
     // se rattrape depuis la page de l'équipe de compétition.
-    let equipeId: string | null = null;
+    let fait: RattachementFait | null = null;
     try {
-      equipeId = await appliquerRattachement(callerUid, invite.competition_id, invite.team_id, rattachement);
+      fait = await appliquerRattachement(callerUid, invite.competition_id, invite.team_id, rattachement);
     } catch (e) {
       console.error("[team-manager-invites/[id]] rattachement échoué:", e);
     }
 
-    return NextResponse.json({ ok: true, cid: invite.competition_id, teamId: invite.team_id, equipeId });
+    return NextResponse.json({
+      ok: true,
+      cid: invite.competition_id,
+      teamId: invite.team_id,
+      equipeId: fait?.equipeId ?? null,
+      repris: fait?.repris ?? null,
+    });
   } catch (err) {
     if (err instanceof Error && err.message === "ALREADY_CLAIMED") {
       return NextResponse.json({ error: "Cette équipe a déjà un manager." }, { status: 409 });

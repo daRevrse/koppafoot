@@ -2,7 +2,12 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { messageLimite } from "@/lib/offre";
 import { limiteDeCreation } from "@/lib/offre-server";
-import { equipeDepuisCompetition, gereLEquipe, type Rattachement } from "@/lib/rattachement-equipe";
+import { lireCategorie } from "@/lib/genre";
+import {
+  effectifDepuisCompetition, equipeDepuisCompetition, gereLEquipe,
+  type Rattachement, type ResumeReprise,
+} from "@/lib/rattachement-equipe";
+import type { CompPlayer } from "@/types";
 
 // ============================================
 // Server-only. Rattacher une équipe de compétition aux équipes de son
@@ -35,40 +40,76 @@ export async function verifierRattachement(uid: string, r: Rattachement): Promis
   return null;
 }
 
+/** Une équipe de compétition déjà liée à une équipe : on n'en crée pas une seconde. */
+export class DejaLiee extends Error {}
+
+/** Le rattachement posé : l'équipe du manager, et ce que la création a repris. */
+export interface RattachementFait {
+  equipeId: string;
+  /** `null` quand l'équipe était déjà au manager : rien n'a été créé. */
+  repris: ResumeReprise | null;
+}
+
 /**
- * Pose le lien `claimed_by_team_id`, en créant d'abord l'équipe s'il le faut,
- * en une écriture. Rend l'identifiant de l'équipe du manager, ou `null` sans
- * rattachement.
+ * Pose le lien `claimed_by_team_id`, en créant d'abord l'équipe s'il le faut.
+ * Rend l'équipe du manager, ou `null` sans rattachement.
+ *
+ * CRÉER, C'EST UNE TRANSACTION : l'équipe, les fiches de ses joueurs sans
+ * compte (lib/rattachement-equipe, `effectifDepuisCompetition`) et l'effectif
+ * de compétition qui les désigne s'écrivent ensemble ou pas du tout.
+ * L'effectif est un seul tableau : relu dans la transaction, il ne perd pas
+ * une ligne que l'organisateur ajouterait au même moment. Et une équipe déjà
+ * liée lève `DejaLiee` : deux clics ne font pas deux équipes.
  */
 export async function appliquerRattachement(
   uid: string,
   cid: string,
   compTeamId: string,
   r: Rattachement,
-): Promise<string | null> {
+): Promise<RattachementFait | null> {
   if (r.type === "aucun") return null;
   const compRef = adminDb.collection("competitions").doc(cid);
   const equipeRef = compRef.collection("comp_teams").doc(compTeamId);
 
   if (r.type === "existante") {
     await equipeRef.update({ claimed_by_team_id: r.equipeId, updated_at: FieldValue.serverTimestamp() });
-    return r.equipeId;
+    return { equipeId: r.equipeId, repris: null };
   }
 
-  const [compSnap, equipeSnap] = await Promise.all([compRef.get(), equipeRef.get()]);
-  const c = compSnap.data() ?? {};
-  const e = equipeSnap.data() ?? {};
   const nouvelle = adminDb.collection("teams").doc();
-  const lot = adminDb.batch();
-  lot.set(nouvelle, {
-    ...equipeDepuisCompetition(
-      { nom: String(e.name ?? ""), logo: (e.logo_url as string | null) ?? null, ville: (c.venue_city as string | null) ?? null, categorie: c.category },
-      uid,
-    ),
-    created_at: FieldValue.serverTimestamp(),
-    updated_at: FieldValue.serverTimestamp(),
+  const fiches = nouvelle.collection("ghost_players");
+  return adminDb.runTransaction(async (tx) => {
+    const [compSnap, equipeSnap] = await Promise.all([tx.get(compRef), tx.get(equipeRef)]);
+    if (!equipeSnap.exists) throw new Error("TEAM_NOT_FOUND");
+    const c = compSnap.data() ?? {};
+    const e = equipeSnap.data() ?? {};
+    if (e.claimed_by_team_id) throw new DejaLiee("Cette équipe est déjà liée à une de tes équipes.");
+
+    const repris = effectifDepuisCompetition((e.players ?? []) as CompPlayer[], () => fiches.doc().id);
+    // Les dates d'une fiche sont des chaînes ISO, comme celles qu'écrit le
+    // formulaire (lib/firestore, `createGhostPlayer`).
+    const maintenant = new Date().toISOString();
+
+    tx.set(nouvelle, {
+      ...equipeDepuisCompetition(
+        { nom: String(e.name ?? ""), logo: (e.logo_url as string | null) ?? null, ville: (c.venue_city as string | null) ?? null, categorie: c.category },
+        uid,
+      ),
+      created_at: FieldValue.serverTimestamp(),
+      updated_at: FieldValue.serverTimestamp(),
+    });
+    for (const { id, ...fiche } of repris.fiches) {
+      tx.set(fiches.doc(id), { ...fiche, created_at: maintenant, updated_at: maintenant });
+    }
+    tx.update(equipeRef, {
+      ...(repris.fiches.length > 0 ? { players: repris.effectif } : {}),
+      claimed_by_team_id: nouvelle.id,
+      updated_at: FieldValue.serverTimestamp(),
+    });
+
+    return {
+      equipeId: nouvelle.id,
+      repris: { fiches: repris.fiches.length, comptes: repris.comptes, categorie: lireCategorie(c.category) },
+    };
   });
-  lot.update(equipeRef, { claimed_by_team_id: nouvelle.id, updated_at: FieldValue.serverTimestamp() });
-  await lot.commit();
-  return nouvelle.id;
 }
