@@ -6,6 +6,8 @@ import { motion } from "motion/react";
 import { CalendarDays, Loader2, SearchX, MapPin, Clock, ChevronRight } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { getCompetitionBySlug, onCompMatches } from "@/lib/competition-firestore";
+import { calendrierParPriorite, type JourDuCalendrierPublic } from "@/lib/calendrier-public";
+import { jourDeLome } from "@/lib/jour";
 import type { Competition, CompMatch } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
@@ -28,6 +30,9 @@ const T = textes(
     phaseFinale: "Phase finale",
     calendrierIndisponible: "Le calendrier n'est pas encore disponible.",
     forfait: "Forfait",
+    aujourdhui: "Aujourd'hui",
+    aVenir: "Aujourd'hui et à venir",
+    joues: "Matchs joués",
   },
   {
     dateADefinir: "Date to be set",
@@ -36,20 +41,26 @@ const T = textes(
     phaseFinale: "Knockout stage",
     calendrierIndisponible: "The fixtures aren't available yet.",
     forfait: "Forfeit",
+    aujourdhui: "Today",
+    aVenir: "Today and upcoming",
+    joues: "Played",
   },
 );
 
 // Nicely formatted day header, e.g. "Samedi 18 juillet" (fr locale). Falls back
 // to the raw ISO string if it can't be parsed, and to a fixed label for undated.
+// Le jour même se dit : « Aujourd'hui · Dimanche 1 novembre ».
 function formatDayHeader(
   date: string,
   locale: (typeof LOCALE_DATE_FNS)["fr"],
   t: (typeof T)["fr"],
+  aujourdhui: string,
 ): string {
   if (date === UNDATED) return t.dateADefinir;
   try {
     const label = format(parseISO(date), "EEEE d MMMM", { locale });
-    return label.charAt(0).toUpperCase() + label.slice(1);
+    const jour = label.charAt(0).toUpperCase() + label.slice(1);
+    return date === aujourdhui ? `${t.aujourdhui} · ${jour}` : jour;
   } catch {
     return date;
   }
@@ -166,35 +177,19 @@ export default function CalendarTab({ competition, matches }: {
     return matches;
   }, [matches, groupFilter]);
 
-  // Group matches by day. Dated buckets sort chronologically ascending; the
-  // undated bucket (date == null) is forced last. Within a day, matches sort by
-  // time with nulls last. Pure derivation, recomputed only when matches change.
-  const days = useMemo(() => {
-    const byDay = new Map<string, CompMatch[]>();
-    for (const match of filteredMatches) {
-      const key = match.date ?? UNDATED;
-      const bucket = byDay.get(key);
-      if (bucket) bucket.push(match);
-      else byDay.set(key, [match]);
-    }
-
-    return Array.from(byDay.entries())
-      .sort(([a], [b]) => {
-        if (a === UNDATED) return 1;
-        if (b === UNDATED) return -1;
-        return a.localeCompare(b);
-      })
-      .map(([date, dayMatches]) => ({
-        date,
-        matches: [...dayMatches].sort((m1, m2) => {
-          // Nulls last, then lexicographic on "HH:mm" (chronological for that shape).
-          if (m1.time == null && m2.time == null) return 0;
-          if (m1.time == null) return 1;
-          if (m2.time == null) return -1;
-          return m1.time.localeCompare(m2.time);
-        }),
-      }));
-  }, [filteredMatches]);
+  // AUJOURD'HUI ET LA SUITE D'ABORD, les jours joués ensuite, le plus récent
+  // en tête (voir lib/calendrier-public). Le jour se lit à Lomé.
+  const aujourdhui = jourDeLome();
+  const sections = useMemo(() => {
+    const { aVenir, joues } = calendrierParPriorite(filteredMatches, aujourdhui);
+    const enJours = (liste: JourDuCalendrierPublic[]) =>
+      liste.map((j) => ({ date: j.date ?? UNDATED, matches: j.matchs }));
+    return [
+      { cle: "a-venir", titre: t.aVenir, days: enJours(aVenir) },
+      { cle: "joues", titre: t.joues, days: enJours(joues) },
+    ].filter((sec) => sec.days.length > 0);
+  }, [filteredMatches, aujourdhui, t]);
+  const days = sections.flatMap((sec) => sec.days);
 
 return (
     <div className="space-y-6 pb-20">
@@ -227,120 +222,133 @@ return (
           </p>
         </div>
       ) : (
-        <div className="space-y-8">
-          {days.map((day, di) => (
-            <motion.section
-              key={day.date}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: di * 0.04 }}
-              className="space-y-3"
-            >
-              {/* Day header */}
-              <div className="flex items-center gap-2 px-1">
-                <CalendarDays size={15} className="text-emerald-500" />
-                <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
-                  {formatDayHeader(day.date, LOCALE_DATE_FNS[langue], t)}
-                </h2>
-              </div>
+        <div className="space-y-10">
+          {sections.map((sec) => (
+            <div key={sec.cle} className="space-y-8">
+              {/* Les deux parties ne se nomment que quand il y en a deux :
+                  une compétition finie, ou pas encore commencée, n'en a
+                  qu'une, et la nommer n'apprendrait rien. */}
+              {sections.length > 1 && (
+                <h3 className="flex items-center gap-3 px-1 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
+                  {sec.titre}
+                  <span aria-hidden className="h-px flex-1 bg-gray-200/70" />
+                </h3>
+              )}
+              {sec.days.map((day, di) => (
+                <motion.section
+                  key={day.date}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: di * 0.04 }}
+                  className="space-y-3"
+                >
+                  {/* Day header */}
+                  <div className="flex items-center gap-2 px-1">
+                    <CalendarDays size={15} className="text-emerald-500" />
+                    <h2 className="font-display text-sm font-black uppercase tracking-tight text-gray-900">
+                      {formatDayHeader(day.date, LOCALE_DATE_FNS[langue], t, aujourdhui)}
+                    </h2>
+                  </div>
 
-              {/* Les matchs du jour. Liste divisee et non pile de cartes :
-                  on est deja dans la grande carte de la page, empiler des
-                  cadres dans un cadre ne separe rien de plus. */}
-              <div className="divide-y divide-gray-200/70 border-y border-gray-200/70">
-                {day.matches.map((match) => {
-                  const isLive = match.status === "live";
-                  const hasScore = match.status === "live" || match.status === "completed";
-                  const tag = stageTag(match, f);
-                  return (
-                    <Link
-                      key={match.id}
-                      href={`/c/${slug}/matches/${match.id}`}
-                      className={`group block transition-colors ${
-                        isLive ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-gray-50"
-                      }`}
-                    >
-                      {/* Top row: tag + status */}
-                      <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
-                        <div className="flex min-w-0 items-center gap-2">
-                          {tag && (
-                            <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                              {tag}
-                            </span>
-                          )}
-                        </div>
-                        <StatusPill status={match.status} />
-                      </div>
-
-                      {/* Scoreboard row */}
-                      <div className="flex items-center gap-3 px-4 py-3.5">
-                        {/* Home */}
-                        <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
-                          <span className="truncate text-sm font-bold text-gray-900">{match.homeTeamName}</span>
-                          <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} />
-                        </div>
-
-                        {/* Center: score or kickoff time */}
-                        <div className="flex shrink-0 flex-col items-center justify-center px-1">
-                          {hasScore ? (
-                            <>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
-                                <span className="text-sm font-black text-gray-300">-</span>
-                                <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
-                              </div>
-                              {/* An awarded score is not a played one, say so. */}
-                              {match.forfeitByTeamId && (
-                                <span className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-red-500">
-                                  {t.forfait}
+                  {/* Les matchs du jour. Liste divisee et non pile de cartes :
+                      on est deja dans la grande carte de la page, empiler des
+                      cadres dans un cadre ne separe rien de plus. */}
+                  <div className="divide-y divide-gray-200/70 border-y border-gray-200/70">
+                    {day.matches.map((match) => {
+                      const isLive = match.status === "live";
+                      const hasScore = match.status === "live" || match.status === "completed";
+                      const tag = stageTag(match, f);
+                      return (
+                        <Link
+                          key={match.id}
+                          href={`/c/${slug}/matches/${match.id}`}
+                          className={`group block transition-colors ${
+                            isLive ? "bg-red-50/40 hover:bg-red-50/70" : "hover:bg-gray-50"
+                          }`}
+                        >
+                          {/* Top row: tag + status */}
+                          <div className="flex items-center justify-between gap-2 border-b border-gray-50 px-4 py-2.5">
+                            <div className="flex min-w-0 items-center gap-2">
+                              {tag && (
+                                <span className="truncate bg-gray-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                  {tag}
                                 </span>
                               )}
-                            </>
-                          ) : match.time ? (
-                            <span className=" bg-gray-50 px-2.5 py-1 text-xs font-black tabular-nums text-gray-500">
-                              {match.time}
-                            </span>
-                          ) : (
-                            <span className="text-sm font-black text-gray-300">–</span>
-                          )}
-                        </div>
+                            </div>
+                            <StatusPill status={match.status} />
+                          </div>
 
-                        {/* Away */}
-                        <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                          <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} />
-                          <span className="truncate text-sm font-bold text-gray-900">{match.awayTeamName}</span>
-                        </div>
-                      </div>
+                          {/* Scoreboard row */}
+                          <div className="flex items-center gap-3 px-4 py-3.5">
+                            {/* Home */}
+                            <div className="flex min-w-0 flex-1 items-center justify-end gap-2.5 text-right">
+                              <span className="truncate text-sm font-bold text-gray-900">{match.homeTeamName}</span>
+                              <TeamBadge name={match.homeTeamName} logo={match.homeTeamLogo} />
+                            </div>
 
-                      {/* Meta row: venue + time, plus a chevron affordance */}
-                      <div className="flex items-center justify-between gap-2 border-t border-gray-50 px-4 py-2.5">
-                        <div className="flex min-w-0 items-center gap-3 text-[11px] font-bold text-gray-400">
-                          {match.venueName && (
-                            <span className="flex min-w-0 items-center gap-1">
-                              <MapPin size={12} className="shrink-0" />
-                              <span className="truncate">
-                                {match.venueName}
-                                {match.venueCity ? `, ${match.venueCity}` : ""}
-                              </span>
-                            </span>
-                          )}
-                          {hasScore && match.time && (
-                            <span className="flex shrink-0 items-center gap-1">
-                              <Clock size={12} />
-                              {match.time}
-                            </span>
-                          )}
-                        </div>
-                        <ChevronRight
-                          size={16}
-                          className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-500"
-                        />
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </motion.section>
+                            {/* Center: score or kickoff time */}
+                            <div className="flex shrink-0 flex-col items-center justify-center px-1">
+                              {hasScore ? (
+                                <>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreHome ?? 0}</span>
+                                    <span className="text-sm font-black text-gray-300">-</span>
+                                    <span className="text-xl font-black tabular-nums text-gray-900">{match.scoreAway ?? 0}</span>
+                                  </div>
+                                  {/* An awarded score is not a played one, say so. */}
+                                  {match.forfeitByTeamId && (
+                                    <span className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-red-500">
+                                      {t.forfait}
+                                    </span>
+                                  )}
+                                </>
+                              ) : match.time ? (
+                                <span className=" bg-gray-50 px-2.5 py-1 text-xs font-black tabular-nums text-gray-500">
+                                  {match.time}
+                                </span>
+                              ) : (
+                                <span className="text-sm font-black text-gray-300">–</span>
+                              )}
+                            </div>
+
+                            {/* Away */}
+                            <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                              <TeamBadge name={match.awayTeamName} logo={match.awayTeamLogo} />
+                              <span className="truncate text-sm font-bold text-gray-900">{match.awayTeamName}</span>
+                            </div>
+                          </div>
+
+                          {/* Meta row: venue + time, plus a chevron affordance */}
+                          <div className="flex items-center justify-between gap-2 border-t border-gray-50 px-4 py-2.5">
+                            <div className="flex min-w-0 items-center gap-3 text-[11px] font-bold text-gray-400">
+                              {match.venueName && (
+                                <span className="flex min-w-0 items-center gap-1">
+                                  <MapPin size={12} className="shrink-0" />
+                                  <span className="truncate">
+                                    {match.venueName}
+                                    {match.venueCity ? `, ${match.venueCity}` : ""}
+                                  </span>
+                                </span>
+                              )}
+                              {hasScore && match.time && (
+                                <span className="flex shrink-0 items-center gap-1">
+                                  <Clock size={12} />
+                                  {match.time}
+                                </span>
+                              )}
+                            </div>
+                            <ChevronRight
+                              size={16}
+                              className="shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-emerald-500"
+                            />
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </motion.section>
+              ))}
+            </div>
           ))}
         </div>
       )}
