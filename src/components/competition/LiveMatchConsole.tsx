@@ -662,19 +662,27 @@ export default function LiveMatchConsole({
   // camp qui n'a rien.
   // Le gardien désigné suit la feuille enregistrée ; une feuille qui n'en a
   // pas laisse la proposition venir de l'effectif.
+  //
+  // CHAQUE FEUILLE SUR SON PROPRE CONTENU, et non sur le tableau du match :
+  // celui-ci est un nouveau tableau à chaque instantané du match, même quand
+  // rien n'y a changé. Valider la feuille de domicile réécrivait donc aussi
+  // le brouillon de l'extérieur, et le scoreur qui avait rempli les deux
+  // feuilles côte à côte perdait la seconde — rôles et dossards du jour.
+  const contenuHome = JSON.stringify(match?.homeLineup ?? []);
+  const contenuAway = JSON.stringify(match?.awayLineup ?? []);
   useEffect(() => {
     if (!match) return;
     setHomeSheet(seedSheet(match.homeLineup.length > 0 ? match.homeLineup : compoTypes.home ?? []));
     setNumerosDuJour((n) => ({ ...n, home: numerosDeLaFeuille(match.homeLineup) }));
     setGardiensChoisis((g) => ({ ...g, home: gardienDeDepart(match.homeLineup)?.playerId ?? undefined }));
-  }, [match?.homeLineup, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contenuHome, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!match) return;
     setAwaySheet(seedSheet(match.awayLineup.length > 0 ? match.awayLineup : compoTypes.away ?? []));
     setNumerosDuJour((n) => ({ ...n, away: numerosDeLaFeuille(match.awayLineup) }));
     setGardiensChoisis((g) => ({ ...g, away: gardienDeDepart(match.awayLineup)?.playerId ?? undefined }));
-  }, [match?.awayLineup, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [contenuAway, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prevent accidental navigation while live
   useEffect(() => {
