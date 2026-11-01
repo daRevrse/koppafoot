@@ -198,7 +198,8 @@ function Duel({ l, hauteur }: { l: LigneDuCalendrier; hauteur: number }) {
   );
 }
 
-function PiedAvecPartenaires({ partenaires }: { partenaires: DonneesProgramme["partenaires"] }) {
+/** Le pied « PRÉSENTÉ PAR » : repris par l'affiche des buteurs (lib/og-buteurs). */
+export function PiedAvecPartenaires({ partenaires }: { partenaires: DonneesProgramme["partenaires"] }) {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: LARGEUR_UTILE, marginTop: 24 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
