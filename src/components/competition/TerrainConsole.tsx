@@ -683,10 +683,22 @@ const TONS: Record<NonNullable<ActionJoueur["ton"]>, string> = {
  * Ce qu'un joueur peut avoir fait.
  *
  * La liste vient de l'appelant, pas d'ici : elle dépend du poste (l'arrêt),
- * de l'endroit où le joueur se trouve (sur le terrain ou sur le banc) et de
- * ce que le match autorise encore (les remplacements sont comptés). La modale
- * ne fait que présenter, et elle tient sans défilement — c'est tout l'intérêt
- * de ne montrer que les actions qui s'appliquent.
+ * de l'endroit où le joueur se trouve (sur le terrain ou sur le banc), de qui
+ * a le ballon (les pertes, gains et dribbles) et de ce que le match autorise
+ * encore (les remplacements sont comptés). La modale ne fait que présenter.
+ *
+ * ELLE TIENT SANS DÉFILEMENT, ET SES COLONNES SUIVENT LA PLACE QU'ELLE A.
+ * Deux colonnes figées tenaient dix actions ; les dribbles en ont fait douze,
+ * et « Remplacer » et « Sortie » passaient sous le bord de la console couchée.
+ * Or la console se dessine tournée dans un écran debout (voir ConsoleCouchee) :
+ * la largeur de l'appareil ne dit rien de la sienne, et une règle `sm:` se
+ * tromperait. La grille remplit donc la largeur de la modale avec autant de
+ * colonnes qu'il en tient (`auto-fill`), et la modale prend la largeur de la
+ * console : trois ou quatre colonnes couchée, deux sur un écran étroit.
+ *
+ * LE DÉFILEMENT RESTE EN FILET : la hauteur est bornée à celle de la console
+ * (`--console-h`), et les actions défilent plutôt que de sortir de l'écran
+ * sur un appareil plus court que ceux qu'on a essayés.
  */
 export function ModaleActionsJoueur({
   entry, teamName, minute, isSubmitting, actions, note, onClose,
@@ -704,7 +716,7 @@ export function ModaleActionsJoueur({
   const poste = normaliserPoste(entry.position);
 
   return (
-    <div className="fixed inset-0 modal-layer flex items-center justify-center p-4">
+    <div className="fixed inset-0 modal-layer flex items-center justify-center p-3">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -716,22 +728,23 @@ export function ModaleActionsJoueur({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="relative w-full max-w-md bg-white p-5 shadow-2xl sm:p-7"
+        style={{ maxHeight: "calc(var(--console-h, 100dvh) - 1.5rem)" }}
+        className="relative flex w-full max-w-2xl flex-col bg-white p-4 shadow-2xl"
       >
         <button
           onClick={onClose}
           aria-label="Fermer"
-          className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-gray-50 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-900"
         >
-          <X size={18} />
+          <X size={16} />
         </button>
 
-        <div className="flex items-center gap-3 pr-10">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center bg-gray-900 text-base font-black text-white">
+        <div className="flex shrink-0 items-center gap-3 pr-10">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-gray-900 text-sm font-black text-white">
             {entry.number || entry.name[0]?.toUpperCase()}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-lg font-black text-gray-900">{entry.name}</span>
+            <span className="block truncate text-base font-black text-gray-900">{entry.name}</span>
             <span className="block truncate text-[11px] font-bold uppercase tracking-tight text-gray-400">
               {teamName}
               {poste && ` · ${LIBELLE_POSTE[poste]}`}
@@ -749,7 +762,7 @@ export function ModaleActionsJoueur({
           {note && note.note !== null && (
             <span className="shrink-0 text-center">
               <span
-                className={`flex h-11 w-14 items-center justify-center text-lg font-black tabular-nums ${FOND_NOTE_MODALE[tonNote(note.note)]}`}
+                className={`flex h-9 w-12 items-center justify-center text-base font-black tabular-nums ${FOND_NOTE_MODALE[tonNote(note.note)]}`}
                 aria-label={`Note ${formaterNote(note.note)}, sur ${note.faits} fait${note.faits > 1 ? "s" : ""}`}
               >
                 {formaterNote(note.note)}
@@ -761,25 +774,28 @@ export function ModaleActionsJoueur({
           )}
         </div>
 
-        <p className="mb-4 mt-3 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
+        <p className="mb-2.5 mt-2 shrink-0 text-xs font-bold uppercase tracking-tight text-gray-400 italic">
           {`${minute} · Qu'est-ce qu'il vient de faire ?`}
         </p>
 
         {/* `content-start` par precaution : une grille dont le conteneur a une
             hauteur definie etire ses rangees pour la remplir, et la console
-            couchee contraint desormais la hauteur de ses modales. */}
-        <div className="grid grid-cols-2 content-start gap-2">
+            couchee contraint desormais la hauteur de ses modales.
+            `auto-fill` : autant de colonnes que la largeur en tient, voir
+            plus haut. Un libellé trop long passe à la ligne plutôt que d'être
+            coupé : « Sortie sans remplaçant » se lit en entier. */}
+        <div className="-mx-1 grid min-h-0 flex-1 grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] content-start gap-1.5 overflow-y-auto px-1">
           {actions.map((a) => (
             <button
               key={a.cle}
               type="button"
               disabled={isSubmitting || !!a.desactive}
               onClick={a.onClick}
-              className={`flex items-center gap-2 border px-3 py-2.5 text-left text-sm font-bold transition-all active:scale-95 disabled:opacity-50 ${TONS[a.ton ?? "neutre"]}`}
+              className={`flex min-h-10 items-center gap-2 border px-2.5 py-1.5 text-left text-[13px] font-bold leading-tight transition-all active:scale-95 disabled:opacity-50 ${TONS[a.ton ?? "neutre"]}`}
             >
               <span aria-hidden className="text-base leading-none">{a.emoji}</span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate">{a.libelle}</span>
+                <span className="block">{a.libelle}</span>
                 {a.desactive && (
                   <span className="block truncate text-[9px] font-black uppercase tracking-wide opacity-60">
                     {a.desactive}
