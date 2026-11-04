@@ -1,0 +1,93 @@
+name: CI
+
+# Lint, types et tests du site et de l'application, à chaque PR vers master et
+# à chaque push sur master. Rien n'est déployé ici : Vercel construit le site,
+# EAS les builds de l'application.
+#
+# Les mêmes commandes se lancent à la main :
+#   site          npm run lint && npm run typecheck && npm test
+#   application   cd mobile && npm run lint && npm run typecheck && npm test
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# Un nouveau push sur une PR annule la vérification de l'ancien. Sur master,
+# chaque fusion est vérifiée jusqu'au bout.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  site:
+    name: Site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - id: installation
+        run: npm ci --no-audit --no-fund
+
+      # Chaque vérification tourne même si la précédente a échoué : une PR
+      # voit d'un coup tout ce qui ne va pas, pas une erreur à la fois.
+      - name: Lint
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        run: npm run lint
+
+      - name: Types
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        run: npm run typecheck
+
+      - name: Tests (scripts/test-*.ts)
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        run: npm test
+
+  application:
+    name: Application
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+
+      # LES DEUX node_modules, et pas seulement celui de l'application. Sa
+      # suite vérifie aussi des modules et des routes du site (les tests
+      # *-serveur), et ses types suivent les imports `@/` jusque dans ../src :
+      # ces fichiers-là cherchent leurs paquets dans ../node_modules.
+      - id: installation
+        run: |
+          (cd .. && npm ci --no-audit --no-fund)
+          npm ci --no-audit --no-fund
+
+      - name: Lint
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        run: npm run lint
+
+      - name: Types
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        run: npm run typecheck
+
+      - name: Tests (Jest)
+        if: ${{ !cancelled() && steps.installation.outcome == 'success' }}
+        run: npm test -- --ci
