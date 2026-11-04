@@ -5,6 +5,8 @@ import { peutGererEquipeServeur } from "@/lib/team-access-server";
 import type { FirestoreGhostPlayer, FirestoreTeam } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { dossierPhotoSansCompte, effacerVisuels } from "@/lib/visuel-serveur";
+import { renommerDansLeMatch } from "@/lib/dossards";
+import { recalculerClassements } from "@/lib/classement-admin";
 
 /**
  * POST { teamId, ghostId, playerId } — fusionner un joueur sans compte avec le
@@ -21,6 +23,12 @@ import { dossierPhotoSansCompte, effacerVisuels } from "@/lib/visuel-serveur";
  *   - les compteurs de carrière, additionnés sur le compte ;
  *   - les lignes des feuilles de match déjà jouées, réécrites au vrai nom et
  *     rattachées au compte, pour que l'historique le désigne lui ;
+ *   - et dans ces matchs, tout ce qui le nomme : la pelouse, le fil du direct
+ *     (ses buts, ses passes, ses cartons, ses remplacements), les tirs au but
+ *     et l'homme du match. Seule la feuille était réécrite : le classement,
+ *     qui compte sur le fil, gardait un second joueur, sans compte, avec tous
+ *     ses matchs d'avant (constaté le 2026-11-04). Le classement est ensuite
+ *     recalculé, pour que la fusion s'y voie tout de suite ;
  *   - puis le joueur sans compte disparaît, et la photo que son club lui avait
  *     mise avec lui : il a désormais un compte, c'est à lui de choisir la
  *     sienne.
@@ -122,15 +130,35 @@ export async function POST(req: NextRequest) {
   const batch = adminDb.batch();
   let feuillesReecrites = 0;
 
+  const ancienNom = `${ghost.first_name ?? ""} ${ghost.last_name ?? ""}`.trim();
   for (const doc of [...surDomicile.docs, ...surExterieur.docs]) {
     const m = doc.data();
     const cote = m.home_team_id === teamId ? "home_ghost_lineup" : "away_ghost_lineup";
     const lignes = Array.isArray(m[cote]) ? (m[cote] as { player_id?: string }[]) : [];
-    if (!lignes.some((l) => l.player_id === ghostId)) continue;
+    const surLaFeuille = lignes.some((l) => l.player_id === ghostId);
+    // Le reste du match, comme le renommage d'un dossard (lib/dossards) :
+    // la pelouse, le fil, les tirs au but, l'homme du match. Les feuilles
+    // d'un amical qui portent des comptes (`*_lineup`) ne le contiennent
+    // pas : on ne les passe pas.
+    const ailleurs = renommerDansLeMatch(
+      {
+        home_on_pitch: m.home_on_pitch,
+        away_on_pitch: m.away_on_pitch,
+        mvp_player_id: m.mvp_player_id,
+        live_state: m.live_state,
+      },
+      ghostId,
+      { id: playerId, nom: vraiNom },
+      ancienNom,
+    );
+    if (!surLaFeuille && !ailleurs) continue;
     batch.update(doc.ref, {
-      [cote]: lignes.map((l) =>
-        l.player_id === ghostId ? { ...l, player_id: playerId, name: vraiNom } : l,
-      ),
+      ...(surLaFeuille
+        ? { [cote]: lignes.map((l) => (l.player_id === ghostId ? { ...l, player_id: playerId, name: vraiNom } : l)) }
+        : {}),
+      ...(ailleurs ?? {}),
+      // L'homme du match a maintenant un compte : celui qu'on vient de lui rendre.
+      ...(ailleurs && "mvp_player_id" in ailleurs ? { mvp_user_id: playerId } : {}),
       updated_at: FieldValue.serverTimestamp(),
     });
     feuillesReecrites += 1;
@@ -146,6 +174,11 @@ export async function POST(req: NextRequest) {
   batch.delete(ghostRef);
 
   await batch.commit();
+
+  // Le classement compte sur les matchs : recalculé, il ne montre plus qu'un
+  // seul joueur. Un échec ici n'annule rien, le prochain coup de sifflet final
+  // le refera.
+  await recalculerClassements().catch((err) => console.error("merge-ghost: classement", err));
 
   // Après la fusion, jamais avant : un échec ici laisse un fichier orphelin,
   // pas une fusion à moitié faite. `effacerVisuels` ne lève pas.
