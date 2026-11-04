@@ -37,7 +37,9 @@ master avant que ce chantier commence, ou ce chantier part de leur branche.
 - **L'administration peut écarter une compétition pour une semaine donnée**,
   quand sa saisie n'est pas fiable (Dékawowo Sportfest, semaine du 12 octobre).
   C'est un choix de semaine, pas une exclusion définitive.
-- **Le classement de la semaine est réservé à l'administration** pour
+- **Le classement de la semaine est réservé à l'administration** (l'élu,
+  lui, devient public depuis le 2026-11-04 : voir « Publication dans
+  l'appli », en fin de document) pour
   l'instant : aucune page publique.
 - **Un doublé l'emporte sur une note** : la semaine du 12 octobre, l'affiche
   revient à AMEGAN Kodjo (FC LION, 2 buts, match saisi après coup, sans
@@ -373,3 +375,29 @@ rendre 300 images dans une fonction serveur dépasserait ses limites.
 - Les noms des fichiers téléchargés.
 - La mise en page exacte pour quatre lignes et plus, dans les limites
   ci-dessus.
+
+## Publication dans l'appli (2026-11-04)
+
+Décidé par le propriétaire le 2026-11-04 : l'élu ne vit plus seulement sur les
+réseaux. Le classement de la semaine reste réservé à l'administration ; seul
+le joueur choisi devient public.
+
+- **« Publier dans l'appli »**, sur la page admin, est le seul geste qui
+  enregistre : `joueurs_semaine/{lundi}`, lu et écrit par le serveur seul, et
+  les deux affiches figées en JPEG dans Storage (`joueurs-semaine/{lundi}/`).
+  Republier remplace l'élu et ses affiches, en gardant la date de première
+  publication. « Retirer » efface les deux.
+- **Le Direct** : l'élu ouvre l'affiche du carrousel, du jour de la
+  publication au dimanche de cette semaine-là. Trois gestes : « Sa fiche »,
+  « Suivre » et « Partager ». Partager joint l'affiche verticale (préparée
+  d'avance, voir lib/partage) ; sans partage de fichier, le lien est copié et
+  l'affiche téléchargée. Un joueur sans compte ne garde que le partage.
+- **Top performances** : l'historique des élus, en frise, en tête de la page.
+  Chaque élu porte une ancre, celle du lien partagé.
+- L'affiche publique passe par `GET /api/joueur-semaine/{lundi}/affiche`, et
+  non par Storage, que le navigateur ne peut pas lire par `fetch` sans réglage
+  CORS du bucket.
+- L'application Expo suivra plus tard ; le carrousel n'existe que sur le site.
+
+Code : lib/joueur-semaine-publie (pur, vérifié par
+scripts/test-joueur-semaine-publie.ts), lib/joueur-semaine-publie-serveur.
