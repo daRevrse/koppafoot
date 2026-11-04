@@ -63,15 +63,15 @@ export default function HeaderProgress() {
   }, [pathname]);
 
   useEffect(() => {
-    if (!enCours) {
-      setVisible(false);
-      return;
-    }
+    if (!enCours) return;
     const paraitre = setTimeout(() => setVisible(true), AVANT_AFFICHAGE);
     const renoncer = setTimeout(terminerNavigation, ABANDON);
     return () => {
       clearTimeout(paraitre);
       clearTimeout(renoncer);
+      // La navigation est finie : la barre s'éteint, et la suivante repartira
+      // cachée jusqu'à AVANT_AFFICHAGE.
+      setVisible(false);
     };
   }, [enCours]);
 

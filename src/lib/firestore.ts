@@ -65,27 +65,13 @@ import { JEU_AVANT, champsDeTransition, type Transition } from "@/lib/etat-du-je
 import { lireEmplacement, type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
 import { enBase64 } from "@/lib/images";
+import { formatDate } from "@/lib/dates";
 import type { FirestoreLineupEntry } from "@/types";
 import type { ConsentementImage, ReponseConsentement } from "@/lib/consentement-image";
 
 // ============================================
 // Converters
 // ============================================
-
-/**
- * Helper to convert Firestore dates (string or Timestamp) to ISO string
- */
-function formatDate(date: any): string {
-  if (!date) return new Date().toISOString();
-  // Handle Firestore serverTimestamp placeholder (sometimes has no toDate or seconds on first snapshot)
-  if (typeof date === "object" && !date.seconds && !date.toDate) {
-    return new Date().toISOString();
-  }
-  if (typeof date === "string") return date;
-  if (typeof date.toDate === "function") return date.toDate().toISOString();
-  if (date.seconds) return new Date(date.seconds * 1000).toISOString();
-  return new Date().toISOString();
-}
 
 
 export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlayer): GhostPlayer {
@@ -1284,10 +1270,10 @@ export function onMatchesIModerate(
   });
 }
 
-async function appelerRouteModerateurs(
+async function appelerRouteModerateurs<T = unknown>(
   methode: "POST" | "DELETE",
   corps: Record<string, string>,
-): Promise<any> {
+): Promise<T> {
   const current = auth.currentUser;
   if (!current) throw new Error("Connexion requise");
   const res = await fetch("/api/matches/moderators", {
@@ -1307,7 +1293,10 @@ export async function addMatchModerator(
   matchId: string,
   email: string,
 ): Promise<{ uid: string; firstName: string; lastName: string; email: string }> {
-  return appelerRouteModerateurs("POST", { matchId, email });
+  return appelerRouteModerateurs<{ uid: string; firstName: string; lastName: string; email: string }>(
+    "POST",
+    { matchId, email },
+  );
 }
 
 export async function removeMatchModerator(matchId: string, uid: string): Promise<void> {
@@ -1353,7 +1342,7 @@ export interface ButeurSaisi {
   passes: number;
 }
 
-async function appelerRouteRecord(methode: "POST" | "PATCH" | "DELETE", corps: unknown): Promise<any> {
+async function appelerRouteRecord<T = unknown>(methode: "POST" | "PATCH" | "DELETE", corps: unknown): Promise<T> {
   const current = auth.currentUser;
   if (!current) throw new Error("Connexion requise");
   const res = await fetch("/api/matches/record", {
@@ -1384,7 +1373,7 @@ export async function recordPlayedMatch(input: {
   scoreThem: number;
   buteurs: ButeurSaisi[];
 }): Promise<{ id: string; enAttente: boolean }> {
-  return appelerRouteRecord("POST", input);
+  return appelerRouteRecord<{ id: string; enAttente: boolean }>("POST", input);
 }
 
 /** Contresigner, ou contester, un résultat saisi par l'adversaire. */
@@ -1758,7 +1747,7 @@ export async function respondToMatchModification(
   accepted: boolean,
   currentMod: { date: string; time: string; venue_name: string; venue_city: string; venue_id?: string | null }
 ): Promise<void> {
-  const updates: Record<string, any> = {
+  const updates: Record<string, unknown> = {
     modification_request: null,
     updated_at: serverTimestamp(),
   };
@@ -3035,7 +3024,7 @@ export async function isFollowing(followerId: string, followingId: string): Prom
     const followId = `${followerId}_${followingId}`;
     const snap = await getDoc(doc(db, "follows", followId));
     return snap.exists();
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in isFollowing:", error);
     return false;
   }
@@ -3368,10 +3357,11 @@ export async function getPostsByUser(userId: string, currentUserId?: string, max
     );
     const snap = await getDocs(q);
     return snap.docs.map((d) => toPost(d.id, d.data() as FirestorePost, currentUserId));
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in getPostsByUser:", error);
     // Fallback if index is missing (common with Missing or insufficient permissions error)
-    if (error.code === "permission-denied" || error.code === "failed-precondition" || error.message?.includes("index")) {
+    const { code, message } = error as { code?: string; message?: string };
+    if (code === "permission-denied" || code === "failed-precondition" || message?.includes("index")) {
       try {
         const qSimple = query(
           collection(db, "posts"),
@@ -3434,7 +3424,7 @@ export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "update
 }
 
 export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id" | "createdAt" | "updatedAt">>): Promise<void> {
-  const updates: any = {};
+  const updates: Record<string, unknown> = {};
   if (data.name) updates.name = data.name;
   if (data.address) updates.address = data.address;
   if (data.city) updates.city = data.city;

@@ -70,7 +70,8 @@ export function CityMatchesWidget({ city }: CityMatchesWidgetProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!city) { setLoading(false); return; }
+    // Sans ville, le widget ne s'affiche pas : rien à charger.
+    if (!city) return;
     getMatchesByCity(city, 15)
       .then(setMatches)
       .finally(() => setLoading(false));

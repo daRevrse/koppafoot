@@ -163,8 +163,10 @@ export default function ProfilePage() {
     reset,
     setError,
     formState: { errors },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<FormData>({
+    // yup rend les champs optionnels en `?:`, FormData les veut présents :
+    // les deux types ne se recouvrent pas, le schéma, lui, est le bon.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: yupResolver(schema) as any,
     values: user
       ? {
@@ -302,7 +304,7 @@ export default function ProfilePage() {
         year: trophyYear,
         ...(trophyDesc.trim() && { description: trophyDesc.trim() }),
       };
-      await updateProfile({ trophies: [...currentTrophies, newTrophy] } as any);
+      await updateProfile({ trophies: [...currentTrophies, newTrophy] });
       setTrophyTitle("");
       setTrophyDesc("");
       toast.success("Trophée ajouté");
@@ -316,7 +318,7 @@ export default function ProfilePage() {
   const handleRemoveTrophy = async (index: number) => {
     const current = [...(user.trophies ?? [])];
     current.splice(index, 1);
-    await updateProfile({ trophies: current } as any);
+    await updateProfile({ trophies: current });
     toast.success("Trophée supprimé");
   };
 

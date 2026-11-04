@@ -8,6 +8,7 @@ import type { Jeu } from "@/lib/etat-du-jeu";
 import type { Seance } from "@/lib/tirs-au-but";
 import type { ConditionJoueur, FirestoreConditionJoueur } from "@/lib/etat-de-forme";
 import type { Emplacement } from "@/lib/terrain";
+import type { FirestoreDate } from "@/lib/dates";
 
 // ============================================
 // KOPPAFOOT, Core Types
@@ -1776,7 +1777,7 @@ export interface FirestoreNotification {
   body: string;
   link?: string | null;
   read: boolean;
-  created_at: any;
+  created_at: FirestoreDate;
 }
 
 export interface Notification {

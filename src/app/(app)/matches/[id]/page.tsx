@@ -232,8 +232,8 @@ export default function MatchDetailPage() {
       toast.success("Événement contesté avec succès");
       setContestingEventId(null);
       setContestationReason("");
-    } catch (err: any) {
-      toast.error("Erreur: " + err.message);
+    } catch (err) {
+      toast.error("Erreur: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setSubmittingContestation(false);
     }
@@ -2082,7 +2082,7 @@ export default function MatchDetailPage() {
                       className="flex-[2] py-4 bg-emerald-500 text-white text-[11px] font-black uppercase tracking-widest shadow-emerald-500/20 hover:bg-emerald-600 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:scale-100"
                     >
                       {validatingLineup ? <RefreshCcw size={16} className="animate-spin" /> : <Save size={16} />}
-                      Envoyer à l'arbitre
+                      Envoyer à l&apos;arbitre
                     </button>
                   </div>
                 </div>
@@ -2517,7 +2517,7 @@ export default function MatchDetailPage() {
                 <AlertCircle className="text-orange-500" size={32} />
               </div>
 
-              <h2 className="mb-2 text-2xl font-black text-gray-900 font-display">Contester l'événement</h2>
+              <h2 className="mb-2 text-2xl font-black text-gray-900 font-display">Contester l&apos;événement</h2>
               <p className="mb-6 text-sm text-gray-500">
                 Explique pourquoi tu contestes cet événement. Cette information sera examinée.
               </p>
