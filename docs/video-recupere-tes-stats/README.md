@@ -2,7 +2,7 @@
 
 Une vidéo de 56 secondes, verticale (1080 × 1920, 9:16), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier qui joue déjà dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part. Elle l'invite à créer son compte, à récupérer ses stats et à vivre l'expérience KoppaFoot.
 
-**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, bruitages en AAC à -14 LUFS, ni musique ni voix)
+**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 11,6 Mo ; bruitages en AAC, ni musique ni voix)
 
 Le scénario, validé le 2026-11-04, est dans [scenario.md](scenario.md).
 
@@ -34,6 +34,8 @@ Les écrans du téléphone sont de **vraies captures** de l'application (le site
 
 Les photos de profil d'Ekoué et de Kafui sont des **illustrations** dessinées par `gen-assets.mjs`, pas des photos : personne de réel n'y figure. La console live, l'invitation et la publication du joueur de la semaine se jouent en coulisses. Aucune donnée de production n'a été lue ni écrite.
 
+Le son est mesuré à -12,8 LUFS intégrés, crête à -1,5 dB : `mixage.mjs` vise -14 LUFS, mais sur des bruitages brefs et clairsemés, sans fond sonore, la mesure s'écarte un peu de la cible. Les plateformes le ramènent de toute façon à leur niveau.
+
 Les éléments dessinés dans l'animation sont la frappe au clavier, les touchers, l'écran verrouillé et ses notifications, les titres et la fin. Les notifications reprennent mot pour mot ce que la console envoie aux abonnés d'un match (`LiveMatchConsole`).
 
 ## Contenu du dossier
@@ -52,7 +54,7 @@ outils/
   run-captures.sh                    enchaîne j0 → j4 sur des émulateurs vierges
   preparer-ecrans.py                 captures-brutes → source/ecrans + source/cibles.js
   rendu.mjs                          source/animation.html → MP4 (ou quelques images d'aperçu)
-  mixage.mjs                         les bruitages, synthétisés, à -14 LUFS
+  mixage.mjs                         les bruitages, synthétisés, ramenés vers -14 LUFS
   lib.mjs, admin.mjs, roster.mjs     outils communs, gestes joués en coulisses, personnes fictives
   gen-assets.mjs                     écussons et portraits fictifs (illustrations)
   emulateurs/                        config des émulateurs, patch local, modèle de .env.local
