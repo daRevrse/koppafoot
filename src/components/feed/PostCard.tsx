@@ -21,6 +21,7 @@ import { SYSTEM_AUTHOR_ID } from "@/types";
 import type { Post, PostType, UserProfile } from "@/types";
 import { useLangue, useTextes } from "@/i18n";
 import { LOCALE, type Langue } from "@/i18n/config";
+import type { FirestoreDate } from "@/lib/dates";
 import { textes } from "@/i18n/textes";
 
 const T = textes(
@@ -122,17 +123,17 @@ export function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-export function timeAgo(dateIn: any, langue: Langue = "fr"): string {
+export function timeAgo(dateIn: FirestoreDate | Date, langue: Langue = "fr"): string {
   if (!dateIn) return "";
   let date: Date;
   if (typeof dateIn === "string") {
     date = new Date(dateIn);
-  } else if (dateIn && typeof dateIn.toDate === "function") {
-    date = dateIn.toDate();
-  } else if (dateIn && dateIn.seconds) {
-    date = new Date(dateIn.seconds * 1000);
   } else if (dateIn instanceof Date) {
     date = dateIn;
+  } else if (typeof dateIn.toDate === "function") {
+    date = dateIn.toDate();
+  } else if (dateIn.seconds) {
+    date = new Date(dateIn.seconds * 1000);
   } else {
     return "";
   }
