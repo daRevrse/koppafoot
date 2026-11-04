@@ -1,25 +1,20 @@
-// Pose le son sur l'image : video-muette.mp4 → ../Suivre-son-match-KoppaFoot.mp4.
+// Pose le son sur l'image : video-muette.mp4 → ../Tes-buts-t-attendent-KoppaFoot.mp4.
 //
 //   node mixage.mjs     (rendu.mjs l'appelle à la fin)
 //
-// Trois couches, aucune musique :
-//  - le son d'origine des plans réels (montage.mjs) : « plein » quand on voit
-//    le terrain, « lointain » (étouffé, plus bas) quand on n'y est pas ;
-//  - le coup de sifflet de la faute, qui fait passer au noir ;
-//  - les bruitages de l'interface (bulles, toucher, notifications,
-//    vibration), synthétisés ici par ffmpeg, aux temps que la page a notés
-//    (sons.json, écrit par rendu.mjs).
-// Puis le tout est ramené à -14 LUFS, le niveau des plateformes vidéo.
+// Ni musique ni voix : seulement les bruitages de l'interface et du terrain
+// (toucher, frappe au clavier, notification, vibration, coup de sifflet,
+// compteurs qui montent, déclic de l'affiche), synthétisés ici par ffmpeg,
+// aux temps que la page a notés (sons.json, écrit par rendu.mjs). Puis le
+// tout est ramené à -14 LUFS, le niveau des plateformes vidéo.
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { PLANS, SONS_DE_PLAN, DUREE } from "./montage.mjs";
 
 const ICI = import.meta.dirname;
 const MUETTE = path.join(ICI, "video-muette.mp4");
-const SORTIE = process.env.SORTIE ?? path.resolve(ICI, "../Suivre-son-match-KoppaFoot.mp4");
-const PLANS_DIR = path.resolve(ICI, "../source/plans");
+const SORTIE = process.env.SORTIE ?? path.resolve(ICI, "../Tes-buts-t-attendent-KoppaFoot.mp4");
 
 function ffmpeg() {
   if (process.env.FFMPEG) return process.env.FFMPEG;
@@ -34,12 +29,10 @@ const ff = (args, opts = {}) => execFileSync(FF, ["-hide_banner", "-y", ...args]
 
 // ── Les bruitages ────────────────────────────────────────────
 const BRUITAGES = {
-  // Une bulle reçue : un « pop » bref qui monte.
-  pop: { d: 0.14, f: "0.55*sin(2*PI*(650+4200*t)*t)*exp(-t*38)" },
-  // Un message envoyé : plus aigu, plus court.
-  envoi: { d: 0.14, f: "0.45*sin(2*PI*(1300+3500*t)*t)*exp(-t*34)" },
   // Le doigt sur l'écran.
   toucher: { d: 0.07, f: "0.4*sin(2*PI*1900*t)*exp(-t*85)" },
+  // Une touche du clavier : un clic bref, un peu de bruit.
+  frappe: { d: 0.05, f: "0.32*sin(2*PI*2600*t)*exp(-t*140)+0.12*(random(0)*2-1)*exp(-t*220)" },
   // Une notification : deux notes claires.
   notif: { d: 1.0, f: "0.24*(sin(2*PI*1318.5*t)+0.4*sin(2*PI*2637*t))*exp(-t*7)"
     + "+gte(t,0.12)*0.24*(sin(2*PI*1975.5*(t-0.12))+0.4*sin(2*PI*3951*(t-0.12)))*exp(-(t-0.12)*5)" },
@@ -47,6 +40,16 @@ const BRUITAGES = {
   vibre: { d: 0.5, f: "0.5*sin(2*PI*165*t)*(0.65+0.35*sin(2*PI*28*t))*(lt(t,0.17)+between(t,0.25,0.42))" },
   // Le téléphone qui glisse : un souffle.
   glisse: { d: 0.45, bruit: true },
+  // Le coup de sifflet de l'arbitre : une note aiguë qui roule, deux fois.
+  sifflet: { d: 0.95, f: "0.36*sin(2*PI*(2950+70*sin(2*PI*31*t))*t)*(between(t,0.01,0.3)+between(t,0.42,0.9))*(1-exp(-t*60))" },
+  // Une étape franchie : trois notes qui montent.
+  succes: { d: 0.6, f: "0.22*sin(2*PI*1046.5*t)*lt(t,0.12)+0.22*sin(2*PI*1318.5*t)*between(t,0.12,0.24)+0.24*sin(2*PI*1568*t)*gte(t,0.24)*exp(-(t-0.24)*6)" },
+  // Un compteur qui monte : un « ding » court.
+  compteur: { d: 0.35, f: "0.3*(sin(2*PI*1760*t)+0.3*sin(2*PI*3520*t))*exp(-t*14)" },
+  // L'affiche qui se pose : un déclic d'appareil photo.
+  declic: { d: 0.18, f: "0.5*(random(0)*2-1)*exp(-t*60)*lt(t,0.05)+0.35*(random(0)*2-1)*exp(-(t-0.09)*70)*gte(t,0.09)" },
+  // Rien ne s'ouvre : une note grave, sèche.
+  refus: { d: 0.22, f: "0.34*sin(2*PI*196*t)*exp(-t*16)+0.2*sin(2*PI*185*t)*exp(-t*16)" },
 };
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "kf-mixage-"));
 for (const [nom, b] of Object.entries(BRUITAGES)) {
@@ -60,51 +63,27 @@ for (const [nom, b] of Object.entries(BRUITAGES)) {
 }
 
 // ── Le graphe de mixage ──────────────────────────────────────
+const { duree: DUREE, sons } = JSON.parse(fs.readFileSync(path.join(ICI, "sons.json"), "utf8"));
 const entrees = [];
 const branches = [];
-const ajoute = (fichier, filtre) => {
-  const k = branches.length;
-  entrees.push("-i", fichier);
-  branches.push(`[${k}:a]${filtre}[a${k}]`);
-};
-const retard = (t) => `adelay=delays=${Math.round(t * 1000)}:all=1`;
-
-/** La couleur d'un son de plan : plein, ou lointain (étouffé, plus bas). */
-const couleur = (son, gain = 1) => (son === "lointain"
-  ? `lowpass=f=750,volume=${(0.55 * gain).toFixed(2)}`
-  : `volume=${(2.2 * gain).toFixed(2)}`);
-
-for (const p of PLANS) {
-  if (p.son === "aucun") continue;
-  const d = +(p.a - p.de).toFixed(3);      // le son reste à vitesse normale, même sous un ralenti
-  // Des fondus très courts : pas de clic aux coupes.
-  ajoute(path.join(PLANS_DIR, `${p.id}.mp4`),
-    `aresample=48000,aformat=channel_layouts=stereo,atrim=0:${d},asetpts=N/SR/TB,${couleur(p.son)},`
-    + `afade=t=in:d=0.04,afade=t=out:st=${Math.max(0, d - 0.06).toFixed(3)}:d=0.06,${retard(p.t)}`);
-}
-// Le son seul : le coup de sifflet, le match au loin.
-SONS_DE_PLAN.forEach((s, i) => {
-  const d = +(s.a - s.de).toFixed(3);
-  const f = s.fondu ?? 0.1;
-  ajoute(path.join(PLANS_DIR, `son-${i + 1}.m4a`),
-    `aresample=48000,aformat=channel_layouts=stereo,${couleur(s.son, s.gain)},`
-    + `afade=t=in:d=${f},afade=t=out:st=${(d - f).toFixed(3)}:d=${f},${retard(s.t)}`);
-});
-const sons = JSON.parse(fs.readFileSync(path.join(ICI, "sons.json"), "utf8"));
+// Un silence de toute la durée : la piste couvre la vidéo même sans bruitage à la fin.
+entrees.push("-f", "lavfi", "-i", `anullsrc=r=48000:cl=stereo:d=${DUREE}`);
+branches.push("[0:a]anull[a0]");
 for (const { t, son } of sons) {
-  ajoute(path.join(tmp, `${son}.wav`), `aformat=channel_layouts=stereo,${retard(t)}`);
+  if (!BRUITAGES[son]) { console.warn("bruitage inconnu :", son); continue; }
+  const k = branches.length;
+  entrees.push("-i", path.join(tmp, `${son}.wav`));
+  branches.push(`[${k}:a]aformat=channel_layouts=stereo,adelay=delays=${Math.round(t * 1000)}:all=1[a${k}]`);
 }
-
 const n = branches.length;
 const graphe = branches.join(";")
   + ";" + branches.map((_, k) => `[a${k}]`).join("")
   + `amix=inputs=${n}:normalize=0:duration=longest,apad=whole_dur=${DUREE},atrim=0:${DUREE},`
-  + `afade=t=out:st=${DUREE - 2.2}:d=2.2[mix]`;
+  + `afade=t=out:st=${DUREE - 1.5}:d=1.5[mix]`;
 
 // Premier passage : mesurer. Second : ramener à -14 LUFS, crête à -1,5 dB.
 const mix = path.join(tmp, "mix.wav");
 ff([...entrees, "-filter_complex", graphe, "-map", "[mix]", "-ar", "48000", mix]);
-// loudnorm écrit sa mesure sur la sortie d'erreur.
 const brut = spawnSync(FF, ["-hide_banner", "-i", mix, "-af", "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"])
   .stderr.toString();
 const j = JSON.parse(brut.slice(brut.lastIndexOf("{"), brut.lastIndexOf("}") + 1));

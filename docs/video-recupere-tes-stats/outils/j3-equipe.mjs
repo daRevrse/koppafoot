@@ -10,6 +10,10 @@ import { EDEM, EKOUE } from "./roster.mjs";
 const A = process.env.ASSETS ?? "actifs";
 const { teamId, ekoue: uid } = loadState();
 const nom = `${EKOUE.prenom} ${EKOUE.nom}`;
+/** La rangée des compteurs de la fiche (matchs, buts, passes) : l'animation les fait monter. */
+const compteurs = (page) => page.locator("div").filter({ has: page.getByText(/^matchs$/i) })
+  .filter({ has: page.getByText(/^buts$/i) }).filter({ has: page.getByText(/^passes/i) }).last();
+const reperer = (page, nom) => cible(page, nom, compteurs(page)).catch(() => console.log("cible introuvable :", nom));
 const carte = (page, nom, bouton) =>
   page.locator("div", { has: page.getByText(nom, { exact: true }) }).filter({ has: bouton }).last();
 
@@ -49,6 +53,7 @@ k = await open("ekoue", PHONE);
 await loginUI(k.page, EKOUE.email, EKOUE.mdp);
 await go(k.page, `/profile/${uid}`);
 await settle(k.page, 2500);
+await reperer(k.page, "06a-compteurs");
 await shot(k.page, "06a-fiche-avant");
 await go(k.page, "/notifications");
 await settle(k.page, 2500);
@@ -98,9 +103,13 @@ k = await open("ekoue", PHONE);
 await loginUI(k.page, EKOUE.email, EKOUE.mdp);
 await go(k.page, `/profile/${uid}`);
 await settle(k.page, 3000);
+await reperer(k.page, "08-compteurs");
 await shot(k.page, "08-fiche-apres");
 await go(k.page, `/teams/${teamId}`);
 await settle(k.page, 3000);
 await shot(k.page, "08b-equipe");
 await k.ctx.close();
+// Le classement, recalculé par la fusion : une seule ligne, celle du compte.
+const lignes = ((await db.doc("rankings/top_players").get()).data()?.joueurs ?? []).filter((l) => l.nom === nom);
+console.log("classement après fusion :", JSON.stringify(lignes.map((l) => ({ compte: l.uid === uid, buts: l.buts, passes: l.passes, matchs: l.matchs }))));
 console.log("stats rendues");

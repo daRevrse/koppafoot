@@ -1,11 +1,11 @@
 // Rend l'image : source/animation.html → video-muette.mp4, puis mixage.mjs
-// pose le son → ../Suivre-son-match-KoppaFoot.mp4.
+// pose les bruitages → ../Tes-buts-t-attendent-KoppaFoot.mp4.
 //
 //   node rendu.mjs                  la vidéo entière (1080 × 1920, 30 i/s, H.264), puis le son
 //   node rendu.mjs --apercu 5,9.5   quelques images, en JPEG, pour relire
 //
-// La page expose `allerA(t)` : on l'avance image par image, on attend que
-// l'image du plan réel soit décodée, on capture, et ffmpeg assemble. Pas
+// La page expose `allerA(t)` : on l'avance image par image, on capture, et
+// ffmpeg assemble. Pas
 // d'horloge réelle, donc pas d'image sautée : le rendu est le même d'une
 // machine à l'autre, quelle que soit sa vitesse.
 //
@@ -39,7 +39,7 @@ await page.goto("file://" + SOURCE, { waitUntil: "load" });
 await page.evaluate(() => window.pret);
 const duree = await page.evaluate(() => window.DUREE);
 // Les bruitages de la ligne de temps, pour le mixage.
-fs.writeFileSync(path.join(ICI, "sons.json"), JSON.stringify(await page.evaluate(() => window.SONS), null, 1));
+fs.writeFileSync(path.join(ICI, "sons.json"), JSON.stringify({ duree, sons: await page.evaluate(() => window.SONS) }, null, 1));
 
 const i = process.argv.indexOf("--apercu");
 if (i > 0) {
