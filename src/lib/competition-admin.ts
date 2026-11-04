@@ -81,16 +81,6 @@ export interface CompetitionHeroSlide {
 }
 
 /**
- * One rich hero slide per public competition: banner data (the competition) plus
- * its featured match, recent results and upcoming fixtures. One read per
- * competition (the whole comp_matches collection), derived in memory. Degrades
- * to [] on error.
- */
-// Le type vit dans lib/direct-shared, que l'application mobile lit aussi.
-// Réexporté ici : DirectHome et les appelants existants l'importent d'ici.
-export type { CompetitionFeed };
-
-/**
  * Every public competition with its full fixture list, for the Direct home.
  *
  * The home used to bind to ONE competition (?c=slug) and show its poules,
@@ -121,6 +111,12 @@ export async function getDirectFeed(maxComps = 8): Promise<CompetitionFeed[]> {
   }
 }
 
+/**
+ * One rich hero slide per public competition: banner data (the competition) plus
+ * its featured match, recent results and upcoming fixtures. One read per
+ * competition (the whole comp_matches collection), derived in memory. Degrades
+ * to [] on error.
+ */
 export async function getHeroCompetitions(maxComps = 5): Promise<CompetitionHeroSlide[]> {
   try {
     const comps = (await getPublicCompetitions()).slice(0, maxComps);
