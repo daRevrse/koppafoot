@@ -23,7 +23,8 @@ import { recalculerClassements } from "@/lib/classement-admin";
  *   - les compteurs de carrière, additionnés sur le compte ;
  *   - les lignes des feuilles de match déjà jouées, réécrites au vrai nom et
  *     rattachées au compte, pour que l'historique le désigne lui ;
- *   - et dans ces matchs, tout ce qui le nomme : la pelouse, le fil du direct
+ *   - et dans ces matchs, tout ce qui le nomme : la feuille complète (comptes
+ *     et joueurs sans compte ensemble), la pelouse, le fil du direct
  *     (ses buts, ses passes, ses cartons, ses remplacements), les tirs au but
  *     et l'homme du match. Seule la feuille était réécrite : le classement,
  *     qui compte sur le fil, gardait un second joueur, sans compte, avec tous
@@ -137,11 +138,13 @@ export async function POST(req: NextRequest) {
     const lignes = Array.isArray(m[cote]) ? (m[cote] as { player_id?: string }[]) : [];
     const surLaFeuille = lignes.some((l) => l.player_id === ghostId);
     // Le reste du match, comme le renommage d'un dossard (lib/dossards) :
-    // la pelouse, le fil, les tirs au but, l'homme du match. Les feuilles
-    // d'un amical qui portent des comptes (`*_lineup`) ne le contiennent
-    // pas : on ne les passe pas.
+    // la feuille complète (`*_lineup`, comptes et joueurs sans compte
+    // ensemble : c'est elle que le classement lit), la pelouse, le fil, les
+    // tirs au but, l'homme du match.
     const ailleurs = renommerDansLeMatch(
       {
+        home_lineup: m.home_lineup,
+        away_lineup: m.away_lineup,
         home_on_pitch: m.home_on_pitch,
         away_on_pitch: m.away_on_pitch,
         mvp_player_id: m.mvp_player_id,
@@ -152,6 +155,13 @@ export async function POST(req: NextRequest) {
       ancienNom,
     );
     if (!surLaFeuille && !ailleurs) continue;
+    // Sur la feuille complète, la ligne porte maintenant un compte.
+    for (const cle of ["home_lineup", "away_lineup"]) {
+      const feuille = ailleurs?.[cle];
+      if (Array.isArray(feuille)) {
+        ailleurs![cle] = feuille.map((l: { player_id?: string }) => (l.player_id === playerId ? { ...l, user_id: playerId } : l));
+      }
+    }
     batch.update(doc.ref, {
       ...(surLaFeuille
         ? { [cote]: lignes.map((l) => (l.player_id === ghostId ? { ...l, player_id: playerId, name: vraiNom } : l)) }
