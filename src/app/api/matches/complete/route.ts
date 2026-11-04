@@ -6,6 +6,7 @@ import type { FirestoreMatch, FirestoreParticipation } from "@/types";
 import { estSuperadmin } from "@/lib/admin-api-auth";
 import { DELAI_VALIDATION_TACITE_MS, refValidation, validationInitiale } from "@/lib/validation-server";
 import { notifierComptes } from "@/lib/notifier-serveur";
+import { contributionsDuDirect } from "@/lib/contributions-du-direct";
 
 /**
  * End-of-match stats rollup.
@@ -134,13 +135,13 @@ export async function POST(req: NextRequest) {
     batch.update(adminDb.collection("teams").doc(match.away_team_id), teamUpdate(awayResult));
   }
 
-  // Goals come from the live timeline, assists from each player's own sheet.
-  const goalsPerPlayer: Record<string, number> = {};
-  for (const event of match.live_state?.events ?? []) {
-    if (event.type === "goal" && event.player_id) {
-      goalsPerPlayer[event.player_id] = (goalsPerPlayer[event.player_id] ?? 0) + 1;
-    }
-  }
+  // Les buts viennent du fil du direct. Les passes aussi quand le match a été
+  // couvert : la console les y saisit, et ne les écrit nulle part ailleurs.
+  // Sans direct, la passe d'un compte reste celle de sa feuille (voir
+  // lib/contributions-du-direct).
+  const { buts: goalsPerPlayer, passes: assistsPerPlayer } = contributionsDuDirect(match.live_state?.events);
+  const passesDe = (playerId: string, feuille: number | undefined) =>
+    couvertEnDirect ? (assistsPerPlayer[playerId] ?? 0) : (feuille || 0);
 
   const partsSnap = await adminDb
     .collection("participations")
@@ -152,12 +153,14 @@ export async function POST(req: NextRequest) {
     if (part.status !== "confirmed" || !part.player_id) continue;
 
     const playerGoals = goalsPerPlayer[part.player_id] ?? 0;
+    const playerAssists = passesDe(part.player_id, part.assists);
 
     // La feuille de match reste juste dans tous les cas : c'est le compteur de
     // carrière, sur le profil, qui attend une couverture live ou la décision
     // du manager.
     batch.update(partDoc.ref, {
       goals: playerGoals,
+      assists: playerAssists,
       updated_at: FieldValue.serverTimestamp(),
     });
 
@@ -166,7 +169,7 @@ export async function POST(req: NextRequest) {
     batch.update(adminDb.collection("users").doc(part.player_id), {
       matches_played: FieldValue.increment(1),
       goals: FieldValue.increment(playerGoals),
-      assists: FieldValue.increment(part.assists || 0),
+      assists: FieldValue.increment(playerAssists),
       last_match_id: matchId,
       updated_at: FieldValue.serverTimestamp(),
     });
@@ -197,11 +200,15 @@ export async function POST(req: NextRequest) {
       for (const ligne of lignes as { player_id?: string; role?: string }[]) {
         if (!ligne.player_id) continue;
         const buts = goalsPerPlayer[ligne.player_id] ?? 0;
+        // Un joueur sans compte n'a pas de feuille à lui : ses passes sont
+        // celles du direct, ou aucune.
+        const passes = assistsPerPlayer[ligne.player_id] ?? 0;
         batch.update(
           adminDb.collection("teams").doc(camp.teamId).collection("ghost_players").doc(ligne.player_id),
           {
             matches_played: FieldValue.increment(1),
             goals: FieldValue.increment(buts),
+            assists: FieldValue.increment(passes),
             updated_at: FieldValue.serverTimestamp(),
           },
         );
