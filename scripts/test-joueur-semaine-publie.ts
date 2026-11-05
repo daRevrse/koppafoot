@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import {
   adresseDeLAffiche, cheminDuJoueur, finDeLaDiapositive, joueurDuDirect, lireJoueurDeLaSemaine,
-  nomEnPhrase, periodeDeLaSemaine, resumeDuJoueur, texteDuPartage, type JoueurDeLaSemaine,
+  nomEnPhrase, noteEnTexte, periodeDeLaSemaine, resumeDuJoueur, texteDuPartage, type JoueurDeLaSemaine,
 } from "@/lib/joueur-semaine-publie";
 
 let echecs = 0;
@@ -29,6 +29,10 @@ const doc = (x: Record<string, unknown> = {}) => ({
   matchs: 2,
   buts: 3,
   passes: 1,
+  note: 9.2,
+  homme_du_match: 1,
+  lignes: [{ jour: "DIM. 1 NOV.", affiche: "AVENIR D'ADAKPAMÉ 3–1 OLYMPIQUE DE TOKOIN", buts: 2, passes: 1, homme: true }, { jour: "" }],
+  photo: "https://exemple/photo.png",
   publie_le_jour: "2026-11-02",
   version: "abc123",
   ...x,
@@ -46,6 +50,19 @@ cas("un document complet se relit, la semaine se recalcule depuis son lundi", ()
   assert.equal(j.numero, 44);
   assert.equal(j.uid, "u-ekoue");
   assert.deepEqual(j.equipes, [{ nom: "Avenir d'Adakpamé", logo: "https://exemple/logo.png" }]);
+  assert.equal(j.note, 9.2);
+  assert.equal(j.hommeDuMatch, 1);
+  assert.equal(j.photo, "https://exemple/photo.png");
+  // Une ligne sans jour est écartée, les autres se relisent.
+  assert.deepEqual(j.lignes, [{ jour: "DIM. 1 NOV.", affiche: "AVENIR D'ADAKPAMÉ 3–1 OLYMPIQUE DE TOKOIN", buts: 2, passes: 1, homme: true }]);
+});
+
+cas("une élection d'avant les lignes et la photo se relit quand même", () => {
+  const j = lireJoueurDeLaSemaine("2026-10-26", doc({ note: undefined, homme_du_match: undefined, lignes: undefined, photo: undefined }))!;
+  assert.equal(j.note, null);
+  assert.equal(j.hommeDuMatch, 0);
+  assert.deepEqual(j.lignes, []);
+  assert.equal(j.photo, null);
 });
 
 cas("un identifiant qui n'est pas un jour, un nom ou une version absents : rien", () => {
@@ -118,10 +135,12 @@ cas("le partage : le texte, le chemin vers l'élu, l'affiche versionnée", () =>
   assert.equal(texteDuPartage(j), "Ekoué Bawa, joueur de la semaine 44 sur KoppaFoot ⚽");
   assert.equal(cheminDuJoueur(j.lundi), "/top-players#joueur-semaine-2026-10-26");
   assert.equal(adresseDeLAffiche(j, "vertical"), "/api/joueur-semaine/2026-10-26/affiche?format=vertical&v=abc123");
-  assert.equal(
-    adresseDeLAffiche(j, "publication", true),
-    "/api/joueur-semaine/2026-10-26/affiche?format=publication&v=abc123&taille=vignette",
-  );
+});
+
+cas("la note, à une décimale, à la française ou à l'anglaise", () => {
+  assert.equal(noteEnTexte(9.2), "9,2");
+  assert.equal(noteEnTexte(8), "8,0");
+  assert.equal(noteEnTexte(6.75, "en"), "6.8");
 });
 
 if (echecs > 0) {

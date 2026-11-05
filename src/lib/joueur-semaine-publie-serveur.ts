@@ -19,7 +19,7 @@ import sharp from "sharp";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, adminStorage } from "@/lib/firebase-admin";
 import { jourDeLome } from "@/lib/jour";
-import { donneesDeLAffiche, lireLaSemaine } from "@/lib/joueur-semaine-admin";
+import { donneesDeLAffiche, imagesDesCandidats, lireLaSemaine } from "@/lib/joueur-semaine-admin";
 import { afficheJoueurSemaine } from "@/lib/og-joueur-semaine";
 import type { DemandeAffiche } from "@/lib/joueur-semaine-requete";
 import {
@@ -77,6 +77,13 @@ export async function publierLeJoueur(demande: DemandeAffiche, parUid: string): 
     equipes.push({ nom: m.equipe, logo: m.ecusson });
   }
 
+  // Sa photo : celle de son profil pour un compte (et relue à chaque lecture,
+  // voir `lireLesJoueursDeLaSemaine`) ; pour un joueur sans compte, celle que
+  // l'affiche a le droit de montrer, sinon ses initiales.
+  const photo = c.uid
+    ? (((await adminDb.doc(`users/${c.uid}`).get()).data()?.profile_picture_url as string | undefined) || null)
+    : ((await imagesDesCandidats([c])).get(c.cle)?.photo ?? null);
+
   const ref = reference(demande.lundi);
   const avant = await ref.get();
   const premierJour = (avant.data()?.publie_le_jour as string | undefined) ?? jourDeLome();
@@ -91,6 +98,8 @@ export async function publierLeJoueur(demande: DemandeAffiche, parUid: string): 
     passes: c.passes,
     note: c.note,
     homme_du_match: c.hommeDuMatch,
+    lignes: c.matchs.map((m) => ({ jour: m.jour, affiche: m.affiche, buts: m.buts, passes: m.passes, homme: m.homme })),
+    photo,
     ecartees: demande.ecartees,
     partenaires: demande.partenaires,
     affiches,
@@ -125,14 +134,24 @@ export async function lireElection(lundi: string): Promise<ElectionDeLaSemaine |
 /**
  * Les derniers élus, la semaine la plus récente d'abord. Une lecture qui
  * échoue rend une liste vide : le Direct et le classement s'affichent sans.
+ *
+ * LA PHOTO D'UN COMPTE EST RELUE ICI, sur son profil : celle de la
+ * publication a pu changer, ou disparaître, depuis. Une seule lecture groupée.
  */
 export async function lireLesJoueursDeLaSemaine(max = 52): Promise<JoueurDeLaSemaine[]> {
   try {
     const snap = await adminDb.collection(COLLECTION_JOUEURS_SEMAINE).orderBy("lundi", "desc").limit(max).get();
-    return snap.docs.flatMap((d) => {
+    const elus = snap.docs.flatMap((d) => {
       const j = lireJoueurDeLaSemaine(d.id, d.data());
       return j ? [j] : [];
     });
+    const uids = [...new Set(elus.flatMap((j) => (j.uid ? [j.uid] : [])))];
+    if (uids.length) {
+      const comptes = await adminDb.getAll(...uids.map((uid) => adminDb.doc(`users/${uid}`)));
+      const photos = new Map(comptes.map((c) => [c.id, (c.data()?.profile_picture_url as string | undefined) || null]));
+      for (const j of elus) if (j.uid && photos.has(j.uid)) j.photo = photos.get(j.uid) ?? null;
+    }
+    return elus;
   } catch (err) {
     console.error("lireLesJoueursDeLaSemaine", err);
     return [];
