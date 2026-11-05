@@ -1,6 +1,6 @@
 # Vidéo joueur : « Tes buts t'attendent » — scénario
 
-Une vidéo de **56 secondes**, verticale (1080 × 1920, 9:16, 30 images/s), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier **qui joue déjà** dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part.
+Une vidéo de **50 secondes**, verticale (1080 × 1920, 9:16, 30 images/s), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier **qui joue déjà** dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part.
 
 Elle se fabrique comme la [vidéo manager](../video-manager/) et la [vidéo « Suivre son match »](../video-suivre-match/) : de vraies captures de l'application, jouées sur les émulateurs Firebase avec des comptes fictifs, montées dans une ligne de temps GSAP.
 
@@ -43,7 +43,7 @@ L'appel à l'action est donc : **« Crée ton compte. Rejoins ton équipe. Tes s
 | Personnage | Rôle |
 |---|---|
 | **Ekoué Bawa** | Attaquant n°11 de l'Avenir d'Adakpamé. Sans compte au départ, il a déjà marqué. C'est le héros. |
-| **Edem Amouzou** | Manager de l'Avenir. Il fusionne la fiche d'Ekoué avec son compte (en coulisses, une seule image montrée). |
+| **Edem Amouzou** | Manager de l'Avenir. Il invite Ekoué et fusionne sa fiche avec son compte, en coulisses : on ne voit que ce qu'Ekoué reçoit. |
 | **Kafui Mensah** | Coéquipier, qui a déjà un compte : c'est sa fiche qu'Ekoué voit au classement, avec une photo, quand la sienne n'en a pas. |
 | **Kokou Tepe** | Manager de l'Olympique de Tokoin, l'adversaire. |
 
@@ -63,16 +63,15 @@ Repris de la vidéo manager : Avenir d'Adakpamé contre l'Olympique de Tokoin.
 
 | Temps | Scène | À l'écran | Titres |
 |---|---|---|---|
-| **0 – 4 s** | Accroche | Fond nuit verte. Le téléphone monte : la fiche du match 1, le fil, « ⚽ 23' Ekoué Bawa ». Zoom sur la ligne du buteur. | « Ce but, c'est le tien. » |
-| **4 – 9 s** | Le problème | Le classement des joueurs (`/top-players`) : la ligne d'Ekoué, sans photo, son nom en gris, pas de lien. Le doigt touche la ligne : rien ne s'ouvre. Juste au-dessus, Kafui avec sa photo. | « Tes buts sont là… » puis « …mais personne ne sait que c'est toi. » |
+| **0 – 4 s** | Accroche | Le téléphone monte : la fiche du match de dimanche, 3 – 1. Les buteurs sous le score, puis la carte de l'homme du match : Ekoué Bawa. | « Ce doublé, c'est le tien. » |
+| **4 – 9 s** | Le problème | Le classement des joueurs (`/top-players`) : la ligne d'Ekoué, premier, sans photo. Le doigt touche la ligne : rien ne s'ouvre. Juste en dessous, Kafui avec sa photo. | « Tes buts sont là… » puis « Mais personne ne sait que c'est toi. » |
 | **9 – 11 s** | Bascule | Noir, un coup de sifflet. | « Récupère tes stats en 3 étapes » |
-| **11 – 20 s** | 1. Crée ton compte | `/signup?role=player` : le prénom et le nom tapés lettre par lettre, « Continuer », la ville, « Créer mon compte ». (Le formulaire ne demande pas le poste : il se complète ensuite dans le profil.) | « 1. Crée ton compte » · « Gratuit. Une minute. » |
-| **20 – 27 s** | 2. Rejoins ton équipe | La notification « Edem A. t'invite à rejoindre l'Avenir d'Adakpamé », puis la page d'invitation, le doigt sur « Accepter ». La fiche de l'équipe : Ekoué est dans l'effectif. | « 2. Rejoins ton équipe » |
-| **27 – 34 s** | 3. Ton manager te rend tes stats | Sa fiche vide, puis chez Edem (une étiquette « Chez Edem, ton manager ») : « Fusionner un joueur » et sa confirmation, « Ekoué Bawa apporte 1 match, 2 buts et 1 passe à Ekoué Bawa ». Puis, plein écran, la fiche d'Ekoué : 1 match, 2 buts, 1 passe, et les bulles « +1 match », « +2 buts », « +1 passe ». | « 3. Ton manager te rend tes buts » · « Tous tes matchs passés, d'un coup. » |
-| **34 – 42 s** | Vis ton match | La fiche du match 2, la cloche, « Tu suis ce match ». Puis l'écran verrouillé : « 🔴 C'est parti ! », « ⚽ BUT ! Ekoué Bawa (18') », « ⚽ BUT ! Kafui Mensah (52') », « ⚽ BUT ! Ekoué Bawa (81') », « 🏁 Score final ». | « Suis tes matchs en direct » |
-| **42 – 48 s** | Ta place au classement | Le classement après le match 2 : la ligne d'Ekoué, maintenant avec sa photo et sa note, glisse vers le haut. Le doigt la touche : sa fiche s'ouvre. | « Grimpe au classement » |
-| **48 – 52 s** | Le joueur de la semaine | Le Direct : la première diapositive du carrousel, « Joueur de la semaine », la photo d'Ekoué, ses buts de la semaine, « Voir sa fiche · Suivre · Partager ». Le doigt touche « Partager » : l'affiche verticale se pose par-dessus, comme partie dans un statut WhatsApp. | « Et peut-être… le joueur de la semaine. » |
-| **52 – 56 s** | Fin | Logo KoppaFoot. Trois lignes : « Tu joues déjà. », « Tes buts t'attendent. », « Crée ton compte sur koppafoot.com ». | — |
+| **11 – 20 s** | 1. Crée ton compte | `/signup?role=player` : le prénom et le nom tapés lettre par lettre, « Continuer », la ville, « Créer mon compte ». (Le formulaire ne demande pas le poste : il se complète ensuite dans le profil.) | « Crée ton compte » · « Gratuit. Une minute. » |
+| **20 – 27 s** | 2. Rejoins ton équipe | La notification « Edem Amouzou t'invite à rejoindre Avenir d'Adakpamé », puis l'invitation, le doigt sur « Accepter ». | « Rejoins ton équipe » · « Ton manager t'invite, tu acceptes. » |
+| **27 – 34 s** | 3. Tes buts te suivent | Sa fiche, encore vide (0 match, 0 but, 0 passe), puis la même fiche : 1 match, 2 buts, 1 passe, et les bulles « +1 match », « +2 buts », « +1 passe ». La fusion, faite par Edem, n'est pas filmée. | « Tes buts te suivent » · « Ton manager confirme que c'est toi : tes matchs passés arrivent sur ta fiche. » |
+| **34 – 41 s** | Ta place au classement | Le même classement qu'au début, sur son téléphone : sa ligne, maintenant avec sa photo, mène à sa fiche. | « Grimpe au classement » · « Ta photo, ta fiche, tes buts. » |
+| **41 – 46 s** | Le joueur de la semaine | Le Direct : la diapositive « Joueur de la semaine », la semaine de son doublé, « Sa fiche · C'est toi · Partager ». Le doigt touche « Partager » : l'affiche verticale se pose par-dessus, prête pour un statut. | « Et peut-être… le joueur de la semaine. » |
+| **46 – 50 s** | Fin | Logo KoppaFoot. « Tu joues déjà. », « Tes buts t'attendent. », « Crée ton compte », koppafoot.com. | — |
 
 ---
 
@@ -107,3 +106,11 @@ Dessinés dans l'animation, comme dans la vidéo « Suivre son match » : l'écr
 2. **Le joueur de la semaine** reste, sans la fenêtre de consentement. Il s'appuie sur la diapositive du Direct et l'historique de Top performances, construits d'abord dans une PR à part (branche `claude/joueur-semaine-public`).
 3. **Le son** : bruitages seulement, sans musique ni voix.
 4. **Le dossier et la branche** : `docs/video-recupere-tes-stats/` et `claude/video-recupere-tes-stats`.
+
+## 6. Révisé le 2026-11-05 : le point de vue du joueur
+
+Demande du propriétaire, après la première version (56 s) : la vidéo montre ce que vit **le joueur**, et seulement lui.
+
+- **Les écrans du manager sont retirés.** La fusion (« Fusionner un joueur ») se fait toujours, en coulisses, car c'est elle qui rend les stats ; à l'écran, Ekoué voit ses buts arriver sur sa fiche, et le sous-titre dit d'où ils viennent.
+- **Le match suivi en direct est retiré** (la cloche, l'écran verrouillé et ses notifications). Sans second match, le classement d'après est celui de juste après la fusion, et le joueur de la semaine est celui de la semaine du doublé.
+- La vidéo dure maintenant 50 secondes. Les écrans 07 (fusion), 09 et 10 (match suivi) ne sont plus tournés ; les écrans 11 à 14 se filment sur le téléphone d'Ekoué, connecté.

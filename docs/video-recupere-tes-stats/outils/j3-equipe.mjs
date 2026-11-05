@@ -2,7 +2,8 @@
 //  - en coulisses : sa photo de profil, puis l'invitation d'Edem au mercato ;
 //  - à l'écran, chez Ekoué : la notification, l'invitation, « Accepter » ;
 //    sa fiche, encore vide ;
-//  - chez Edem : « Fusionner un joueur », le joueur sans compte et le compte ;
+//  - en coulisses, chez Edem : « Fusionner un joueur », le joueur sans compte
+//    et le compte (la vidéo reste du point de vue d'Ekoué : rien n'en est filmé) ;
 //  - chez Ekoué : sa fiche, avec ses buts.
 import { open, go, settle, shot, cible, loadState, loginUI, modale, PHONE } from "./lib.mjs";
 import { photoDeProfil, db } from "./admin.mjs";
@@ -85,17 +86,10 @@ await choisir(e.page.locator("#fusion-compte"), nom);
 await settle(e.page, 800);
 await coin.evaluate((el) => window.scrollBy(0, el.getBoundingClientRect().top - 120));
 await settle(e.page, 600);
-const fusionner = e.page.getByRole("button", { name: /^Fusionner$/ }).first();
-await cible(e.page, "07a-fusion", fusionner);
-await shot(e.page, "07a-fusion");
-await fusionner.click();
+await e.page.getByRole("button", { name: /^Fusionner$/ }).first().click();
 await settle(e.page, 1200);
-const confirmer = modale(e.page).getByRole("button", { name: /Fusionner/ }).last();
-await cible(e.page, "07b-fusion-confirmer", confirmer);
-await shot(e.page, "07b-fusion-confirmer");
-await confirmer.click();
+await modale(e.page).getByRole("button", { name: /Fusionner/ }).last().click();
 await settle(e.page, 3000);
-await shot(e.page, "07c-fusion-faite");
 await e.ctx.close();
 
 // Ekoué : sa fiche, avec ses buts.
@@ -105,9 +99,6 @@ await go(k.page, `/profile/${uid}`);
 await settle(k.page, 3000);
 await reperer(k.page, "08-compteurs");
 await shot(k.page, "08-fiche-apres");
-await go(k.page, `/teams/${teamId}`);
-await settle(k.page, 3000);
-await shot(k.page, "08b-equipe");
 await k.ctx.close();
 // Le classement, recalculé par la fusion : une seule ligne, celle du compte.
 const lignes = ((await db.doc("rankings/top_players").get()).data()?.joueurs ?? []).filter((l) => l.nom === nom);

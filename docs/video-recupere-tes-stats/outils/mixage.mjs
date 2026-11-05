@@ -6,7 +6,8 @@
 // (toucher, frappe au clavier, notification, vibration, coup de sifflet,
 // compteurs qui montent, déclic de l'affiche), synthétisés ici par ffmpeg,
 // aux temps que la page a notés (sons.json, écrit par rendu.mjs). Puis le
-// tout est ramené à -14 LUFS, le niveau des plateformes vidéo.
+// tout est ramené vers -14 LUFS, le niveau des plateformes vidéo, crêtes
+// tenues sous -1,5 dB.
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
@@ -81,17 +82,24 @@ const graphe = branches.join(";")
   + `amix=inputs=${n}:normalize=0:duration=longest,apad=whole_dur=${DUREE},atrim=0:${DUREE},`
   + `afade=t=out:st=${DUREE - 1.5}:d=1.5[mix]`;
 
-// Premier passage : mesurer. Second : ramener à -14 LUFS, crête à -1,5 dB.
+// Mesurer, puis ramener à -14 LUFS par un gain simple, et tenir les crêtes
+// sous -1,5 dB par un limiteur. Pas de loudnorm en second passage : sur des
+// bruitages brefs et clairsemés, sans fond sonore, il s'emballait (la crête
+// passait au-dessus de 0 dB).
 const mix = path.join(tmp, "mix.wav");
 ff([...entrees, "-filter_complex", graphe, "-map", "[mix]", "-ar", "48000", mix]);
-const brut = spawnSync(FF, ["-hide_banner", "-i", mix, "-af", "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"])
-  .stderr.toString();
-const j = JSON.parse(brut.slice(brut.lastIndexOf("{"), brut.lastIndexOf("}") + 1));
-const norme = `loudnorm=I=-14:TP=-1.5:LRA=11:measured_I=${j.input_i}:measured_TP=${j.input_tp}`
-  + `:measured_LRA=${j.input_lra}:measured_thresh=${j.input_thresh}:offset=${j.target_offset}:linear=true`;
+const mesurer = (f) => {
+  const brut = spawnSync(FF, ["-hide_banner", "-i", f, "-af", "loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"]).stderr.toString();
+  return JSON.parse(brut.slice(brut.lastIndexOf("{"), brut.lastIndexOf("}") + 1));
+};
+const avant = mesurer(mix);
+const gain = (-14 - Number(avant.input_i)).toFixed(2);
+const pose = path.join(tmp, "pose.wav");
+ff(["-i", mix, "-af", `volume=${gain}dB,alimiter=limit=0.84:attack=1:release=50:level=false`, "-ar", "48000", pose]);
+const j = mesurer(pose);
 
-ff(["-i", MUETTE, "-i", mix, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
-  "-af", `${norme},aresample=48000`, "-c:a", "aac", "-b:a", "192k",
+ff(["-i", MUETTE, "-i", pose, "-map", "0:v", "-map", "1:a", "-c:v", "copy",
+  "-c:a", "aac", "-b:a", "192k",
   "-map_metadata", "-1", "-movflags", "+faststart", "-shortest", SORTIE]);
 fs.rmSync(tmp, { recursive: true, force: true });
-console.log("vidéo :", SORTIE, `(${(fs.statSync(SORTIE).size / 1e6).toFixed(1)} Mo, son à ${j.input_i} → -14 LUFS)`);
+console.log("vidéo :", SORTIE, `(${(fs.statSync(SORTIE).size / 1e6).toFixed(1)} Mo, son : ${avant.input_i} → ${j.input_i} LUFS, crête ${j.input_tp} dB)`);

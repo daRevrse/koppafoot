@@ -1,10 +1,10 @@
 # Vidéo joueur : « Tes buts t'attendent »
 
-Une vidéo de 56 secondes, verticale (1080 × 1920, 9:16), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier qui joue déjà dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part. Elle l'invite à créer son compte, à récupérer ses stats et à vivre l'expérience KoppaFoot.
+Une vidéo de 50 secondes, verticale (1080 × 1920, 9:16), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier qui joue déjà dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part. Elle l'invite à créer son compte, à récupérer ses stats et à vivre l'expérience KoppaFoot, **tout de son point de vue** : on ne voit que ce qu'Ekoué voit sur son téléphone.
 
-**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 11,6 Mo ; bruitages en AAC, ni musique ni voix)
+**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 9,6 Mo ; bruitages en AAC à -14 LUFS, ni musique ni voix)
 
-Le scénario, validé le 2026-11-04, est dans [scenario.md](scenario.md).
+Le scénario, validé le 2026-11-04 puis resserré le 2026-11-05 sur le point de vue du joueur, est dans [scenario.md](scenario.md).
 
 | Temps | Scène |
 |---|---|
@@ -13,11 +13,10 @@ Le scénario, validé le 2026-11-04, est dans [scenario.md](scenario.md).
 | 9 – 11 s | Coup de sifflet, noir : « Récupère tes stats en 3 étapes » |
 | 11 – 20 s | 1. Crée ton compte : le prénom et le nom tapés lettre par lettre, « Créer mon compte » |
 | 20 – 27 s | 2. Rejoins ton équipe : la notification, l'invitation d'Edem, « Accepter » |
-| 27 – 34 s | 3. Ton manager te rend tes buts : sa fiche vide, « Fusionner un joueur » chez Edem, puis sa fiche avec 1 match, 2 buts, 1 passe |
-| 34 – 42 s | Suis ton match en direct : la cloche, puis l'écran verrouillé qui se remplit (coup d'envoi, trois buts, score final) |
-| 42 – 48 s | Grimpe au classement : sa ligne, avec sa photo, mène maintenant à sa fiche |
-| 48 – 52 s | Le joueur de la semaine : la diapositive du Direct, « Partager », l'affiche prête pour un statut |
-| 52 – 56 s | Fin : logo, « Tu joues déjà. Tes buts t'attendent. », « Crée ton compte », koppafoot.com |
+| 27 – 34 s | 3. Tes buts te suivent : sa fiche vide, puis avec 1 match, 2 buts, 1 passe |
+| 34 – 41 s | Grimpe au classement : le même classement, avec sa photo, et sa ligne mène à sa fiche |
+| 41 – 46 s | Le joueur de la semaine : la diapositive du Direct, « Partager », l'affiche prête pour un statut |
+| 46 – 50 s | Fin : logo, « Tu joues déjà. Tes buts t'attendent. », « Crée ton compte », koppafoot.com |
 
 ## Ce que la vidéo dit, et pourquoi
 
@@ -25,18 +24,16 @@ Le scénario, validé le 2026-11-04, est dans [scenario.md](scenario.md).
   - en amical : la fusion du joueur sans compte avec le compte qu'il vient de créer (« Fusionner un joueur », `/api/teams/merge-ghost`) ;
   - en compétition : le rapprochement des lignes à l'inscription ou par « Resynchroniser » (`lib/fusion-import`).
 
-  D'où l'étape 3 : « Ton manager te rend tes buts ».
-- **Le classement se recalcule à la fin de chaque match**, pas à la fusion : la vidéo le montre après le match suivant.
+  La fusion se joue en coulisses, la vidéo restant du point de vue du joueur ; le sous-titre de l'étape 3 dit d'où viennent ses buts : « Ton manager confirme que c'est toi ».
+- **Le classement se recalcule à la fusion** depuis la PR #182 : la vidéo le montre juste après.
 - **Le joueur de la semaine** apparaît sur le Direct et dans Top performances depuis la PR #181, construite pour cette vidéo. La vidéo filme ces écrans-là.
-- **Les passes en direct** n'atteignaient pas la carrière : la fusion annonçait « 0 passe » pour un joueur qui avait fait marquer. C'est corrigé dans la PR #182, sur laquelle le tournage s'appuie.
+- **Les passes en direct** n'atteignaient pas la carrière, et la fusion laissait les matchs d'avant à un second joueur au classement. C'est corrigé dans la PR #182, sur laquelle le tournage s'appuie.
 
 Les écrans du téléphone sont de **vraies captures** de l'application (le site, au format téléphone), jouée de bout en bout sur les **émulateurs Firebase** avec des comptes fictifs. Ce sont les clubs et les joueurs de la [vidéo manager](../video-manager/) : l'Avenir d'Adakpamé contre l'Olympique de Tokoin.
 
-Les photos de profil d'Ekoué et de Kafui sont des **illustrations** dessinées par `gen-assets.mjs`, pas des photos : personne de réel n'y figure. La console live, l'invitation et la publication du joueur de la semaine se jouent en coulisses. Aucune donnée de production n'a été lue ni écrite.
+Les photos de profil d'Ekoué et de Kafui sont des **illustrations** dessinées par `gen-assets.mjs`, pas des photos : personne de réel n'y figure. La console live, l'invitation, la fusion et la publication du joueur de la semaine se jouent en coulisses. Aucune donnée de production n'a été lue ni écrite.
 
-Le son est mesuré à -12,8 LUFS intégrés, crête à -1,5 dB : `mixage.mjs` vise -14 LUFS, mais sur des bruitages brefs et clairsemés, sans fond sonore, la mesure s'écarte un peu de la cible. Les plateformes le ramènent de toute façon à leur niveau.
-
-Les éléments dessinés dans l'animation sont la frappe au clavier, les touchers, l'écran verrouillé et ses notifications, les titres et la fin. Les notifications reprennent mot pour mot ce que la console envoie aux abonnés d'un match (`LiveMatchConsole`).
+Les éléments dessinés dans l'animation sont la frappe au clavier, les touchers, les titres et la fin.
 
 ## Contenu du dossier
 
@@ -54,7 +51,7 @@ outils/
   run-captures.sh                    enchaîne j0 → j4 sur des émulateurs vierges
   preparer-ecrans.py                 captures-brutes → source/ecrans + source/cibles.js
   rendu.mjs                          source/animation.html → MP4 (ou quelques images d'aperçu)
-  mixage.mjs                         les bruitages, synthétisés, ramenés vers -14 LUFS
+  mixage.mjs                         les bruitages, synthétisés, à -14 LUFS (gain mesuré, puis limiteur à -1,5 dB)
   lib.mjs, admin.mjs, roster.mjs     outils communs, gestes joués en coulisses, personnes fictives
   gen-assets.mjs                     écussons et portraits fictifs (illustrations)
   emulateurs/                        config des émulateurs, patch local, modèle de .env.local
@@ -73,8 +70,8 @@ outils/
 cd docs/video-recupere-tes-stats/outils
 npm install                                  # playwright, gsap, firebase-tools
 pip install pillow imageio-ffmpeg            # ffmpeg avec x264, sans installation système
-node rendu.mjs --apercu 2,7,30,38,50         # quelques images → apercu/
-node rendu.mjs                               # → ../Tes-buts-t-attendent-KoppaFoot.mp4 (environ 6 min)
+node rendu.mjs --apercu 2,7,30,37,43         # quelques images → apercu/
+node rendu.mjs                               # → ../Tes-buts-t-attendent-KoppaFoot.mp4 (environ 3 min)
 ```
 
 Les emojis viennent de la police du système (Noto Color Emoji sous Linux).
@@ -102,12 +99,9 @@ Prérequis : Node 20+, Java (émulateur Firestore), Python 3 avec Pillow.
 Bon à savoir :
 
 - **Les dates se calculent depuis le jour du tournage** (`roster.mjs`) :
-  - le premier match tombe le dimanche de la semaine passée ;
-  - le second se joue le jour même ;
-  - le joueur de la semaine est celui de la semaine en cours.
-
-  Seule la date de l'écran verrouillé est écrite en dur dans `animation.html` : à changer si on tourne un autre jour.
-- **Le formulaire de défi refuse une date passée.** Le premier défi naît donc à la date du jour, puis il est rangé au dimanche dernier, en coulisses.
+  - le match tombe le dimanche de la semaine passée ;
+  - le joueur de la semaine est celui de cette semaine-là, que la page admin propose d'elle-même.
+- **Le formulaire de défi refuse une date passée.** Le défi naît donc à la date du jour, puis il est rangé au dimanche dernier, en coulisses.
 - **La console a changé depuis les vidéos précédentes** (`decor.mjs`) :
   - le coup d'envoi se donne par « Donner le ballon à … » ;
   - après un but ou la mi-temps, il faut toucher « Engagement · … ».

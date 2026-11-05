@@ -5,7 +5,8 @@
 <title>KoppaFoot · Tes buts t'attendent</title>
 <!--
   Vidéo joueur : « Tes buts t'attendent ».
-  1080 × 1920, 56 s, pour les statuts WhatsApp, TikTok, Reels et Shorts.
+  1080 × 1920, 50 s, pour les statuts WhatsApp, TikTok, Reels et Shorts.
+  Tout du point de vue du joueur : ce qu'Ekoué voit sur son téléphone.
 
   Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
   par image (window.allerA(t)), en fait une capture, et ffmpeg les assemble ;
@@ -13,9 +14,8 @@
 
   Les écrans du téléphone sont de vraies captures de l'application, jouées
   sur les émulateurs Firebase avec des comptes fictifs (ecrans/, outils/j*.mjs).
-  Est dessiné ici : la frappe du prénom et du nom, l'écran verrouillé et ses
-  notifications (mot pour mot celles de la console, voir LiveMatchConsole),
-  les touchers, les titres et la fin.
+  Est dessiné ici : la frappe du prénom et du nom, les touchers, les titres et
+  la fin.
 
   Ouverte telle quelle dans Chromium, la page se joue en temps réel : c'est
   l'aperçu pendant qu'on la retouche.
@@ -84,40 +84,10 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
 .plus { position: absolute; z-index: 80; padding: 10px 22px 8px; border-radius: 999px; background: var(--vert); color: var(--nuit);
   font-family: "Outfit"; font-weight: 900; font-size: 40px; opacity: 0; white-space: nowrap; box-shadow: 0 10px 26px rgba(0, 0, 0, .25); }
 
-/* L'étiquette de qui tient le téléphone */
-#qui { position: absolute; left: 50%; top: 548px; transform: translateX(-50%); z-index: 5; opacity: 0;
-  display: flex; align-items: center; gap: 14px; padding: 12px 28px 12px 14px; border-radius: 999px;
-  background: rgba(255, 255, 255, .12); border: 2px solid rgba(255, 255, 255, .2); font-size: 32px; font-weight: 700; white-space: nowrap; }
 #rejoint { position: absolute; left: 50%; top: 548px; margin-left: -390px; width: 780px; justify-content: center; z-index: 5; opacity: 0;
   display: flex; align-items: center; gap: 14px; padding: 12px 28px 12px 14px; border-radius: 999px;
   background: var(--vert); color: var(--nuit); font-size: 32px; font-weight: 800; white-space: nowrap; }
 #rejoint .av { width: 48px; height: 48px; border-radius: 50%; background: var(--nuit); color: var(--vert); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 26px; }
-#qui .av { width: 48px; height: 48px; border-radius: 50%; background: var(--vert); color: var(--nuit); display: flex; align-items: center; justify-content: center;
-  font-family: "Outfit"; font-weight: 900; font-size: 22px; }
-
-/* L'écran verrouillé */
-#verrou { position: absolute; inset: 0; z-index: 100; opacity: 0; overflow: hidden;
-  background: radial-gradient(120% 80% at 30% 20%, #146c43 0%, #0a3a26 40%, #04140d 100%); }
-#verrou .lignes { position: absolute; inset: 0; opacity: .12;
-  background: repeating-linear-gradient(90deg, rgba(255, 255, 255, .35) 0 6px, transparent 6px 180px); }
-#verrou .barre { position: absolute; left: 0; right: 0; top: 30px; height: 50px; padding: 0 60px; display: flex; justify-content: flex-end; align-items: center; gap: 14px; }
-#verrou .barre .reseau { display: flex; align-items: flex-end; gap: 4px; height: 26px; }
-#verrou .barre .reseau i { width: 7px; background: #fff; border-radius: 2px; }
-#verrou .barre .pile { width: 48px; height: 24px; border: 3px solid rgba(255, 255, 255, .8); border-radius: 7px; padding: 2px; }
-#verrou .barre .pile i { display: block; width: 70%; height: 100%; background: #fff; border-radius: 3px; }
-#verrou .date { position: absolute; left: 0; right: 0; top: 136px; text-align: center; font-size: 34px; font-weight: 600; color: rgba(255, 255, 255, .9); }
-#verrou .heure { position: absolute; left: 0; right: 0; top: 176px; text-align: center; font-family: "Outfit"; font-weight: 600; font-size: 176px; line-height: 1; letter-spacing: -.02em; }
-#verrou .noir-ecran { position: absolute; inset: 0; background: #000; opacity: 0; z-index: 5; }
-.notif { position: absolute; left: 16px; top: 0; width: 768px; height: 200px; padding: 24px 26px; border-radius: 42px; z-index: 2;
-  background: rgba(246, 246, 248, .92); color: var(--encre); display: flex; gap: 22px; opacity: 0; box-shadow: 0 10px 30px rgba(0, 0, 0, .18); }
-.notif .ico { flex: none; width: 76px; height: 76px; border-radius: 20px; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 1px rgba(0, 0, 0, .06); }
-.notif .ico img { width: 56px; height: 56px; object-fit: contain; }
-.notif .txt { min-width: 0; flex: 1; }
-.notif .app { display: flex; justify-content: space-between; font-size: 23px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #6b7280; }
-.notif .app span { letter-spacing: 0; text-transform: none; font-weight: 500; }
-.notif b { display: block; margin-top: 2px; font-size: 38px; font-weight: 800; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.notif p { font-size: 32px; line-height: 1.22; color: #374151; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.notif .halo { position: absolute; inset: -6px; border-radius: 48px; border: 6px solid var(--vert); opacity: 0; }
 
 /* Un toucher */
 .toucher { position: absolute; width: 0; height: 0; z-index: 200; }
@@ -166,12 +136,10 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
   <div class="titre petit" id="tb"><div class="puce">Au classement</div><div class="ligne"><span>Mais personne</span></div><div class="ligne"><span>ne sait</span></div><div class="ligne"><span class="ambre">que c'est toi.</span></div></div>
   <div class="titre" id="t1"><div class="puce etape">Étape 1</div><div class="ligne"><span>Crée ton</span></div><div class="ligne"><span class="vert">compte</span></div><div class="sous">Gratuit. Une minute.</div></div>
   <div class="titre" id="t2"><div class="puce etape">Étape 2</div><div class="ligne"><span>Rejoins ton</span></div><div class="ligne"><span class="vert">équipe</span></div><div class="sous">Ton manager t'invite, tu acceptes.</div></div>
-  <div class="titre petit" id="t3"><div class="puce etape">Étape 3</div><div class="ligne"><span>Ton manager</span></div><div class="ligne"><span class="vert">te rend tes buts</span></div><div class="sous">Tous tes matchs passés, d'un coup.</div></div>
-  <div class="titre" id="t4"><div class="puce">Ton match</div><div class="ligne"><span>Suis-le</span></div><div class="ligne"><span class="vert">en direct</span></div><div class="sous">Chaque but arrive sur ton téléphone.</div></div>
+  <div class="titre" id="t3"><div class="puce etape">Étape 3</div><div class="ligne"><span>Tes buts</span></div><div class="ligne"><span class="vert">te suivent</span></div><div class="sous">Ton manager confirme que c'est toi :<br>tes matchs passés arrivent sur ta fiche.</div></div>
   <div class="titre" id="t5"><div class="puce">Ta place</div><div class="ligne"><span>Grimpe au</span></div><div class="ligne"><span class="vert">classement</span></div><div class="sous">Ta photo, ta fiche, tes buts.</div></div>
   <div class="titre petit" id="t6"><div class="puce">Et peut-être…</div><div class="ligne"><span>Le joueur</span></div><div class="ligne"><span class="vert">de la semaine</span></div><div class="sous">Sur le Direct, toute la semaine.</div></div>
 
-  <div id="qui"><div class="av">EA</div>Chez Edem, ton manager</div>
   <div id="rejoint" class="legende"><div class="av">✓</div>Ekoué a rejoint l'Avenir d'Adakpamé</div>
 
   <div id="camera">
@@ -188,21 +156,7 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
         <img class="e" id="e05" src="ecrans/05-invitation.jpg">
         <img class="e" id="e05b" src="ecrans/05b-invitation-acceptee.jpg">
         <img class="e" id="e06a" src="ecrans/06a-fiche-avant.jpg">
-        <img class="e" id="e07a" src="ecrans/07a-fusion.jpg">
-        <img class="e" id="e07b" src="ecrans/07b-fusion-confirmer.jpg">
         <img class="e" id="e08" src="ecrans/08-fiche-apres.jpg">
-        <img class="e" id="e09" src="ecrans/09-fiche-avant.jpg">
-        <img class="e" id="e09b" src="ecrans/09b-fiche-suivie.jpg">
-        <div id="verrou">
-          <div class="lignes"></div>
-          <div class="barre"><div class="reseau"><i style="height:9px"></i><i style="height:14px"></i><i style="height:19px"></i><i style="height:25px"></i></div><div class="pile"><i></i></div></div>
-          <!-- Le jour du tournage : le match filmé se joue ce jour-là (outils/roster.mjs). -->
-          <div class="date">mercredi 4 novembre</div>
-          <div class="heure" id="heure">15:59</div>
-          <div id="notifs"></div>
-          <div class="noir-ecran"></div>
-        </div>
-        <img class="e" id="e10" src="ecrans/10-fiche-finale.jpg">
         <img class="e" id="e11" src="ecrans/11-classement-apres.jpg">
         <img class="e" id="e12" src="ecrans/12-direct-joueur-semaine.jpg">
         <div class="frappe" id="f-prenom"><span></span><span class="curseur"></span></div>
@@ -235,12 +189,12 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
 <script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
 <script>
 // ============================================================
-// La ligne de temps. Les temps sont en secondes, la vidéo en dure 56.
+// La ligne de temps. Les temps sont en secondes, la vidéo en dure 50.
 // ============================================================
-const DUREE = 56;
+const DUREE = 50;
 const ECHELLE = 800 / 390;            // pixels vidéo par pixel CSS du téléphone filmé
 const C = window.CIBLES || {};
-const etat = { heure: "15:59", prenom: 0, nom: 0 };
+const etat = { prenom: 0, nom: 0 };
 const PRENOM = "Ekoué", NOM = "Bawa";
 const T = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
 const $ = (s) => document.querySelector(s);
@@ -385,22 +339,15 @@ son("succes", 24.3);
 T.fromTo("#rejoint", { opacity: 0, y: 20, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(2)", immediateRender: false }, 24.3)
  .to("#rejoint", { opacity: 0, duration: 0.3 }, 26.6);
 
-// ── 27 → 34 s : étape 3, le manager rend les buts ───────────
+// ── 27 → 34 s : étape 3, ses buts arrivent sur sa fiche ─────
 ecran("06a", 26.9, 0.3);
 titre("#t3", 26.9, 33.75);
-cadre(boite("06a-compteurs", { x: 14, y: 232, w: 362, h: 74 }), 27.4, 28.35, false, 6);
-// Chez Edem : la fusion.
-T.fromTo("#qui", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, immediateRender: false }, 28.4)
- .to("#qui", { opacity: 0, duration: 0.3 }, 31.0);
-ecran("07a", 28.5, 0.35);
-toucher("07a-fusion", 29.4);
-ecran("07b", 29.85, 0.3);
-toucher("07b-fusion-confirmer", 30.6);
-// Chez Ekoué : sa fiche, ses buts.
-ecran("08", 31.1, 0.35);
+cadre(boite("06a-compteurs", { x: 14, y: 232, w: 362, h: 74 }), 27.5, 28.85, false, 6);
+ecran("08", 29.0, 0.35);
+son("glisse", 29.0);
 {
   const b = boite("08-compteurs", { x: 14, y: 360, w: 362, h: 74 });
-  cadre(b, 31.5, 33.7, true, 6);
+  cadre(b, 29.4, 33.7, true, 6);
   const libelles = ["+1 match", "+2 buts", "+1 passe"];
   libelles.forEach((txt, i) => {
     const el = document.createElement("div");
@@ -410,96 +357,47 @@ ecran("08", 31.1, 0.35);
     $("#ecran").appendChild(el);
     const x = b.x + (i + 0.5) * b.w / 3;
     T.fromTo(el, { opacity: 0, x: x, xPercent: -50, y: b.y + 10, scale: 0.6 },
-      { opacity: 1, y: b.y - 70, scale: 1, duration: 0.5, ease: "back.out(2)", immediateRender: false }, 31.7 + i * 0.28)
-     .to(el, { opacity: 0, y: b.y - 110, duration: 0.35, ease: "power2.in" }, 33.3);
-    son("compteur", 31.75 + i * 0.28);
+      { opacity: 1, y: b.y - 70, scale: 1, duration: 0.5, ease: "back.out(2)", immediateRender: false }, 29.7 + i * 0.3)
+     .to(el, { opacity: 0, y: b.y - 110, duration: 0.35, ease: "power2.in" }, 33.2);
+    son("compteur", 29.75 + i * 0.3);
   });
 }
 
-// ── 34 → 42 s : son match, en direct ────────────────────────
-ecran("09", 33.85, 0.3);
-titre("#t4", 33.9, 41.75);
-toucher("09-fiche-avant", 34.9);
-ecran("09b", 35.25, 0.2);
-T.set("#verrou", { opacity: 1, yPercent: 0 }, 36.0)
- .fromTo("#verrou .noir-ecran", { opacity: 1 }, { opacity: 0, duration: 0.35, ease: "power1.out", immediateRender: false }, 36.1);
-const NOTIFS = [
-  // Mot pour mot ce qu'envoie la console (LiveMatchConsole) aux abonnés du match.
-  { heure: "16:01", t: 36.6, titre: "🔴 C'est parti !", texte: "Avenir d'Adakpamé – Olympique de Tokoin, coup d'envoi !" },
-  { heure: "16:18", t: 37.6, titre: "⚽ BUT ! Ekoué Bawa (18')", texte: "Avenir d'Adakpamé 1 – 0 Olympique de Tokoin", but: true },
-  { heure: "17:07", t: 38.6, titre: "⚽ BUT ! Kafui Mensah (52')", texte: "Avenir d'Adakpamé 2 – 0 Olympique de Tokoin", but: true },
-  { heure: "17:36", t: 39.6, titre: "⚽ BUT ! Ekoué Bawa (81')", texte: "Avenir d'Adakpamé 3 – 0 Olympique de Tokoin", but: true },
-  { heure: "17:51", t: 40.5, titre: "🏁 Score final", texte: "Avenir d'Adakpamé 3 – 0 Olympique de Tokoin" },
-];
-const HAUT = 410, PAS = 216, VISIBLES = 4;
-const cartes = NOTIFS.map((n) => {
-  const el = document.createElement("div");
-  el.className = "notif";
-  el.innerHTML = `<div class="halo"></div><div class="ico"><img src="images/symbole.png" alt=""></div>
-    <div class="txt"><div class="app">KoppaFoot<span>maintenant</span></div><b></b><p></p></div>`;
-  el.querySelector("b").textContent = n.titre;
-  el.querySelector("p").textContent = n.texte;
-  $("#notifs").appendChild(el);
-  return el;
-});
-NOTIFS.forEach((n, k) => {
-  T.set(etat, { heure: n.heure }, n.t - 0.05);
-  T.fromTo(cartes[k], { opacity: 0, y: HAUT - 70, scale: 0.92 },
-    { opacity: 1, y: HAUT, scale: 1, duration: 0.45, ease: "back.out(1.6)", immediateRender: false }, n.t);
-  for (let j = 0; j < k; j++) {
-    const rang = k - j;
-    T.to(cartes[j], rang < VISIBLES ? { y: HAUT + rang * PAS, duration: 0.4, ease: "power3.out" }
-                                    : { y: HAUT + rang * PAS, opacity: 0, duration: 0.35 }, n.t);
-  }
-  son("notif", n.t);
-  if (n.but) {
-    son("vibre", n.t + 0.05);
-    T.fromTo("#telephone", { x: 0 }, { x: 9, duration: 0.05, repeat: 7, yoyo: true, ease: "none", immediateRender: false }, n.t + 0.05)
-     .set("#telephone", { x: 0 }, n.t + 0.5)
-     .fromTo(cartes[k].querySelector(".halo"), { opacity: 1, scale: 1 }, { opacity: 0, scale: 1.06, duration: 1.0, ease: "power2.out", immediateRender: false }, n.t + 0.15);
-  }
-});
-// On touche la notification : la fiche du match terminé est dessous.
-toucherEn(400, HAUT + 100, 41.05);
-ecran("10", 41.35, 0.01);
-T.to("#verrou", { yPercent: -100, duration: 0.4, ease: "power3.in" }, 41.4);
-son("glisse", 41.4);
-
-// ── 42 → 48 s : le classement, avec son visage ──────────────
-ecran("11", 41.95, 0.3);
-titre("#t5", 41.95, 47.75);
+// ── 34 → 41 s : le classement, avec son visage ──────────────
+ecran("11", 33.85, 0.3);
+titre("#t5", 33.9, 40.75);
 {
   const b = boite("11-classement-apres", { x: 16, y: 155, w: 228, h: 38 });
-  cadre(b, 42.6, 47.6, true, 6);
+  cadre(b, 34.5, 40.6, true, 6);
+  son("succes", 34.6);
   // Sa ligne mène à sa fiche ; la caméra s'en approche.
-  toucherEn(b.x + 120 * ECHELLE, b.y + b.h / 2, 44.0);
-  zoom(b.y + b.h / 2, 44.5, 47.0, 1.15);
+  toucherEn(b.x + 120 * ECHELLE, b.y + b.h / 2, 36.3);
+  zoom(b.y + b.h / 2, 36.8, 40.0, 1.15);
 }
 
-// ── 48 → 52 s : le joueur de la semaine ─────────────────────
-ecran("12", 47.85, 0.3);
-titre("#t6", 47.9, 51.85);
-toucher("12-direct-partager", 49.3);
+// ── 41 → 46 s : le joueur de la semaine ─────────────────────
+ecran("12", 40.85, 0.3);
+titre("#t6", 40.9, 45.85);
+toucher("12-direct-partager", 42.3);
 T.fromTo("#affiche", { opacity: 0, scale: 0.55, rotation: -10, y: 260 },
-  { opacity: 1, scale: 1, rotation: -3, y: 0, duration: 0.6, ease: "back.out(1.5)", immediateRender: false }, 49.7)
- .to("#telephone", { scale: 0.94, opacity: 0.55, duration: 0.5 }, 49.7)
- .to("#affiche", { scale: 1.03, duration: 1.6, ease: "sine.inOut" }, 50.3);
-son("declic", 49.72);
+  { opacity: 1, scale: 1, rotation: -3, y: 0, duration: 0.6, ease: "back.out(1.5)", immediateRender: false }, 42.7)
+ .to("#telephone", { scale: 0.94, opacity: 0.55, duration: 0.5 }, 42.7)
+ .to("#affiche", { scale: 1.03, duration: 2.4, ease: "sine.inOut" }, 43.3);
+son("declic", 42.72);
 
-// ── 52 → 56 s : la fin ──────────────────────────────────────
-T.to("#affiche", { opacity: 0, y: -120, duration: 0.45, ease: "power2.in" }, 51.9)
- .to("#telephone", { y: 1500, duration: 0.5, ease: "power3.in" }, 51.9)
- .to("#fin", { opacity: 1, duration: 0.35 }, 52.15)
- .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 52.25)
- .to("#fin-texte .l span", { y: "0%", duration: 0.65, stagger: 0.14 }, 52.7)
- .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 53.6)
- .to("#fin-appel .bouton", { scale: 1.05, duration: 0.5, repeat: 3, yoyo: true, ease: "sine.inOut" }, 54.3)
+// ── 46 → 50 s : la fin ──────────────────────────────────────
+T.to("#affiche", { opacity: 0, y: -120, duration: 0.45, ease: "power2.in" }, 45.9)
+ .to("#telephone", { y: 1500, duration: 0.5, ease: "power3.in" }, 45.9)
+ .to("#fin", { opacity: 1, duration: 0.35 }, 46.15)
+ .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 46.25)
+ .to("#fin-texte .l span", { y: "0%", duration: 0.65, stagger: 0.14 }, 46.7)
+ .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 47.6)
+ .to("#fin-appel .bouton", { scale: 1.05, duration: 0.5, repeat: 2, yoyo: true, ease: "sine.inOut" }, 48.2)
  .set({}, {}, DUREE);
-son("notif", 52.3);
+son("notif", 46.3);
 
 // ── Ce que les interpolations ne savent pas écrire ──────────
 function rendre() {
-  $("#heure").textContent = etat.heure;
   $("#f-prenom span").textContent = PRENOM.slice(0, Math.round(etat.prenom));
   $("#f-nom span").textContent = NOM.slice(0, Math.round(etat.nom));
   return null;

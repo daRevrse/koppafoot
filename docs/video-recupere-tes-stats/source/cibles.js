@@ -54,29 +54,11 @@ window.CIBLES = {
     "w": 157,
     "h": 39
   },
-  "07a-fusion": {
-    "x": 29,
-    "y": 468,
-    "w": 332,
-    "h": 37
-  },
-  "07b-fusion-confirmer": {
-    "x": 25,
-    "y": 769,
-    "w": 127,
-    "h": 51
-  },
   "08-compteurs": {
     "x": 13,
     "y": 463,
     "w": 364,
     "h": 93
-  },
-  "09-fiche-avant": {
-    "x": 342,
-    "y": 22,
-    "w": 32,
-    "h": 32
   },
   "11-classement-apres": {
     "x": 25,
@@ -86,12 +68,6 @@ window.CIBLES = {
   },
   "12-direct-partager": {
     "x": 256,
-    "y": 406,
-    "w": 105,
-    "h": 40
-  },
-  "12-direct-suivre": {
-    "x": 142,
     "y": 406,
     "w": 105,
     "h": 40
