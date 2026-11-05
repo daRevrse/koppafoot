@@ -1,10 +1,10 @@
 # Vidéo joueur : « Tes buts t'attendent »
 
-Une vidéo de 50 secondes, verticale (1080 × 1920, 9:16), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier qui joue déjà dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part. Elle l'invite à créer son compte, à récupérer ses stats et à vivre l'expérience KoppaFoot, **tout de son point de vue** : on ne voit que ce qu'Ekoué voit sur son téléphone.
+Une vidéo de 58 secondes, verticale (1080 × 1920, 9:16), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier qui joue déjà dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part. Elle l'invite à créer son compte, à récupérer ses stats et à vivre l'expérience KoppaFoot, **tout de son point de vue** : on ne voit que ce qu'Ekoué voit sur son téléphone.
 
-**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 9,6 Mo ; bruitages en AAC à -14 LUFS, ni musique ni voix)
+**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 11,3 Mo ; bruitages en AAC à -14 LUFS, ni musique ni voix)
 
-Le scénario, validé le 2026-11-04 puis resserré le 2026-11-05 sur le point de vue du joueur, est dans [scenario.md](scenario.md).
+Le scénario, validé le 2026-11-04 puis revu le 2026-11-05 (le point de vue du joueur, sa vie d'équipe), est dans [scenario.md](scenario.md).
 
 | Temps | Scène |
 |---|---|
@@ -14,9 +14,10 @@ Le scénario, validé le 2026-11-04 puis resserré le 2026-11-05 sur le point de
 | 11 – 20 s | 1. Crée ton compte : le prénom et le nom tapés lettre par lettre, « Créer mon compte » |
 | 20 – 27 s | 2. Rejoins ton équipe : la notification, l'invitation d'Edem, « Accepter » |
 | 27 – 34 s | 3. Tes buts te suivent : sa fiche vide, puis avec 1 match, 2 buts, 1 passe |
-| 34 – 41 s | Grimpe au classement : le même classement, avec sa photo, et sa ligne mène à sa fiche |
-| 41 – 46 s | Le joueur de la semaine : la diapositive du Direct, « Partager », l'affiche prête pour un statut |
-| 46 – 50 s | Fin : logo, « Tu joues déjà. Tes buts t'attendent. », « Crée ton compte », koppafoot.com |
+| 34 – 42 s | Ton équipe compte sur toi : ses notifications, sa convocation pour dimanche (« Accepter »), la séance de samedi (« Présent », 1/7 confirmés) |
+| 42 – 49 s | Grimpe au classement : le même classement, avec sa photo, et sa ligne mène à sa fiche |
+| 49 – 54 s | Le joueur de la semaine : la diapositive du Direct (sa photo, 2 buts, 1 passe, note 9,2, homme du match), « Partager », l'affiche prête pour un statut |
+| 54 – 58 s | Fin : logo, « Tu joues déjà. Tes buts t'attendent. », « Crée ton compte », koppafoot.com |
 
 ## Ce que la vidéo dit, et pourquoi
 
@@ -31,7 +32,7 @@ Le scénario, validé le 2026-11-04 puis resserré le 2026-11-05 sur le point de
 
 Les écrans du téléphone sont de **vraies captures** de l'application (le site, au format téléphone), jouée de bout en bout sur les **émulateurs Firebase** avec des comptes fictifs. Ce sont les clubs et les joueurs de la [vidéo manager](../video-manager/) : l'Avenir d'Adakpamé contre l'Olympique de Tokoin.
 
-Les photos de profil d'Ekoué et de Kafui sont des **illustrations** dessinées par `gen-assets.mjs`, pas des photos : personne de réel n'y figure. La console live, l'invitation, la fusion et la publication du joueur de la semaine se jouent en coulisses. Aucune donnée de production n'a été lue ni écrite.
+Les photos de profil d'Ekoué et de Kafui sont des **illustrations** dessinées par `gen-assets.mjs`, pas des photos : personne de réel n'y figure. La console live, l'invitation, la fusion, la convocation et la séance (programmées par Edem dans l'interface, avec leurs vraies notifications) et la publication du joueur de la semaine se jouent en coulisses. Aucune donnée de production n'a été lue ni écrite.
 
 Les éléments dessinés dans l'animation sont la frappe au clavier, les touchers, les titres et la fin.
 
@@ -46,9 +47,9 @@ source/
   cibles.js                          où se trouvaient les boutons touchés (généré)
   images/, fonts/                    logo, écussons fictifs, Outfit et DM Sans
 outils/
-  j0-decor.mjs … j4-apres.mjs        le tournage, scène par scène (Playwright, format téléphone)
+  j0-decor.mjs … j5-apres.mjs        le tournage, scène par scène (Playwright, format téléphone)
   decor.mjs, classement.mjs          les gestes communs : défi, feuilles, console ; le classement
-  run-captures.sh                    enchaîne j0 → j4 sur des émulateurs vierges
+  run-captures.sh                    enchaîne j0 → j5 sur des émulateurs vierges
   preparer-ecrans.py                 captures-brutes → source/ecrans + source/cibles.js
   rendu.mjs                          source/animation.html → MP4 (ou quelques images d'aperçu)
   mixage.mjs                         les bruitages, synthétisés, à -14 LUFS (gain mesuré, puis limiteur à -1,5 dB)
@@ -70,7 +71,7 @@ outils/
 cd docs/video-recupere-tes-stats/outils
 npm install                                  # playwright, gsap, firebase-tools
 pip install pillow imageio-ffmpeg            # ffmpeg avec x264, sans installation système
-node rendu.mjs --apercu 2,7,30,37,43         # quelques images → apercu/
+node rendu.mjs --apercu 2,7,31,37,45,51        # quelques images → apercu/
 node rendu.mjs                               # → ../Tes-buts-t-attendent-KoppaFoot.mp4 (environ 3 min)
 ```
 
@@ -100,7 +101,8 @@ Bon à savoir :
 
 - **Les dates se calculent depuis le jour du tournage** (`roster.mjs`) :
   - le match tombe le dimanche de la semaine passée ;
-  - le joueur de la semaine est celui de cette semaine-là, que la page admin propose d'elle-même.
+  - l'amical de la convocation, le dimanche qui vient, et la séance la veille ;
+  - le joueur de la semaine est celui de la semaine du match, que la page admin propose d'elle-même.
 - **Le formulaire de défi refuse une date passée.** Le défi naît donc à la date du jour, puis il est rangé au dimanche dernier, en coulisses.
 - **La console a changé depuis les vidéos précédentes** (`decor.mjs`) :
   - le coup d'envoi se donne par « Donner le ballon à … » ;

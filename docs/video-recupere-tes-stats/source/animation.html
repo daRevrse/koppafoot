@@ -5,7 +5,7 @@
 <title>KoppaFoot · Tes buts t'attendent</title>
 <!--
   Vidéo joueur : « Tes buts t'attendent ».
-  1080 × 1920, 50 s, pour les statuts WhatsApp, TikTok, Reels et Shorts.
+  1080 × 1920, 58 s, pour les statuts WhatsApp, TikTok, Reels et Shorts.
   Tout du point de vue du joueur : ce qu'Ekoué voit sur son téléphone.
 
   Une page, une ligne de temps GSAP en pause : outils/rendu.mjs l'avance image
@@ -84,10 +84,10 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
 .plus { position: absolute; z-index: 80; padding: 10px 22px 8px; border-radius: 999px; background: var(--vert); color: var(--nuit);
   font-family: "Outfit"; font-weight: 900; font-size: 40px; opacity: 0; white-space: nowrap; box-shadow: 0 10px 26px rgba(0, 0, 0, .25); }
 
-#rejoint { position: absolute; left: 50%; top: 548px; margin-left: -390px; width: 780px; justify-content: center; z-index: 5; opacity: 0;
+#rejoint, #accepte { position: absolute; left: 50%; top: 548px; margin-left: -390px; width: 780px; justify-content: center; z-index: 5; opacity: 0;
   display: flex; align-items: center; gap: 14px; padding: 12px 28px 12px 14px; border-radius: 999px;
   background: var(--vert); color: var(--nuit); font-size: 32px; font-weight: 800; white-space: nowrap; }
-#rejoint .av { width: 48px; height: 48px; border-radius: 50%; background: var(--nuit); color: var(--vert); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 26px; }
+#rejoint .av, #accepte .av { width: 48px; height: 48px; border-radius: 50%; background: var(--nuit); color: var(--vert); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 26px; }
 
 /* Un toucher */
 .toucher { position: absolute; width: 0; height: 0; z-index: 200; }
@@ -137,10 +137,12 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
   <div class="titre" id="t1"><div class="puce etape">Étape 1</div><div class="ligne"><span>Crée ton</span></div><div class="ligne"><span class="vert">compte</span></div><div class="sous">Gratuit. Une minute.</div></div>
   <div class="titre" id="t2"><div class="puce etape">Étape 2</div><div class="ligne"><span>Rejoins ton</span></div><div class="ligne"><span class="vert">équipe</span></div><div class="sous">Ton manager t'invite, tu acceptes.</div></div>
   <div class="titre" id="t3"><div class="puce etape">Étape 3</div><div class="ligne"><span>Tes buts</span></div><div class="ligne"><span class="vert">te suivent</span></div><div class="sous">Ton manager confirme que c'est toi :<br>tes matchs passés arrivent sur ta fiche.</div></div>
+  <div class="titre" id="t7"><div class="puce">Ton équipe</div><div class="ligne"><span>Elle compte</span></div><div class="ligne"><span class="vert">sur toi</span></div><div class="sous">Convocations, entraînements :<br>tu réponds en un geste.</div></div>
   <div class="titre" id="t5"><div class="puce">Ta place</div><div class="ligne"><span>Grimpe au</span></div><div class="ligne"><span class="vert">classement</span></div><div class="sous">Ta photo, ta fiche, tes buts.</div></div>
   <div class="titre petit" id="t6"><div class="puce">Et peut-être…</div><div class="ligne"><span>Le joueur</span></div><div class="ligne"><span class="vert">de la semaine</span></div><div class="sous">Sur le Direct, toute la semaine.</div></div>
 
   <div id="rejoint" class="legende"><div class="av">✓</div>Ekoué a rejoint l'Avenir d'Adakpamé</div>
+  <div id="accepte" class="legende"><div class="av">✓</div>Convocation acceptée pour dimanche</div>
 
   <div id="camera">
     <div id="telephone">
@@ -157,6 +159,11 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
         <img class="e" id="e05b" src="ecrans/05b-invitation-acceptee.jpg">
         <img class="e" id="e06a" src="ecrans/06a-fiche-avant.jpg">
         <img class="e" id="e08" src="ecrans/08-fiche-apres.jpg">
+        <img class="e" id="e15" src="ecrans/15-notifications.jpg">
+        <img class="e" id="e16" src="ecrans/16-convocations.jpg">
+        <img class="e" id="e16b" src="ecrans/16b-convocation-acceptee.jpg">
+        <img class="e" id="e17" src="ecrans/17-entrainement.jpg">
+        <img class="e" id="e17b" src="ecrans/17b-entrainement-present.jpg">
         <img class="e" id="e11" src="ecrans/11-classement-apres.jpg">
         <img class="e" id="e12" src="ecrans/12-direct-joueur-semaine.jpg">
         <div class="frappe" id="f-prenom"><span></span><span class="curseur"></span></div>
@@ -189,9 +196,9 @@ body { font-family: "DM Sans", var(--emoji), sans-serif; color: #fff; -webkit-fo
 <script src="../outils/node_modules/gsap/dist/gsap.min.js"></script>
 <script>
 // ============================================================
-// La ligne de temps. Les temps sont en secondes, la vidéo en dure 50.
+// La ligne de temps. Les temps sont en secondes, la vidéo en dure 58.
 // ============================================================
-const DUREE = 50;
+const DUREE = 58;
 const ECHELLE = 800 / 390;            // pixels vidéo par pixel CSS du téléphone filmé
 const C = window.CIBLES || {};
 const etat = { prenom: 0, nom: 0 };
@@ -363,38 +370,62 @@ son("glisse", 29.0);
   });
 }
 
-// ── 34 → 41 s : le classement, avec son visage ──────────────
-ecran("11", 33.85, 0.3);
-titre("#t5", 33.9, 40.75);
+// ── 34 → 42 s : la vie de son équipe ───────────────────────
+ecran("15", 33.85, 0.3);
+son("notif", 34.0);
+titre("#t7", 33.9, 41.75);
+{
+  const b = boite("15-notifications", { x: 40, y: 150, w: 160, h: 18 });
+  // Toute la carte de la notification, pas seulement son titre.
+  cadre({ x: 14 * ECHELLE, y: b.y - 12 * ECHELLE, w: 362 * ECHELLE, h: 62 * ECHELLE }, 34.4, 35.6, false, 4);
+}
+ecran("16", 35.75, 0.3);
+toucher("16-convocations", 36.85);
+ecran("16b", 37.3, 0.3);
+son("succes", 37.4);
+T.fromTo("#accepte", { opacity: 0, y: 20, scale: 0.9 }, { opacity: 1, y: 0, scale: 1, duration: 0.45, ease: "back.out(2)", immediateRender: false }, 37.4)
+ .to("#accepte", { opacity: 0, duration: 0.3 }, 38.3);
+ecran("17", 38.35, 0.3);
+{
+  const b = boite("17-seance", { x: 40, y: 380, w: 200, h: 20 });
+  cadre({ x: 14 * ECHELLE, y: b.y - 14 * ECHELLE, w: 362 * ECHELLE, h: 120 * ECHELLE }, 38.8, 41.6, true, 4);
+}
+toucher("17-entrainement", 39.85);
+ecran("17b", 40.3, 0.3);
+son("succes", 40.4);
+
+// ── 42 → 49 s : le classement, avec son visage ──────────────
+ecran("11", 41.85, 0.3);
+titre("#t5", 41.9, 48.75);
 {
   const b = boite("11-classement-apres", { x: 16, y: 155, w: 228, h: 38 });
-  cadre(b, 34.5, 40.6, true, 6);
-  son("succes", 34.6);
+  cadre(b, 42.5, 48.6, true, 6);
+  son("succes", 42.6);
   // Sa ligne mène à sa fiche ; la caméra s'en approche.
-  toucherEn(b.x + 120 * ECHELLE, b.y + b.h / 2, 36.3);
-  zoom(b.y + b.h / 2, 36.8, 40.0, 1.15);
+  toucherEn(b.x + 120 * ECHELLE, b.y + b.h / 2, 44.3);
+  zoom(b.y + b.h / 2, 44.8, 48, 1.15);
 }
 
-// ── 41 → 46 s : le joueur de la semaine ─────────────────────
-ecran("12", 40.85, 0.3);
-titre("#t6", 40.9, 45.85);
-toucher("12-direct-partager", 42.3);
+// ── 49 → 54 s : le joueur de la semaine ─────────────────────
+ecran("12", 48.85, 0.3);
+titre("#t6", 48.9, 53.85);
+toucher("12-direct-partager", 50.3);
 T.fromTo("#affiche", { opacity: 0, scale: 0.55, rotation: -10, y: 260 },
-  { opacity: 1, scale: 1, rotation: -3, y: 0, duration: 0.6, ease: "back.out(1.5)", immediateRender: false }, 42.7)
- .to("#telephone", { scale: 0.94, opacity: 0.55, duration: 0.5 }, 42.7)
- .to("#affiche", { scale: 1.03, duration: 2.4, ease: "sine.inOut" }, 43.3);
-son("declic", 42.72);
+  { opacity: 1, scale: 1, rotation: -3, y: 0, duration: 0.6, ease: "back.out(1.5)", immediateRender: false }, 50.7)
+ .to("#telephone", { scale: 0.94, opacity: 0.55, duration: 0.5 }, 50.7)
+ .to("#affiche", { scale: 1.03, duration: 2.4, ease: "sine.inOut" }, 51.3);
+son("declic", 50.72);
 
-// ── 46 → 50 s : la fin ──────────────────────────────────────
-T.to("#affiche", { opacity: 0, y: -120, duration: 0.45, ease: "power2.in" }, 45.9)
- .to("#telephone", { y: 1500, duration: 0.5, ease: "power3.in" }, 45.9)
- .to("#fin", { opacity: 1, duration: 0.35 }, 46.15)
- .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 46.25)
- .to("#fin-texte .l span", { y: "0%", duration: 0.65, stagger: 0.14 }, 46.7)
- .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 47.6)
- .to("#fin-appel .bouton", { scale: 1.05, duration: 0.5, repeat: 2, yoyo: true, ease: "sine.inOut" }, 48.2)
+// ── 54 → 58 s : la fin ──────────────────────────────────────
+T.to("#affiche", { opacity: 0, y: -120, duration: 0.45, ease: "power2.in" }, 53.9)
+ .to("#telephone", { y: 1500, duration: 0.5, ease: "power3.in" }, 53.9)
+ .to("#fin", { opacity: 1, duration: 0.35 }, 54.15)
+ .to("#fin-logo", { opacity: 1, scale: 1, duration: 0.7, ease: "back.out(1.6)" }, 54.25)
+ .to("#fin-texte .l span", { y: "0%", duration: 0.65, stagger: 0.14 }, 54.7)
+ .to("#fin-appel", { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(2)" }, 55.6)
+ .to("#fin-appel .bouton", { scale: 1.05, duration: 0.5, repeat: 2, yoyo: true, ease: "sine.inOut" }, 56.2)
  .set({}, {}, DUREE);
-son("notif", 46.3);
+son("notif", 54.3);
 
 // ── Ce que les interpolations ne savent pas écrire ──────────
 function rendre() {

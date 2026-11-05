@@ -49,6 +49,20 @@ export const LUNDI = enJour(lundi);
 /** Le dimanche qui précède : le jour du premier match, celui d'avant le compte. */
 export const DIMANCHE_DERNIER = enJour(lundi - JOUR_MS);
 
+/** Le dimanche qui vient : l'amical où Ekoué est convoqué. */
+const aujourdhui = Date.parse(`${AUJOURDHUI}T12:00:00Z`);
+const auDimanche = (7 - new Date(aujourdhui).getUTCDay()) % 7 || 7;
+export const PROCHAIN_DIMANCHE = enJour(aujourdhui + auDimanche * JOUR_MS);
+/** La veille : la séance d'entraînement (jamais avant aujourd'hui). */
+export const ENTRAINEMENT = {
+  titre: "Mise en place avant dimanche",
+  date: enJour(Math.max(aujourdhui, aujourdhui + (auDimanche - 1) * JOUR_MS)),
+  heure: "16:00",
+  lieu: "Terrain d'Adakpamé",
+};
+/** L'amical du dimanche qui vient, contre une équipe hors plateforme. */
+export const AMICAL = { adversaire: "Étoile de Hédzranawoé", date: PROCHAIN_DIMANCHE, time: "09:00", lieu: "Terrain d'Adakpamé", ville: "Lomé" };
+
 /** Le premier match : joué en coulisses, il porte déjà les buts d'Ekoué. */
 export const MATCH1 = { date: DIMANCHE_DERNIER, time: "09:00", lieu: "Terrain d'Adakpamé", ville: "Lomé" };
 /** Le second, suivi en direct : il se joue le jour du tournage. */

@@ -60,6 +60,30 @@ window.CIBLES = {
     "w": 364,
     "h": 93
   },
+  "15-notifications": {
+    "x": 77,
+    "y": 423,
+    "w": 167,
+    "h": 20
+  },
+  "16-convocations": {
+    "x": 29,
+    "y": 307,
+    "w": 113,
+    "h": 38
+  },
+  "17-entrainement": {
+    "x": 29,
+    "y": 420,
+    "w": 79,
+    "h": 28
+  },
+  "17-seance": {
+    "x": 29,
+    "y": 335,
+    "w": 332,
+    "h": 24
+  },
   "11-classement-apres": {
     "x": 25,
     "y": 232,
@@ -68,7 +92,7 @@ window.CIBLES = {
   },
   "12-direct-partager": {
     "x": 256,
-    "y": 406,
+    "y": 430,
     "w": 105,
     "h": 40
   }

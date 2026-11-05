@@ -1,4 +1,4 @@
-// Scène 4 : ce que son compte change, sur le téléphone d'Ekoué.
+// Scène 5 : ce que son compte change, sur le téléphone d'Ekoué.
 //  - le classement des joueurs : sa ligne, avec sa photo, mène à sa fiche ;
 //  - en coulisses : l'administration publie le joueur de la semaine, celle de
 //    son doublé (page admin, ordinateur) ;
@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { open, go, settle, shot, cible, loadState, loginUI, OUT, BASE, PHONE, BUREAU } from "./lib.mjs";
-import { ensureAdmin } from "./admin.mjs";
+import { ensureAdmin, db } from "./admin.mjs";
 import { classement, ligne } from "./classement.mjs";
 import { EKOUE } from "./roster.mjs";
 const { ekoue: uid } = loadState();
@@ -50,12 +50,12 @@ await k.page.evaluate(() => document.querySelectorAll("nextjs-portal").forEach((
 await cible(k.page, "12-direct-partager", k.page.getByRole("button", { name: "Partager" }).first());
 await shot(k.page, "12-direct-joueur-semaine");
 
-// L'affiche que « Partager » envoie.
-const adresse = await k.page.evaluate(() => [...document.images].map((i) => i.getAttribute("src")).find((s) => s?.includes("/api/joueur-semaine/")));
-const verticale = new URL(adresse, BASE);
-verticale.searchParams.set("format", "vertical");
-verticale.searchParams.delete("taille");
+// L'affiche que « Partager » envoie : la diapositive ne la montre pas, on la
+// demande à la route publique, à la version de la publication.
+const [publication] = (await db.collection("joueurs_semaine").orderBy("lundi", "desc").limit(1).get()).docs;
+const verticale = `${BASE}/api/joueur-semaine/${publication.id}/affiche?format=vertical&v=${publication.data().version}`;
 const r = await fetch(verticale);
+if (!r.ok) throw new Error(`affiche introuvable : ${r.status}`);
 fs.writeFileSync(path.join(OUT, "13-affiche.jpg"), Buffer.from(await r.arrayBuffer()));
 console.log("📸 13-affiche", r.status);
 
