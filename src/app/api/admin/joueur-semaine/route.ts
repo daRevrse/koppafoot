@@ -3,6 +3,7 @@ import { exigerSuperadmin } from "@/lib/admin-api-auth";
 import { jourDeLome } from "@/lib/jour";
 import { semaineDu, semainePrecedente } from "@/lib/joueur-semaine";
 import { imagesDesCandidats, lireLaSemaine, partenairesDuJour } from "@/lib/joueur-semaine-admin";
+import { lireElection } from "@/lib/joueur-semaine-publie-serveur";
 
 /**
  * GET /api/admin/joueur-semaine, le classement d'une semaine pour choisir le
@@ -11,6 +12,9 @@ import { imagesDesCandidats, lireLaSemaine, partenairesDuJour } from "@/lib/joue
  *   ?lundi=AAAA-MM-JJ   n'importe quel jour de la semaine voulue ; absent : la
  *                       dernière semaine terminée
  *   ?ecartees=cid,cid   les compétitions écartées cette semaine
+ *
+ * `election` : le joueur déjà publié dans l'appli pour cette semaine, ou null
+ * (voir lib/joueur-semaine-publie).
  *
  * Chaque candidat porte l'état de son image (voir lib/consentement-image),
  * jamais l'adresse de sa photo : la page n'en a pas besoin, l'aperçu passe
@@ -31,13 +35,15 @@ export async function GET(req: NextRequest) {
   const ecartees = (p.get("ecartees") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 
   try {
-    const [classement, partenaires] = await Promise.all([
+    const [classement, partenaires, election] = await Promise.all([
       lireLaSemaine(lundi, ecartees),
       // Une page sans partenaires vaut mieux qu'une page en erreur.
       partenairesDuJour().catch((err) => {
         console.error("GET /api/admin/joueur-semaine: partenaires", err);
         return [];
       }),
+      // Qui a été publié dans l'appli pour cette semaine, s'il y en a un.
+      lireElection(lundi).catch(() => null),
     ]);
     const images = await imagesDesCandidats(classement.candidats);
     return NextResponse.json({
@@ -58,6 +64,7 @@ export async function GET(req: NextRequest) {
         })),
       },
       partenaires,
+      election,
     });
   } catch (err) {
     console.error("GET /api/admin/joueur-semaine", err);

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { ChevronLeft, ChevronRight, Clapperboard, Download, Eye, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clapperboard, Download, Eye, Loader2, Megaphone, Trash2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   BOUTON_CONTOUR, BOUTON_VERT, Carte, Chargement, EnTete, Erreur, Pastille, Recherche, Titre, Vide, type Ton,
@@ -10,6 +10,8 @@ import {
 import type { EtatConsentement } from "@/lib/consentement-image";
 import type { CompetitionDeLaSemaine, DossardEcarte, Semaine } from "@/lib/joueur-semaine";
 import type { PartenaireDAffiche } from "@/lib/joueur-semaine-admin";
+import type { ElectionDeLaSemaine } from "@/lib/joueur-semaine-publie-serveur";
+import type { JoueurDeLaSemaine } from "@/lib/joueur-semaine-publie";
 import type { CalqueVideo } from "@/lib/og-joueur-semaine";
 import { fabriquerLaVideo, videoPossible } from "@/lib/video-joueur-semaine-client";
 
@@ -18,8 +20,12 @@ import { fabriquerLaVideo, videoPossible } from "@/lib/video-joueur-semaine-clie
 //
 // Classer les joueurs d'une semaine (lundi–dimanche), en choisir un, et
 // fabriquer son affiche (publication et vertical) et sa vidéo pour les
-// réseaux. La page n'enregistre rien. Voir
-// docs/superpowers/specs/2026-10-19-joueur-de-la-semaine-design.md.
+// réseaux. Voir docs/superpowers/specs/2026-10-19-joueur-de-la-semaine-design.md.
+//
+// « PUBLIER DANS L'APPLI » est le seul geste qui enregistre : il fige les deux
+// affiches et montre le joueur sur le Direct, toute la semaine, puis dans
+// l'historique de Top performances (voir lib/joueur-semaine-publie). Le reste
+// de la page ne fait que fabriquer des fichiers à télécharger.
 //
 // LA PHOTO NE SE CHOISIT PAS ICI : elle ne paraît que si son joueur l'a
 // autorisée (lib/consentement-image) ; sinon, l'avatar. La page montre l'état
@@ -46,6 +52,7 @@ interface Reponse {
     candidats: CandidatResume[];
   };
   partenaires: PartenaireDAffiche[];
+  election: ElectionDeLaSemaine | null;
 }
 
 const IMAGE: Record<EtatConsentement, { ton: Ton; texte: string }> = {
@@ -93,7 +100,7 @@ export default function AdminJoueurSemainePage() {
   const [nom, setNom] = useState("");
   const [partenaires, setPartenaires] = useState<string[]>([]);
   const [apercu, setApercu] = useState<string | null>(null);
-  const [enCours, setEnCours] = useState<null | "apercu" | "publication" | "vertical" | "video">(null);
+  const [enCours, setEnCours] = useState<null | "apercu" | "publication" | "vertical" | "video" | "publier" | "retirer">(null);
   const [progres, setProgres] = useState(0);
   const [videoOk, setVideoOk] = useState<boolean | null>(null);
 
@@ -101,11 +108,11 @@ export default function AdminJoueurSemainePage() {
     videoPossible().then(setVideoOk).catch(() => setVideoOk(false));
   }, []);
 
-  const appel = useCallback(async (chemin: string, corps?: unknown): Promise<Response> => {
+  const appel = useCallback(async (chemin: string, corps?: unknown, methode?: "DELETE"): Promise<Response> => {
     if (!firebaseUser) throw new Error("Session expirée");
     const jeton = await firebaseUser.getIdToken();
     const rep = await fetch(chemin, {
-      method: corps ? "POST" : "GET",
+      method: methode ?? (corps ? "POST" : "GET"),
       headers: { Authorization: `Bearer ${jeton}`, ...(corps ? { "Content-Type": "application/json" } : {}) },
       body: corps ? JSON.stringify(corps) : undefined,
     });
@@ -217,6 +224,37 @@ export default function AdminJoueurSemainePage() {
       toast.success("Vidéo prête");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "La vidéo n'a pas pu être fabriquée");
+    } finally {
+      setEnCours(null);
+    }
+  };
+
+  const publier = async () => {
+    const election = donnees?.election;
+    if (election && election.cle !== choisi
+      && !window.confirm(`${election.nom} est déjà publié pour cette semaine. Le remplacer par ${nom} ?`)) return;
+    setEnCours("publier");
+    try {
+      const { joueur } = (await (await appel("/api/admin/joueur-semaine/publier", demande())).json()) as { joueur: JoueurDeLaSemaine };
+      setDonnees((d) => (d ? { ...d, election: { cle: choisi ?? "", nom: joueur.nom, publieLe: joueur.publieLe } } : d));
+      toast.success("Publié : sur le Direct cette semaine, puis dans Top performances");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "La publication a échoué");
+    } finally {
+      setEnCours(null);
+    }
+  };
+
+  const retirer = async () => {
+    const election = donnees?.election;
+    if (!lundi || !election || !window.confirm(`Retirer ${election.nom} de l'appli ? Il disparaît du Direct et de l'historique.`)) return;
+    setEnCours("retirer");
+    try {
+      await appel(`/api/admin/joueur-semaine/publier?lundi=${lundi}`, undefined, "DELETE");
+      setDonnees((d) => (d ? { ...d, election: null } : d));
+      toast.success("Retiré de l'appli");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Le retrait a échoué");
     } finally {
       setEnCours(null);
     }
@@ -401,6 +439,33 @@ export default function AdminJoueurSemainePage() {
                       {enCours === "video" ? <Loader2 size={16} className="animate-spin" /> : <Clapperboard size={16} />}
                       {enCours === "video" ? `Vidéo ${Math.round(progres * 100)} %` : "Vidéo"}
                     </button>
+                  </div>
+                  {/* Le seul geste qui enregistre : le joueur paraît dans l'appli. */}
+                  <div className="space-y-2 border-t border-gray-200/70 pt-4">
+                    <span className="block text-xs font-bold uppercase tracking-wide text-gray-500">Dans l&apos;appli</span>
+                    {donnees.election ? (
+                      <p className="text-sm text-gray-600">
+                        <Pastille ton="vert">Publié</Pastille>{" "}
+                        <strong className="font-semibold text-gray-900">{donnees.election.nom}</strong> est le joueur de cette semaine
+                        sur le Direct et dans Top performances.
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-600">
+                        Personne n&apos;est encore publié pour cette semaine. Publier fige les deux affiches, montre le joueur
+                        en tête du Direct jusqu&apos;à dimanche, puis le range dans l&apos;historique de Top performances.
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" className={BOUTON_VERT} disabled={!!enCours || !nomValide} onClick={() => void publier()}>
+                        {enCours === "publier" ? <Loader2 size={16} className="animate-spin" /> : <Megaphone size={16} />}
+                        {donnees.election ? "Republier dans l'appli" : "Publier dans l'appli"}
+                      </button>
+                      {donnees.election && (
+                        <button type="button" className={BOUTON_CONTOUR} disabled={!!enCours} onClick={() => void retirer()}>
+                          {enCours === "retirer" ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />} Retirer
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {videoOk === false && (
                     <p className="text-xs text-amber-700">

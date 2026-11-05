@@ -163,8 +163,12 @@ export async function imagesDesCandidats(candidats: CandidatDeLaSemaine[]): Prom
  * sur une adresse qui ne répond pas, et ne lit pas le WebP. Une photo qui
  * n'est pas autorisée n'est même pas téléchargée.
  */
-export async function donneesDeLAffiche(demande: DemandeAffiche): Promise<DonneesAffiche | null> {
-  const semaine = await lireLaSemaine(demande.lundi, demande.ecartees);
+export async function donneesDeLAffiche(
+  demande: DemandeAffiche,
+  /** La semaine déjà lue par l'appelant (la publication s'en sert aussi), pour ne pas la relire. */
+  dejaLue?: ClassementDeLaSemaine,
+): Promise<DonneesAffiche | null> {
+  const semaine = dejaLue ?? await lireLaSemaine(demande.lundi, demande.ecartees);
   const c = semaine.candidats.find((x) => x.cle === demande.cle);
   if (!c) return null;
 

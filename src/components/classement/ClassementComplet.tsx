@@ -10,6 +10,8 @@ import {
 } from "@/lib/classement";
 import { useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
+import HistoriqueJoueursDeLaSemaine from "@/components/classement/HistoriqueJoueursDeLaSemaine";
+import type { JoueurDeLaSemaine } from "@/lib/joueur-semaine-publie";
 
 // ============================================
 // Le classement complet : cent joueurs, dix par page.
@@ -119,7 +121,11 @@ const T = textes(
   },
 );
 
-export default function ClassementComplet({ joueurs }: { joueurs: LigneJoueurPubliee[] }) {
+export default function ClassementComplet({ joueurs, joueursDeLaSemaine = [] }: {
+  joueurs: LigneJoueurPubliee[];
+  /** Les élus, la semaine la plus récente d'abord (voir HistoriqueJoueursDeLaSemaine). */
+  joueursDeLaSemaine?: JoueurDeLaSemaine[];
+}) {
   // Tant que personne n'a assez de matchs notés — les premières semaines —, le
   // tri par note serait une page vide : on ouvre alors sur les buts et passes.
   const [tri, setTri] = useState<TriClassement>(() =>
@@ -183,6 +189,8 @@ export default function ClassementComplet({ joueurs }: { joueurs: LigneJoueurPub
           <p>{t.methode3}</p>
         </div>
       )}
+
+      <HistoriqueJoueursDeLaSemaine joueurs={joueursDeLaSemaine} />
 
       <div className="overflow-hidden border border-gray-200/70 bg-white">
         {/* Le tri à gauche, le filtre à droite : deux réglages, deux groupes. */}

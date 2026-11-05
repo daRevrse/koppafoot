@@ -38,6 +38,8 @@ import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import Emplacement from "@/components/partenaires/Emplacement";
 import CarteDefilante from "@/components/direct/CarteDefilante";
 import DiapoTerrain, { useVitrineDesTerrains } from "@/components/direct/DiapoTerrain";
+import DiapoJoueurDeLaSemaine from "@/components/direct/DiapoJoueurDeLaSemaine";
+import type { JoueurDeLaSemaine } from "@/lib/joueur-semaine-publie";
 import { useMedia } from "@/hooks/useMedia";
 import { estAVenir } from "@/lib/chauds";
 
@@ -49,7 +51,8 @@ import { estAVenir } from "@/lib/chauds";
 //      competition and collapsible;
 //   2. a rail beside it carrying the affiche, the featured match with its
 //      pronostic, cycling on its own until someone votes or pages, then the
-//      week's top offensive contributions.
+//      week's top offensive contributions. The week's elected player, when
+//      there is one, opens the affiche (see DiapoJoueurDeLaSemaine).
 //
 // On a phone the affiche comes first, then the board, then the rankings,
 // which is why the board sits between the two rail cards rather than after
@@ -982,12 +985,18 @@ function PickButton({
 }
 
 function Spotlight({
-  entries, ecusson, picks, onPick,
+  entries, ecusson, picks, onPick, joueurDeLaSemaine = null,
 }: {
   entries: Entry[];
   ecusson: Ecusson;
   picks: Record<string, Pick>;
   onPick: (id: string, p: Pick) => void;
+  /**
+   * LE JOUEUR DE LA SEMAINE, EN PREMIÈRE DIAPOSITIVE, toute la semaine de sa
+   * publication (voir lib/joueur-semaine-publie). Il ouvre l'affiche, puis
+   * défile avec les matchs ; un jour sans match, il est seul.
+   */
+  joueurDeLaSemaine?: JoueurDeLaSemaine | null;
 }) {
   const [index, setIndex] = useState(0);
   // Auto-advance stops for good the moment this rail is used, voting on a
@@ -1005,7 +1014,10 @@ function Spotlight({
   const f = useTextes(FOOT);
   const nomCompetition = useNomCompetition();
 
-  const count = entries.length;
+  // Les diapositives : le joueur de la semaine d'abord, s'il y en a un, puis
+  // les matchs. `decalage` traduit un rang de diapositive en rang de match.
+  const decalage = joueurDeLaSemaine ? 1 : 0;
+  const count = entries.length + decalage;
 
   useEffect(() => {
     if (count < 2 || locked) return;
@@ -1014,14 +1026,15 @@ function Spotlight({
   }, [count, locked]);
 
   const safe = count === 0 ? 0 : index % count;
-  const entry = entries[safe];
+  const surLeJoueur = !!joueurDeLaSemaine && safe === 0;
+  const entry = surLeJoueur ? undefined : entries[safe - decalage];
 
   // Les comptes ne sont demandes qu'apres le vote : avant, ils n'ont rien a
   // dire qu'on veuille montrer, et c'est une requete de moins par affiche.
   //
   // Place AVANT la sortie anticipee : un hook appele conditionnellement
   // change l'ordre des hooks d'un rendu a l'autre, ce que React interdit.
-  const entreeCourante = count === 0 ? null : entries[index % count];
+  const entreeCourante = entry ?? null;
   const idCourant = entreeCourante?.match.id ?? null;
   const choixCourant = idCourant ? picks[idCourant] : undefined;
   const termine = entreeCourante?.match.status === "completed";
@@ -1067,6 +1080,65 @@ function Spotlight({
     return () => { vivant = false; };
   }, [idCourant, choixCourant, termine, utilisateur]);
 
+  const go = (next: number) => {
+    setLocked(true);
+    setIndex(((next % count) + count) % count);
+  };
+
+  // Pager across the featured slides
+  const pager = count > 1 && (
+    <div className="flex items-center justify-between border-t border-gray-200/70 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => go(safe - 1)}
+        className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+      >
+        <ChevronLeft size={14} />
+        {t.precedent}
+      </button>
+      <div className="flex gap-1.5">
+        {[...(joueurDeLaSemaine ? ["joueur-de-la-semaine"] : []), ...entries.map(entryKey)].map((cle, i) => (
+          <button
+            key={cle}
+            type="button"
+            aria-label={t.affiche(i + 1)}
+            onClick={() => go(i)}
+            className={`h-1.5 rounded-full transition-all ${
+              i === safe ? "w-4 bg-emerald-500" : "w-1.5 bg-gray-200 hover:bg-gray-300"
+            }`}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => go(safe + 1)}
+        className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
+      >
+        {t.suivant}
+        <ChevronRight size={14} />
+      </button>
+    </div>
+  );
+
+  if (surLeJoueur && joueurDeLaSemaine) {
+    return (
+      <div className="overflow-hidden border border-gray-200/70 bg-white">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`joueur-${joueurDeLaSemaine.lundi}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <DiapoJoueurDeLaSemaine joueur={joueurDeLaSemaine} onGeste={() => setLocked(true)} />
+          </motion.div>
+        </AnimatePresence>
+        {pager}
+      </div>
+    );
+  }
+
   if (!entry) return null;
 
   const { match, competition } = entry;
@@ -1074,10 +1146,6 @@ function Spotlight({
   const finished = match.status === "completed";
   const outcome = finalOutcome(match);
   const pick = picks[match.id];
-  const go = (next: number) => {
-    setLocked(true);
-    setIndex(((next % count) + count) % count);
-  };
 
   const vote = (p: Pick) => {
     setLocked(true);
@@ -1251,40 +1319,7 @@ function Spotlight({
         )}
       </div>
 
-      {/* Pager across the featured matches */}
-      {count > 1 && (
-        <div className="flex items-center justify-between border-t border-gray-200/70 px-3 py-2">
-          <button
-            type="button"
-            onClick={() => go(safe - 1)}
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
-          >
-            <ChevronLeft size={14} />
-            {t.precedent}
-          </button>
-          <div className="flex gap-1.5">
-            {entries.map((e, i) => (
-              <button
-                key={entryKey(e)}
-                type="button"
-                aria-label={t.affiche(i + 1)}
-                onClick={() => go(i)}
-                className={`h-1.5 rounded-full transition-all ${
-                  i === safe ? "w-4 bg-emerald-500" : "w-1.5 bg-gray-200 hover:bg-gray-300"
-                }`}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => go(safe + 1)}
-            className="flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-black text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-700"
-          >
-            {t.suivant}
-            <ChevronRight size={14} />
-          </button>
-        </div>
-      )}
+      {pager}
     </div>
   );
 }
@@ -1363,6 +1398,7 @@ export default function DirectHomeV2({
   initialFeed,
   worldCompetitions = [],
   topPerformances = { tri: "note", lignes: [] },
+  joueurDeLaSemaine = null,
 }: {
   initialFeed: CompetitionFeed[];
   /** Le football mondial, lu chez football-data.org cote serveur. */
@@ -1375,6 +1411,8 @@ export default function DirectHomeV2({
    * ecran et deduisait la presence d'un joueur de ses buts.
    */
   topPerformances?: { tri: TriClassement; lignes: LigneJoueurPubliee[] };
+  /** Le joueur de la semaine, tant que sa semaine de publication dure (voir lib/joueur-semaine-publie). */
+  joueurDeLaSemaine?: JoueurDeLaSemaine | null;
 }) {
   const [feed, setFeed] = useState<CompetitionFeed[]>(initialFeed);
   const [teams, setTeams] = useState<CompTeam[]>([]);
@@ -1742,6 +1780,7 @@ export default function DirectHomeV2({
         <div className="order-1 min-w-0 space-y-3 lg:col-start-2 lg:row-start-1">
           <Spotlight
             entries={spotlightEntries}
+            joueurDeLaSemaine={joueurDeLaSemaine}
             ecusson={ecusson}
             picks={picks}
             onPick={choosePick}

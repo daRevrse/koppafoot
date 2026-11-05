@@ -3,6 +3,9 @@ import { getDirectBoard } from "@/lib/direct-admin";
 import { getWorldCompetitions } from "@/lib/football-data";
 import { lireClassements } from "@/lib/classement-admin";
 import { classementPar, type LigneJoueurPubliee, type TriClassement } from "@/lib/classement";
+import { lireLesJoueursDeLaSemaine } from "@/lib/joueur-semaine-publie-serveur";
+import { joueurDuDirect } from "@/lib/joueur-semaine-publie";
+import { jourDeLome } from "@/lib/jour";
 
 /**
  * Les cinq de la carte d'accueil : les meilleures notes, gardiens compris. Tant
@@ -30,10 +33,14 @@ export default async function Home() {
   //
   // Les lectures sont independantes, donc lancees de front ; chacune degrade
   // en liste vide de son cote sans emporter les autres.
-  const [board, world, classements] = await Promise.all([
+  //
+  // Le joueur de la semaine : le dernier élu seulement, et seulement pendant
+  // la semaine de sa publication (voir lib/joueur-semaine-publie).
+  const [board, world, classements, elus] = await Promise.all([
     getDirectBoard(),
     getWorldCompetitions(),
     lireClassements(),
+    lireLesJoueursDeLaSemaine(1),
   ]);
 
   return (
@@ -41,6 +48,7 @@ export default async function Home() {
       initialFeed={board}
       worldCompetitions={world}
       topPerformances={topDeLAccueil(classements.joueurs)}
+      joueurDeLaSemaine={joueurDuDirect(elus, jourDeLome())}
     />
   );
 }

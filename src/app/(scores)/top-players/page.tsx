@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ClassementComplet from "@/components/classement/ClassementComplet";
 import { lireClassements } from "@/lib/classement-admin";
+import { lireLesJoueursDeLaSemaine } from "@/lib/joueur-semaine-publie-serveur";
 import { textes } from "@/i18n/textes";
 import { textesServeur } from "@/i18n/serveur";
 
@@ -30,6 +31,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function TopPlayersPage() {
-  const { joueurs } = await lireClassements();
-  return <ClassementComplet joueurs={joueurs} />;
+  // Les joueurs de la semaine, en tête : l'historique des élus (voir
+  // lib/joueur-semaine-publie), un an au plus.
+  const [{ joueurs }, elus] = await Promise.all([lireClassements(), lireLesJoueursDeLaSemaine(52)]);
+  return <ClassementComplet joueurs={joueurs} joueursDeLaSemaine={elus} />;
 }
