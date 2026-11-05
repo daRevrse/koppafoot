@@ -2,7 +2,7 @@
 
 Une vidéo de 58 secondes, verticale (1080 × 1920, 9:16), pour les statuts WhatsApp, TikTok, Reels et Shorts. Elle s'adresse au joueur de quartier qui joue déjà dans une équipe suivie sur KoppaFoot, mais **sans compte** : ses buts sont sur les feuilles de match, à son nom, et ne mènent nulle part. Elle l'invite à créer son compte, à récupérer ses stats et à vivre l'expérience KoppaFoot, **tout de son point de vue** : on ne voit que ce qu'Ekoué voit sur son téléphone.
 
-**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 11,3 Mo ; bruitages en AAC à -14 LUFS, ni musique ni voix)
+**→ [Tes-buts-t-attendent-KoppaFoot.mp4](Tes-buts-t-attendent-KoppaFoot.mp4)** (H.264, 30 images/s, 11,4 Mo ; bruitages en AAC à -14 LUFS, ni musique ni voix)
 
 Le scénario, validé le 2026-11-04 puis revu le 2026-11-05 (le point de vue du joueur, sa vie d'équipe), est dans [scenario.md](scenario.md).
 
@@ -29,6 +29,7 @@ Le scénario, validé le 2026-11-04 puis revu le 2026-11-05 (le point de vue du 
 - **Le classement se recalcule à la fusion** depuis la PR #182 : la vidéo le montre juste après.
 - **Le joueur de la semaine** apparaît sur le Direct et dans Top performances depuis la PR #181, construite pour cette vidéo. La vidéo filme ces écrans-là.
 - **Les passes en direct** n'atteignaient pas la carrière, et la fusion laissait les matchs d'avant à un second joueur au classement. C'est corrigé dans la PR #182, sur laquelle le tournage s'appuie.
+- **La date d'une convocation** s'affichait brute (« 2026-11-08 ») dans « Mes convocations ». Elle s'écrit maintenant « dim. 8 nov. » (PR #184).
 
 Les écrans du téléphone sont de **vraies captures** de l'application (le site, au format téléphone), jouée de bout en bout sur les **émulateurs Firebase** avec des comptes fictifs. Ce sont les clubs et les joueurs de la [vidéo manager](../video-manager/) : l'Avenir d'Adakpamé contre l'Olympique de Tokoin.
 
