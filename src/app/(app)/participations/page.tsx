@@ -7,6 +7,8 @@ import {
   XCircle, Timer, Shield, Inbox, History, Loader2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLangue } from "@/i18n";
+import { libelleDuJour } from "@/lib/dates";
 import {
   onParticipationsForPlayer,
   respondToParticipation,
@@ -59,6 +61,7 @@ type Tab = "requests" | "history";
 
 export default function ParticipationsPage() {
   const { user } = useAuth();
+  const { langue } = useLangue();
   const [participations, setParticipations] = useState<Participation[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("requests");
@@ -185,7 +188,9 @@ export default function ParticipationsPage() {
                     {/* Meta row */}
                     <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-500">
                       <span className="flex items-center gap-1">
-                        <Calendar size={12} /> {participation.matchDate}
+                        {/* « Demain », « dim. 8 nov. » : la date telle que le Direct l'écrit,
+                            et non la clé brute du document (« 2026-11-08 »). */}
+                        <Calendar size={12} /> {libelleDuJour(participation.matchDate, langue)}
                       </span>
                       <span className="flex items-center gap-1">
                         <Clock size={12} /> {participation.matchTime}
