@@ -1,0 +1,71 @@
+diff --git a/next.config.ts b/next.config.ts
+index ad334e2..10a5e18 100644
+--- a/next.config.ts
++++ b/next.config.ts
+@@ -37,6 +37,8 @@ const nextConfig: NextConfig = {
+     ];
+   },
+   images: {
++    // LOCAL ONLY (tutorial screenshots) — do not commit.
++    ...(process.env.NEXT_PUBLIC_USE_EMULATORS === "1" ? { unoptimized: true } : {}),
+     remotePatterns: [
+       {
+         protocol: "https",
+diff --git a/src/lib/firebase.ts b/src/lib/firebase.ts
+index 7330136..8975c5b 100644
+--- a/src/lib/firebase.ts
++++ b/src/lib/firebase.ts
+@@ -1,9 +1,9 @@
+ import { initializeApp, getApps } from "firebase/app";
+-import { getAuth } from "firebase/auth";
++import { getAuth, connectAuthEmulator } from "firebase/auth";
+ import {
+-  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
++  getFirestore, connectFirestoreEmulator, initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+ } from "firebase/firestore";
+-import { getStorage } from "firebase/storage";
++import { getStorage, connectStorageEmulator } from "firebase/storage";
+ import { getMessaging, type Messaging } from "firebase/messaging";
+ 
+ const firebaseConfig = {
+@@ -48,6 +48,14 @@ export const auth = getAuth(app);
+ export const db = getFirestore(app);
+ export const storage = getStorage(app);
+ 
++// LOCAL ONLY (tutorial screenshots) — do not commit.
++if (process.env.NEXT_PUBLIC_USE_EMULATORS === "1" && !(globalThis as any).__kfEmu) {
++  (globalThis as any).__kfEmu = true;
++  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
++  connectFirestoreEmulator(db, "127.0.0.1", 8080);
++  connectStorageEmulator(storage, "127.0.0.1", 9199);
++}
++
+ let _messaging: Messaging | null = null;
+ export function getClientMessaging(): Messaging | null {
+   if (typeof window === "undefined") return null;
+diff --git a/src/lib/image-sure.ts b/src/lib/image-sure.ts
+index b5770ab..b147be9 100644
+--- a/src/lib/image-sure.ts
++++ b/src/lib/image-sure.ts
+@@ -21,6 +21,8 @@ const HOTES_IMAGE = new Set([
+ /** L'adresse telle quelle si le serveur peut aller la chercher, `null` sinon. */
+ export function imageSure(valeur: unknown): string | null {
+   if (typeof valeur !== "string" || !valeur) return null;
++  // LOCAL ONLY (vidéos, émulateur Storage) — do not commit.
++  if (process.env.NEXT_PUBLIC_USE_EMULATORS === "1" && valeur.startsWith("http://127.0.0.1:9199/")) return valeur;
+   try {
+     const u = new URL(valeur);
+     return u.protocol === "https:" && HOTES_IMAGE.has(u.hostname) ? valeur : null;
+diff --git a/src/lib/terrains.ts b/src/lib/terrains.ts
+index 52ca7de..22e3ed2 100644
+--- a/src/lib/terrains.ts
++++ b/src/lib/terrains.ts
+@@ -331,6 +331,8 @@ const HOTES_PHOTOS = new Set(["firebasestorage.googleapis.com", "koppafoot.fireb
+  */
+ export function photoAffichable(url: string): boolean {
+   if (url.startsWith("/") && !url.startsWith("//")) return true;
++  // Émulateur Storage local (tutoriels) : jamais commité.
++  if (url.startsWith("http://127.0.0.1:9199/")) return true;
+   try {
+     const u = new URL(url);
+     return u.protocol === "https:" && HOTES_PHOTOS.has(u.hostname);
