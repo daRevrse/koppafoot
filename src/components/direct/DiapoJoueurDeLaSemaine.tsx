@@ -9,19 +9,23 @@ import { useAuthModal } from "@/components/auth/AuthModal";
 import { followUser, isFollowing, unfollowUser } from "@/lib/firestore";
 import { lienAbsolu, partagerLien } from "@/lib/partage";
 import {
-  adresseDeLAffiche, cheminDuJoueur, nomEnPhrase, periodeDeLaSemaine, resumeDuJoueur, texteDuPartage,
+  adresseDeLAffiche, cheminDuJoueur, nomEnPhrase, noteEnTexte, periodeDeLaSemaine, texteDuPartage,
   type JoueurDeLaSemaine,
 } from "@/lib/joueur-semaine-publie";
+import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
 // ============================================
 // La diapositive « Joueur de la semaine », en tête de l'affiche du Direct.
 //
-// ELLE PREND LA FORME D'UNE DIAPOSITIVE DE MATCH : un en-tête, le cœur sur
-// fond gris, puis une question et trois boutons ronds, là où le match pose
-// « Qui va gagner ? ». Le carrousel ne saute pas d'une forme à l'autre, et
-// l'œil sait déjà où toucher.
+// ELLE PREND LA FORME D'UNE DIAPOSITIVE DE MATCH : un en-tête, le cœur, puis
+// trois boutons ronds, là où le match pose « Qui va gagner ? ». Le carrousel
+// ne saute pas d'une forme à l'autre, et l'œil sait déjà où toucher.
+//
+// LE CŒUR, C'EST LE JOUEUR, PAS L'AFFICHE (2026-11-05) : sa photo couronnée,
+// son nom, son équipe, ce qu'il a fait dans la semaine (buts, passes, note)
+// et le match où il l'a fait. L'affiche est faite pour être partagée.
 //
 // TROIS GESTES (décidés le 2026-11-04) : voir sa fiche, le suivre, partager.
 // Un joueur sans compte n'a ni fiche ni abonnés : il ne garde que le partage.
@@ -39,8 +43,12 @@ const T = textes(
     semaine: (n: number, periode: string) => `Semaine ${n} · ${periode}`,
     voirTous: "Tous les joueurs de la semaine",
     bravo: (prenom: string) => `Bravo, ${prenom} !`,
-    invitation: "Abonne-toi, partage son affiche",
-    invitationSansCompte: "Partage son affiche",
+    hommeDuMatch: (n: number) => (n > 1 ? `Homme du match ×${n}` : "Homme du match"),
+    buts: (n: number) => (n > 1 ? "buts" : "but"),
+    passes: (n: number) => (n > 1 ? "passes" : "passe"),
+    matchs: (n: number) => (n > 1 ? "matchs" : "match"),
+    note: "note",
+    detail: (b: number, p: number) => [b ? `${b} but${b > 1 ? "s" : ""}` : "", p ? `${p} passe${p > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · "),
     fiche: "Sa fiche",
     suivre: "Suivre",
     suivi: "Suivi",
@@ -51,15 +59,18 @@ const T = textes(
     lienCopieSeul: "Lien copié",
     echec: "Partage impossible",
     erreur: "Une erreur est survenue",
-    afficheDe: (nom: string) => `L'affiche de ${nom}, joueur de la semaine`,
   },
   {
     titre: "Player of the week",
     semaine: (n: number, periode: string) => `Week ${n} · ${periode}`,
     voirTous: "All players of the week",
     bravo: (prenom: string) => `Well played, ${prenom}!`,
-    invitation: "Follow them, share their poster",
-    invitationSansCompte: "Share their poster",
+    hommeDuMatch: (n: number) => (n > 1 ? `Man of the match ×${n}` : "Man of the match"),
+    buts: (n: number) => (n > 1 ? "goals" : "goal"),
+    passes: (n: number) => (n > 1 ? "assists" : "assist"),
+    matchs: (n: number) => (n > 1 ? "matches" : "match"),
+    note: "rating",
+    detail: (b: number, p: number) => [b ? `${b} goal${b > 1 ? "s" : ""}` : "", p ? `${p} assist${p > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · "),
     fiche: "Profile",
     suivre: "Follow",
     suivi: "Following",
@@ -70,7 +81,6 @@ const T = textes(
     lienCopieSeul: "Link copied",
     echec: "Couldn't share",
     erreur: "Something went wrong",
-    afficheDe: (nom: string) => `${nom}'s player of the week poster`,
   },
 );
 
@@ -149,7 +159,13 @@ export default function DiapoJoueurDeLaSemaine({ joueur, onGeste }: {
   const prenom = nom.split(/\s+/)[0] ?? nom;
   const cEstToi = !!user && user.uid === joueur.uid;
   const equipe = joueur.equipes[0] ?? null;
-  const resume = resumeDuJoueur(joueur, langue === "en" ? "en" : "fr");
+  const lng = langue === "en" ? "en" : "fr";
+  // Le troisième chiffre : sa note quand il en a une, sinon ses matchs.
+  const troisieme = joueur.note !== null
+    ? { valeur: noteEnTexte(joueur.note, lng), libelle: t.note }
+    : { valeur: String(joueur.matchs), libelle: t.matchs(joueur.matchs) };
+  // Le match de sa semaine, le plus récent : celui qu'on raconte.
+  const match = joueur.lignes[joueur.lignes.length - 1] ?? null;
 
   useEffect(() => {
     if (!user || !joueur.uid || user.uid === joueur.uid) return;
@@ -217,42 +233,58 @@ export default function DiapoJoueurDeLaSemaine({ joueur, onGeste }: {
         </Link>
       </div>
 
-      {/* Le joueur : son affiche en vignette, son nom, son équipe, sa semaine. */}
+      {/* Le joueur : sa photo couronnée, son nom, son équipe, sa semaine en chiffres. */}
       <div className="px-4">
-        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4 bg-gray-50/70 p-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={adresseDeLAffiche(joueur, "publication", true)}
-            alt={t.afficheDe(nom)}
-            width={96}
-            height={120}
-            className="h-[120px] w-24 shrink-0 bg-white object-cover shadow-sm ring-1 ring-gray-200/70"
-          />
-          <div className="min-w-0">
-            <p className="line-clamp-2 font-display text-lg font-black leading-tight text-gray-900">{nom}</p>
-            {equipe && (
-              <p className="mt-1.5 flex min-w-0 items-center gap-1.5 text-[12px] font-bold text-gray-500">
-                {equipe.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={equipe.logo} alt="" className="h-4 w-4 shrink-0 rounded-full object-cover" />
-                ) : null}
-                <span className="truncate">{equipe.nom}</span>
-              </p>
-            )}
-            {resume && (
-              <span className="mt-2 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-700">
-                {resume}
+        <div className="relative overflow-hidden bg-emerald-950 p-4 text-white">
+          <Trophy aria-hidden size={132} strokeWidth={1.5} className="pointer-events-none absolute -right-7 -top-6 text-white/[0.06]" />
+          <div className="relative flex items-center gap-3.5">
+            <span className="relative shrink-0">
+              <PlayerAvatar name={nom} photo={joueur.photo} size={72} className="ring-4 ring-amber-300" />
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-300 text-emerald-950 ring-2 ring-emerald-950">
+                <Trophy size={14} />
               </span>
-            )}
+            </span>
+            <div className="min-w-0">
+              {joueur.hommeDuMatch > 0 && (
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">{t.hommeDuMatch(joueur.hommeDuMatch)}</p>
+              )}
+              <p className="line-clamp-2 font-display text-xl font-black leading-tight">{nom}</p>
+              {equipe && (
+                <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] font-bold text-white/70">
+                  <TeamCrest name={equipe.nom} logo={equipe.logo} size={16} className="rounded-full" />
+                  <span className="truncate">{equipe.nom}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="relative mt-3.5 grid grid-cols-3 gap-2">
+            {[
+              { valeur: String(joueur.buts), libelle: t.buts(joueur.buts) },
+              { valeur: String(joueur.passes), libelle: t.passes(joueur.passes) },
+              troisieme,
+            ].map((c) => (
+              <div key={c.libelle} className="bg-white/10 px-2 py-1.5 text-center">
+                <p className="font-display text-xl font-black tabular-nums leading-tight">{c.valeur}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-white/60">{c.libelle}</p>
+              </div>
+            ))}
           </div>
         </div>
+        {match && (
+          <p className="mt-2 flex min-w-0 items-center gap-2 text-[11px] font-bold text-gray-500">
+            <span className="shrink-0 font-black text-gray-400">{match.jour}</span>
+            <span className="truncate uppercase">{match.affiche}</span>
+            {t.detail(match.buts, match.passes) && (
+              <span className="ml-auto shrink-0 font-black text-emerald-600">{t.detail(match.buts, match.passes)}</span>
+            )}
+          </p>
+        )}
       </div>
 
       {/* Les gestes, là où le match pose son pronostic. */}
       <div className="px-4 pb-3 pt-3">
         <p className="text-[13px] font-black text-gray-900">{t.bravo(prenom)}</p>
-        <p className="text-[11px] font-bold text-gray-400">{joueur.uid ? t.invitation : t.invitationSansCompte}</p>
-        <div className={`mt-2.5 grid gap-2 ${joueur.uid ? "grid-cols-3" : "grid-cols-1"}`}>
+        <div className={`mt-2 grid gap-2 ${joueur.uid ? "grid-cols-3" : "grid-cols-1"}`}>
           {joueur.uid && (
             <Bouton href={`/profile/${joueur.uid}`} onClick={onGeste}>
               <UserRound size={14} className="shrink-0" />

@@ -397,6 +397,12 @@ le joueur choisi devient public.
 - L'affiche publique passe par `GET /api/joueur-semaine/{lundi}/affiche`, et
   non par Storage, que le navigateur ne peut pas lire par `fetch` sans réglage
   CORS du bucket.
+- **Le joueur, pas l'affiche** (2026-11-05) : la diapositive et les cartes de
+  l'historique montrent sa photo couronnée, son nom, son équipe, ses buts, ses
+  passes et sa note (ou ses matchs), l'homme du match et le match de sa
+  semaine. L'affiche ne sort qu'avec « Partager ». La publication range pour
+  cela sa photo (celle du profil pour un compte, relue à chaque lecture ; celle
+  que l'affiche peut montrer pour un joueur sans compte) et ses matchs.
 - L'application Expo suivra plus tard ; le carrousel n'existe que sur le site.
 
 Code : lib/joueur-semaine-publie (pur, vérifié par

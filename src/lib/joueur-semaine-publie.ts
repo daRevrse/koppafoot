@@ -14,6 +14,10 @@
 //     publication jusqu'au dimanche de cette semaine-là ;
 //   - l'historique des élus, en tête de la page Top performances.
 //
+// ILS MONTRENT LE JOUEUR, PAS L'AFFICHE (2026-11-05) : sa photo, son équipe,
+// ce qu'il a fait dans la semaine, match par match. L'affiche est faite pour
+// être partagée ; elle ne sort qu'avec « Partager ».
+//
 // La collection n'est lue et écrite que par le serveur (SDK admin) : aucune
 // règle Firestore ne l'ouvre aux navigateurs.
 //
@@ -29,6 +33,18 @@ export type FormatAffichePubliee = "publication" | "vertical";
 export interface EquipeDuJoueurElu {
   nom: string;
   logo: string | null;
+}
+
+/** Un match de sa semaine, comme une ligne de l'affiche le raconte. */
+export interface MatchDuJoueurElu {
+  /** « DIM. 1 NOV. » */
+  jour: string;
+  /** Son équipe d'abord : « AVENIR D'ADAKPAMÉ 3–1 OLYMPIQUE DE TOKOIN ». */
+  affiche: string;
+  buts: number;
+  passes: number;
+  /** Homme de ce match. */
+  homme: boolean;
 }
 
 /** Un joueur élu, tel que le public le voit. */
@@ -47,6 +63,18 @@ export interface JoueurDeLaSemaine {
   matchs: number;
   buts: number;
   passes: number;
+  /** La moyenne de ses notes de la semaine ; null s'il n'en a aucune. */
+  note: number | null;
+  /** Combien de fois homme du match dans la semaine. */
+  hommeDuMatch: number;
+  /** Ses matchs de la semaine, du plus ancien au plus récent. Vide pour une élection d'avant ce champ. */
+  lignes: MatchDuJoueurElu[];
+  /**
+   * Sa photo : celle de son profil pour un compte (relue à chaque lecture,
+   * voir lib/joueur-semaine-publie-serveur), celle que l'affiche a eu le droit
+   * de montrer pour un joueur sans compte. Null : ses initiales.
+   */
+  photo: string | null;
   /** Le jour (Lomé) de la publication : la diapositive du Direct en dépend. */
   publieLe: string;
   /** Change à chaque publication : l'adresse des affiches en dépend, pour le cache. */
@@ -78,6 +106,17 @@ export function lireJoueurDeLaSemaine(id: string, d: Record<string, unknown> | u
         return n ? [{ nom: n, logo: texte(x.logo, 2000) }] : [];
       })
     : [];
+  const lignes = Array.isArray(d.lignes)
+    ? (d.lignes as unknown[]).flatMap((l) => {
+        const x = (l ?? {}) as Record<string, unknown>;
+        const jour = texte(x.jour, 40);
+        const affiche = texte(x.affiche, 200);
+        return jour && affiche
+          ? [{ jour, affiche, buts: entier(x.buts), passes: entier(x.passes), homme: x.homme === true }]
+          : [];
+      })
+    : [];
+  const note = typeof d.note === "number" && Number.isFinite(d.note) ? d.note : null;
   return {
     lundi: id,
     dimanche: semaine.dimanche,
@@ -88,6 +127,10 @@ export function lireJoueurDeLaSemaine(id: string, d: Record<string, unknown> | u
     matchs: entier(d.matchs),
     buts: entier(d.buts),
     passes: entier(d.passes),
+    note,
+    hommeDuMatch: entier(d.homme_du_match),
+    lignes,
+    photo: texte(d.photo, 2000),
     publieLe,
     version,
   };
@@ -138,17 +181,19 @@ export function cheminDuJoueur(lundi: string): string {
 /**
  * L'adresse d'une affiche publiée, servie par le site lui-même (et non par
  * Storage, qui refuse les lectures `fetch` d'une autre origine sans réglage
- * CORS du bucket). La version casse le cache à chaque republication ;
- * `vignette` la demande réduite, pour la diapositive et l'historique.
+ * CORS du bucket). La version casse le cache à chaque republication.
  */
 export function adresseDeLAffiche(
   j: Pick<JoueurDeLaSemaine, "lundi" | "version">,
   format: FormatAffichePubliee,
-  vignette = false,
 ): string {
   const p = new URLSearchParams({ format, v: j.version });
-  if (vignette) p.set("taille", "vignette");
   return `/api/joueur-semaine/${j.lundi}/affiche?${p}`;
+}
+
+/** « 9,2 », ou « 9.2 » en anglais. */
+export function noteEnTexte(note: number, langue: "fr" | "en" = "fr"): string {
+  return note.toLocaleString(langue === "fr" ? "fr-FR" : "en-GB", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }
 
 /** Les capitales de l'affiche, adoucies pour une phrase : « EKOUÉ BAWA » → « Ekoué Bawa ». */
