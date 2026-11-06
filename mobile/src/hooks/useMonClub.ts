@@ -6,7 +6,7 @@ import { useFicheDuClub } from "~/hooks/useFicheDuClub";
 import {
   ecouterCandidatures, ecouterEquipe, ecouterFantomes, ecouterInvitationsEnvoyees, equipesQueJeGere,
 } from "~/lib/equipe-firestore";
-import { identitesDeLaFiche, nomsDeSecoursDe, type IdentiteMembre } from "~/lib/mon-club";
+import { effectifPret, identitesDeLaFiche, nomsDeSecoursDe, type IdentiteMembre } from "~/lib/mon-club";
 
 export type MonClub = {
   /** Les clubs qu'on gère ; null pendant la première lecture. */
@@ -22,6 +22,8 @@ export type MonClub = {
   nomsDeSecours: Map<string, string>;
   peutGerer: boolean;
   proprietaire: boolean;
+  /** Faux tant que les noms (fiche publique) et les joueurs sans compte ne sont pas arrivés. */
+  pret: boolean;
   /** Relit la liste des clubs : après en avoir créé un, au retour sur l'onglet. */
   recharger(): void;
 };
@@ -108,6 +110,7 @@ export function useMonClub(uid: string): MonClub {
     nomsDeSecours,
     peutGerer: peutGererEquipe(equipe, uid),
     proprietaire: estProprietaireEquipe(equipe, uid),
+    pret: effectifPret(fiche, pour(fantomes, id) !== undefined),
     recharger: () => {
       lireLesClubs();
     },

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import type { User } from "firebase/auth";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { versHex } from "@/lib/couleurs-equipe";
 import type { Team } from "@/types";
@@ -28,9 +28,14 @@ const ONGLETS: Onglet[] = ["effectif", "candidatures", "invitations"];
 
 const blanc = (opacite: number) => `rgba(255,255,255,${opacite})`;
 
-/** Plusieurs clubs (les siens, ceux qu'on vous a délégués) : une pastille par club. */
+/**
+ * Une pastille par club (les siens, ceux qu'on vous a délégués), et de quoi en
+ * créer un autre : le site le permet dès qu'on a un club, l'offre décide du reste.
+ */
 function ChoixDuClub({ equipes, actif, choisir }: { equipes: Team[]; actif: string; choisir: (id: string) => void }) {
   const styles = useStyles();
+  const couleurs = useCouleurs();
+  const router = useRouter();
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.choix}>
       {equipes.map((t) => {
@@ -39,7 +44,7 @@ function ChoixDuClub({ equipes, actif, choisir }: { equipes: Team[]; actif: stri
           <Pressable
             key={t.id}
             accessibilityRole="tab"
-            accessibilityState={{ selected: on }}
+            aria-selected={on}
             onPress={() => {
               if (!on) retourSelection();
               choisir(t.id);
@@ -50,12 +55,20 @@ function ChoixDuClub({ equipes, actif, choisir }: { equipes: Team[]; actif: stri
           </Pressable>
         );
       })}
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.push("/creer-equipe")}
+        style={({ pressed }) => [styles.pastille, styles.pastilleCreer, pressed && styles.presse]}
+      >
+        <Ionicons name="add" size={14} color={couleurs.texteSecondaire} />
+        <Text style={styles.pastilleTexte}>CRÉER UN CLUB</Text>
+      </Pressable>
     </ScrollView>
   );
 }
 
 /** L'en-tête du club, noir comme celui de sa fiche publique, et le chemin vers elle. */
-function EnTeteMonClub({ equipe, effectif, proprietaire }: { equipe: Team; effectif: number; proprietaire: boolean }) {
+function EnTeteMonClub({ equipe, effectif, proprietaire }: { equipe: Team; effectif: number | null; proprietaire: boolean }) {
   const styles = useStyles();
   const router = useRouter();
   const couleur = versHex(equipe.color);
@@ -75,7 +88,7 @@ function EnTeteMonClub({ equipe, effectif, proprietaire }: { equipe: Team; effec
         </View>
       </View>
       <View style={styles.puces}>
-        <Text style={styles.puce}>{`${effectif} JOUEUR${effectif > 1 ? "S" : ""}`}</Text>
+        {effectif === null ? null : <Text style={styles.puce}>{`${effectif} JOUEUR${effectif > 1 ? "S" : ""}`}</Text>}
         {equipe.isRecruiting ? <Text style={[styles.puce, styles.vert]}>RECRUTE</Text> : null}
         {proprietaire ? null : <Text style={styles.puce}>DÉLÉGUÉ</Text>}
       </View>
@@ -95,6 +108,7 @@ function EnTeteMonClub({ equipe, effectif, proprietaire }: { equipe: Team; effec
 /** Le club affiché : ses onglets, et la barre « Enregistrer » quand l'effectif a changé. */
 function ClubGere({ club, equipe, utilisateur, monNom }: { club: MonClub; equipe: Team; utilisateur: User; monNom: string }) {
   const styles = useStyles();
+  const couleurs = useCouleurs();
   const [onglet, setOnglet] = useState<Onglet>("effectif");
   // Null tant qu'on n'a rien touché : l'effectif suit alors l'équipe en direct.
   const [brouillon, setBrouillon] = useState<Brouillon | null>(null);
@@ -107,7 +121,6 @@ function ClubGere({ club, equipe, utilisateur, monNom }: { club: MonClub; equipe
     () => new Map([[utilisateur.uid, monNom], ...club.nomsDeSecours]),
     [club.nomsDeSecours, utilisateur.uid, monNom],
   );
-  const plusieurs = (club.equipes?.length ?? 0) > 1;
 
   async function enregistrer() {
     setEnregistrement(true);
@@ -129,11 +142,17 @@ function ClubGere({ club, equipe, utilisateur, monNom }: { club: MonClub; equipe
 
   return (
     <View style={styles.ecran}>
-      <DefilementClavier contentContainerStyle={styles.contenu} stickyHeaderIndices={[plusieurs ? 2 : 1]}>
-        {plusieurs && club.equipes ? <ChoixDuClub equipes={club.equipes} actif={equipe.id} choisir={club.choisir} /> : null}
-        <EnTeteMonClub equipe={equipe} effectif={equipe.memberIds.length + club.fantomes.length} proprietaire={club.proprietaire} />
+      <DefilementClavier contentContainerStyle={styles.contenu} stickyHeaderIndices={[2]}>
+        <ChoixDuClub equipes={club.equipes ?? [equipe]} actif={equipe.id} choisir={club.choisir} />
+        <EnTeteMonClub
+          equipe={equipe}
+          effectif={club.pret ? equipe.memberIds.length + club.fantomes.length : null}
+          proprietaire={club.proprietaire}
+        />
         <BarreOnglets onglets={ONGLETS} libelles={libelles} actif={onglet} onChange={setOnglet} />
-        {onglet === "effectif" ? (
+        {onglet === "effectif" && !club.pret ? (
+          <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />
+        ) : onglet === "effectif" ? (
           <OngletEffectif
             equipe={equipe}
             fantomes={club.fantomes}
@@ -174,6 +193,12 @@ export function EcranMonClub({ uid }: { uid: string }) {
   const router = useRouter();
   const { utilisateur, profil } = useAuth();
   const club = useMonClub(uid);
+  // Au retour de « Créer un club » : le club créé (creer-equipe le passe en paramètre).
+  const { club: clubCree } = useLocalSearchParams<{ club?: string }>();
+  const { choisir } = club;
+  useEffect(() => {
+    if (clubCree) choisir(clubCree);
+  }, [clubCree, choisir]);
 
   if (club.equipes === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
   if (!club.equipe || !utilisateur) {
@@ -202,6 +227,7 @@ const useStyles = creerStyles((couleurs) => ({
   pastilleActive: { borderColor: couleurs.primaire, backgroundColor: couleurs.primaireVoile },
   pastilleTexte: { fontFamily: polices.texteNoir, fontSize: 11, letterSpacing: espacement(11, 0.1), color: couleurs.texteSecondaire },
   pastilleTexteActive: { color: couleurs.primaire },
+  pastilleCreer: { flexDirection: "row", alignItems: "center", gap: 4, borderStyle: "dashed" },
   entete: { backgroundColor: "#000", paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, gap: 14 },
   identite: { flexDirection: "row", alignItems: "center", gap: 14 },
   initiale: {

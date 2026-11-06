@@ -39,7 +39,7 @@ function ChoixCouleur({ valeur, onChange }: { valeur: string; onChange: (c: stri
               key={c.valeur}
               accessibilityRole="radio"
               accessibilityLabel={c.libelle}
-              accessibilityState={{ selected: on }}
+              aria-checked={on}
               onPress={() => {
                 if (!on) retourSelection();
                 onChange(c.valeur);
@@ -87,13 +87,14 @@ export default function EcranCreerEquipe() {
     setOccupe(true);
     setErreur(null);
     try {
-      await creerEquipe(utilisateur, {
+      const id = await creerEquipe(utilisateur, {
         ...champs,
         name: champs.name.trim(),
         city: champs.city.trim(),
         description: champs.description.trim(),
       });
-      router.back();
+      // L'onglet du club, le club créé choisi (EcranMonClub lit ce paramètre).
+      router.dismissTo({ pathname: "/evolution", params: { club: id } });
     } catch (e) {
       setErreur({ message: messageDe(e, "La création de l'équipe a échoué."), limite: e instanceof ErreurLimiteOffre });
       setOccupe(false);

@@ -23,7 +23,8 @@ export function Pastilles<T extends string>({ etiquette, options, valeur, onChan
             <Pressable
               key={o.valeur}
               accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
+              accessibilityLabel={o.libelle}
+              aria-checked={on}
               onPress={() => {
                 if (!on) retourSelection();
                 onChange(o.valeur);

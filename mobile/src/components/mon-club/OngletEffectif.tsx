@@ -132,7 +132,7 @@ export function OngletEffectif({
                       <Pressable
                         accessibilityRole="checkbox"
                         accessibilityLabel={`${l.nom} titulaire`}
-                        accessibilityState={{ checked: l.titulaire }}
+                        aria-checked={l.titulaire}
                         hitSlop={6}
                         onPress={() => {
                           retourSelection();

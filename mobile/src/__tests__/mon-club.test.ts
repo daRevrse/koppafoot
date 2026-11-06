@@ -3,7 +3,8 @@ import type { FirestoreTeam, GhostPlayer, Invitation, JoinRequest } from "@/type
 import type { FicheClub } from "~/lib/fiche-du-club";
 import {
   aDesChangements, basculerTitulaire, brouillonDe, candidaturesParEtat, changerDossard, erreursEquipe, erreursFantome,
-  etatDuJoueur, identitesDeLaFiche, invitationsEnAttente, libelleNiveau, lignesParPoste, messageInvitation, nettoyerDossard,
+  effectifPret, etatDuJoueur, identitesDeLaFiche, invitationsEnAttente, libelleNiveau, lignesParPoste, messageInvitation,
+  nettoyerDossard,
   nomsDeSecoursDe, type IdentiteMembre,
 } from "~/lib/mon-club";
 
@@ -242,5 +243,18 @@ describe("messageInvitation", () => {
   it("préremplit le message avec le manager et l'équipe", () => {
     expect(messageInvitation("Mo Manager", "FC Koppa")).toBe("Mo Manager t'invite à rejoindre FC Koppa.");
     expect(messageInvitation("", "FC Koppa")).toBe("FC Koppa t'invite à le rejoindre.");
+  });
+});
+
+describe("effectifPret", () => {
+  it("attend la fiche publique et les joueurs sans compte, pour ne pas montrer « Joueur » puis les vrais noms", () => {
+    const fiche = { genre: "fiche", id: "t1", effectif: [], manager: null } as unknown as FicheClub;
+    expect(effectifPret(undefined, true)).toBe(false);
+    expect(effectifPret(fiche, false)).toBe(false);
+    expect(effectifPret(fiche, true)).toBe(true);
+  });
+
+  it("n'attend pas une fiche qui n'a pas pu se lire : les noms de secours prennent le relais", () => {
+    expect(effectifPret(null, true)).toBe(true);
   });
 });

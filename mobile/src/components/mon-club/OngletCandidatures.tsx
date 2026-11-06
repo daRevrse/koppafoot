@@ -99,7 +99,7 @@ export function OngletCandidatures({ equipe, candidatures, peutGerer, utilisateu
         <View style={styles.passees}>
           <Pressable
             accessibilityRole="button"
-            accessibilityState={{ expanded: passeesOuvertes }}
+            aria-expanded={passeesOuvertes}
             onPress={() => setPasseesOuvertes((o) => !o)}
             style={styles.replier}
           >

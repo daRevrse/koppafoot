@@ -236,3 +236,13 @@ export function etatDuJoueur(uid: string, team: Team, invitesEnAttente: Set<stri
 export function messageInvitation(manager: string, equipe: string): string {
   return manager.trim() ? `${manager.trim()} t'invite à rejoindre ${equipe}.` : `${equipe} t'invite à le rejoindre.`;
 }
+
+/**
+ * L'effectif peut-il s'afficher ? Pas avant la fiche publique (les noms et les
+ * postes) ni les joueurs sans compte : on verrait « Joueur », « Sans poste »,
+ * puis la liste se réordonner. Une fiche illisible (null) n'est pas attendue :
+ * les noms de secours prennent le relais.
+ */
+export function effectifPret(fiche: FicheClub | null | undefined, fantomesLus: boolean): boolean {
+  return fiche !== undefined && fantomesLus;
+}
