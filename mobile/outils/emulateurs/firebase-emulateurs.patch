@@ -32,3 +32,33 @@ index 959c0a7..1bc1b10 100644
 +  connectAuthEmulator(auth, `http://${hote}:9099`, { disableWarnings: true });
 +  connectFirestoreEmulator(db, hote, 8080);
 +}
+diff --git a/mobile/src/lib/firebase.web.ts b/mobile/src/lib/firebase.web.ts
+index f7f0988..425d508 100644
+--- a/mobile/src/lib/firebase.web.ts
++++ b/mobile/src/lib/firebase.web.ts
+@@ -1,6 +1,6 @@
+ import { getApp, getApps, initializeApp } from "firebase/app";
+-import { getAuth } from "firebase/auth";
+-import { getFirestore } from "firebase/firestore";
++import { connectAuthEmulator, getAuth } from "firebase/auth";
++import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+ 
+ // La version web d'Expo (aperçus, favicon) : Metro choisit ce fichier au lieu
+ // de firebase.ts. Dans un navigateur, `getAuth()` persiste déjà la session, et
+@@ -23,3 +23,16 @@ export const auth = getAuth(app);
+ // l'anglais par défaut. L'application n'existe qu'en français.
+ auth.languageCode = "fr";
+ export const db = getFirestore(app);
++
++// BANC D'ESSAI, JAMAIS COMMITÉ (mobile/outils/emulateurs/LISEZMOI.md), comme
++// dans firebase.ts. Au rechargement à chaud, le module est réévalué alors que
++// l'app est déjà branchée : le second appel lève, et c'est sans conséquence.
++if (process.env.EXPO_PUBLIC_EMULATEURS === "1") {
++  const hote = process.env.EXPO_PUBLIC_EMULATEURS_HOTE || "127.0.0.1";
++  try {
++    connectAuthEmulator(auth, `http://${hote}:9099`, { disableWarnings: true });
++    connectFirestoreEmulator(db, hote, 8080);
++  } catch {
++    // Déjà branchée.
++  }
++}

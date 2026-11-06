@@ -78,7 +78,11 @@ export function viderLaBase(): Promise<void> {
   });
 }
 
-/** Ferme les apps ouvertes, pour que Jest rende la main. */
+/**
+ * Ferme les apps ouvertes, pour que Jest rende la main. Entre deux cas aussi
+ * quand un cas écoute : le client d'un compte garde en cache ce qu'il a écrit,
+ * et viderLaBase ne le lui dit pas.
+ */
 export async function fermer(): Promise<void> {
   await Promise.all([...apps.values()].map((a) => deleteApp(a)));
   apps.clear();
