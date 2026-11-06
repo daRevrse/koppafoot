@@ -29,6 +29,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+# les journaux des émulateurs Firebase (mobile/outils/emulateurs)
+firebase-debug.log
+firestore-debug.log
 
 # env files
 .env*.local
