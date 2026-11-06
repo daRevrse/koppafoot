@@ -1,0 +1,34 @@
+diff --git a/mobile/src/lib/firebase.ts b/mobile/src/lib/firebase.ts
+index 959c0a7..1bc1b10 100644
+--- a/mobile/src/lib/firebase.ts
++++ b/mobile/src/lib/firebase.ts
+@@ -1,6 +1,7 @@
+ import AsyncStorage from "@react-native-async-storage/async-storage";
+ import { getApp, getApps, initializeApp } from "firebase/app";
+ import {
++  connectAuthEmulator,
+   getAuth,
+   // @ts-expect-error Exporté par la version React Native de @firebase/auth, que Metro
+   // choisit à l'exécution ; absent des types publics. Si Firebase l'y ajoute un jour,
+@@ -9,7 +10,7 @@ import {
+   initializeAuth,
+   type Auth,
+ } from "firebase/auth";
+-import { getFirestore } from "firebase/firestore";
++import { connectFirestoreEmulator, getFirestore } from "firebase/firestore";
+ 
+ // Le projet Firebase du site. Les EXPO_PUBLIC_* sont inlinés au build : ils
+ // doivent être lus un par un, en toutes lettres.
+@@ -43,3 +44,12 @@ export const auth: Auth = premiere
+ auth.languageCode = "fr";
+ 
+ export const db = getFirestore(app);
++
++// BANC D'ESSAI, JAMAIS COMMITÉ (mobile/outils/emulateurs/LISEZMOI.md) : avec
++// EXPO_PUBLIC_EMULATEURS=1, l'application parle aux émulateurs locaux et non
++// au projet de production. Une seule fois par app, comme initializeAuth.
++if (process.env.EXPO_PUBLIC_EMULATEURS === "1" && premiere) {
++  const hote = process.env.EXPO_PUBLIC_EMULATEURS_HOTE || "127.0.0.1";
++  connectAuthEmulator(auth, `http://${hote}:9099`, { disableWarnings: true });
++  connectFirestoreEmulator(db, hote, 8080);
++}
