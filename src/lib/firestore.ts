@@ -49,8 +49,8 @@ import type {
   CorpsArbitral, FirestoreCorpsArbitral,
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
-import { normaliserPoste, type Poste } from "@/lib/postes";
-import { lireCategorie, lireGenre, type Categorie } from "@/lib/genre";
+import { type Poste } from "@/lib/postes";
+import { lireGenre, type Categorie } from "@/lib/genre";
 import { equipeArbitraleLue, toMatch } from "@/lib/match-mappers";
 import { toBooking } from "@/lib/booking-mappers";
 // La notification se lit aussi dans l'application : son convertisseur vit
@@ -62,11 +62,13 @@ import { nouvelIdEvenement, type IssuePenalty, type TypeEvenement } from "@/lib/
 import type { PlanDeRetrait } from "@/lib/retrait-evenement";
 import type { PossessionStockee } from "@/lib/possession";
 import { JEU_AVANT, champsDeTransition, type Transition } from "@/lib/etat-du-jeu";
-import { lireEmplacement, type Emplacement } from "@/lib/terrain";
+import { type Emplacement } from "@/lib/terrain";
 import { lireCondition, versFirestoreCondition, type StatutCondition } from "@/lib/etat-de-forme";
 import { enBase64 } from "@/lib/images";
 import type { FirestoreLineupEntry } from "@/types";
 import type { ConsentementImage, ReponseConsentement } from "@/lib/consentement-image";
+import { formatDate, toGhostPlayer, toInvitation, toJoinRequest, toTeam } from "@/lib/equipe-mappers";
+export { toGhostPlayer, toInvitation, toTeam };
 
 // ============================================
 // Converters
@@ -75,58 +77,7 @@ import type { ConsentementImage, ReponseConsentement } from "@/lib/consentement-
 /**
  * Helper to convert Firestore dates (string or Timestamp) to ISO string
  */
-function formatDate(date: any): string {
-  if (!date) return new Date().toISOString();
-  // Handle Firestore serverTimestamp placeholder (sometimes has no toDate or seconds on first snapshot)
-  if (typeof date === "object" && !date.seconds && !date.toDate) {
-    return new Date().toISOString();
-  }
-  if (typeof date === "string") return date;
-  if (typeof date.toDate === "function") return date.toDate().toISOString();
-  if (date.seconds) return new Date(date.seconds * 1000).toISOString();
-  return new Date().toISOString();
-}
 
-
-export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlayer): GhostPlayer {
-  return {
-    id,
-    teamId,
-    firstName: d.first_name,
-    lastName: d.last_name,
-    position: d.position,
-    squadNumber: d.squad_number ?? undefined,
-    goals: d.goals ?? 0,
-    assists: d.assists ?? 0,
-    matchesPlayed: d.matches_played ?? 0,
-    condition: lireCondition(d.condition),
-    photoUrl: d.photo_url || null,
-    photoConsentement: d.photo_consentement ?? null,
-    createdAt: formatDate(d.created_at),
-    updatedAt: formatDate(d.updated_at),
-  };
-}
-
-export function toTeam(id: string, d: FirestoreTeam): Team {
-  return {
-    id, name: d.name, managerId: d.manager_id, city: d.city,
-    description: d.description, level: d.level, lookingFor: d.looking_for ?? [],
-    memberIds: d.member_ids ?? [], maxMembers: d.max_members, color: d.color,
-    wins: d.wins ?? 0, losses: d.losses ?? 0, draws: d.draws ?? 0,
-    matchesPlayed: d.matches_played ?? 0, isRecruiting: d.is_recruiting ?? false,
-    logoUrl: d.logo_url, bannerUrl: d.banner_url, slogan: d.slogan,
-    lineupIds: d.lineup_ids ?? [], galleryUrls: d.gallery_urls ?? [],
-    compositionsTypes: toCompositionsTypes(d.compositions_types),
-    achievements: d.achievements ?? [], followersCount: d.followers_count ?? 0,
-    squadNumbers: d.squad_numbers ?? {},
-    trainingSchedule: d.training_schedule ?? [],
-    staff: d.staff ?? [],
-    staffManagerIds: d.staff_manager_ids ?? [],
-    isGhost: d.is_ghost ?? false,
-    category: lireCategorie(d.category),
-    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
-  };
-}
 
 // Le match amical se lit dans un module sans SDK, que l'application mobile
 // partage (voir lib/match-mappers).
@@ -236,18 +187,6 @@ export function toParticipation(id: string, d: FirestoreParticipation): Particip
   };
 }
 
-export function toInvitation(id: string, d: FirestoreInvitation): Invitation {
-  return {
-    id, senderId: d.sender_id, senderName: d.sender_name,
-    receiverId: d.receiver_id, receiverName: d.receiver_name,
-    receiverPhoto: d.receiver_photo ?? null, teamLogo: d.team_logo ?? null,
-    receiverCity: d.receiver_city, receiverPosition: d.receiver_position,
-    receiverLevel: d.receiver_level, teamId: d.team_id, teamName: d.team_name,
-    message: d.message, status: d.status,
-    createdAt: formatDate(d.created_at), updatedAt: formatDate(d.updated_at),
-  };
-}
-
 function toVenue(id: string, d: FirestoreVenue): Venue {
   return {
     id, name: d.name, address: d.address, city: d.city, ownerId: d.owner_id,
@@ -310,17 +249,6 @@ function toShortlistEntry(id: string, d: FirestoreShortlistEntry): ShortlistEntr
     playerCity: d.player_city,
     playerPosition: d.player_position, playerLevel: d.player_level,
     playerBio: d.player_bio ?? "", createdAt: formatDate(d.created_at),
-  };
-}
-
-function toJoinRequest(id: string, d: FirestoreJoinRequest): JoinRequest {
-  return {
-    id, playerId: d.player_id, playerName: d.player_name,
-    playerPhoto: d.player_photo ?? null, teamLogo: d.team_logo ?? null,
-    playerCity: d.player_city, playerPosition: d.player_position,
-    playerLevel: d.player_level, teamId: d.team_id, teamName: d.team_name,
-    managerId: d.manager_id, message: d.message, status: d.status,
-    createdAt: d.created_at, updatedAt: d.updated_at,
   };
 }
 
@@ -3124,32 +3052,6 @@ export async function removeGalleryUrl(teamId: string, url: string): Promise<voi
 // club joue quand tout le monde est là. Le scoreur reste libre de la défaire,
 // et c'est le sens de « proposée » plutôt qu'« appliquée ».
 // ============================================
-
-function toCompositionsTypes(
-  d: FirestoreTeam["compositions_types"],
-): { [taille: string]: CompositionType } {
-  if (!d) return {};
-  const sortie: { [taille: string]: CompositionType } = {};
-  for (const [taille, c] of Object.entries(d)) {
-    if (!c) continue;
-    sortie[taille] = {
-      formation: c.formation,
-      lineup: (c.lineup ?? []).map((e) => ({
-        playerId: e.player_id,
-        name: e.name,
-        number: e.number,
-        role: e.role,
-        userId: e.user_id ?? null,
-        // Le poste est une chaine libre en base (voir FirestoreLineupEntry) :
-        // on le ramene au vocabulaire du produit, comme partout ailleurs.
-        position: normaliserPoste(e.position),
-        emplacement: lireEmplacement(e.emplacement),
-      })),
-      updatedAt: formatDate(c.updated_at),
-    };
-  }
-  return sortie;
-}
 
 /**
  * Poser (ou remplacer) la composition type d'un format.
