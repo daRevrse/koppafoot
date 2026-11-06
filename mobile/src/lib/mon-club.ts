@@ -246,3 +246,21 @@ export function messageInvitation(manager: string, equipe: string): string {
 export function effectifPret(fiche: FicheClub | null | undefined, fantomesLus: boolean): boolean {
   return fiche !== undefined && fantomesLus;
 }
+
+/**
+ * Ce que l'onglet peut dire des clubs qu'on gère. « aucun » (et donc « Créer
+ * mon équipe ») seulement quand la lecture a réussi sans rien trouver : un
+ * réseau coupé ne doit pas faire croire au manager qu'il n'a plus de club.
+ */
+export function etatDesClubs(
+  equipes: Team[] | null,
+  erreur: boolean,
+  equipe: Team | null,
+): "chargement" | "erreur" | "aucun" | "pret" {
+  if (equipes === null || equipes.length === 0) {
+    if (erreur) return "erreur";
+    return equipes === null ? "chargement" : "aucun";
+  }
+  // Une liste, mais pas de club : celui qu'on affichait vient de disparaître, la liste se relit.
+  return equipe ? "pret" : "chargement";
+}

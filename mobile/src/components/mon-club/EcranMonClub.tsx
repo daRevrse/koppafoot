@@ -19,7 +19,7 @@ import { prevenir } from "~/lib/confirmer";
 import { enregistrerEffectif, type Brouillon } from "~/lib/equipe-firestore";
 import { initiales } from "~/lib/initiales";
 import { messageDe } from "~/lib/message-erreur";
-import { aDesChangements, brouillonDe, candidaturesParEtat, invitationsEnAttente } from "~/lib/mon-club";
+import { aDesChangements, brouillonDe, candidaturesParEtat, etatDesClubs, invitationsEnAttente } from "~/lib/mon-club";
 import { retourSelection } from "~/lib/retour";
 import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
@@ -200,8 +200,16 @@ export function EcranMonClub({ uid }: { uid: string }) {
     if (clubCree) choisir(clubCree);
   }, [clubCree, choisir]);
 
-  if (club.equipes === null) return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
-  if (!club.equipe || !utilisateur) {
+  const etat = etatDesClubs(club.equipes, club.erreur, club.equipe);
+  if (etat === "chargement") return <ActivityIndicator color={couleurs.texteDiscret} style={styles.chargement} />;
+  if (etat === "erreur") {
+    return (
+      <EtatVide icone="cloud-offline-outline" texte="Tes clubs n'ont pas pu se charger. Vérifie ta connexion, puis réessaie.">
+        <Bouton titre="Réessayer" variante="contour" onPress={club.recharger} />
+      </EtatVide>
+    );
+  }
+  if (etat === "aucun" || !club.equipe || !utilisateur) {
     return (
       <EtatVide
         icone="briefcase-outline"

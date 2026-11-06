@@ -11,6 +11,8 @@ import { effectifPret, identitesDeLaFiche, nomsDeSecoursDe, type IdentiteMembre 
 export type MonClub = {
   /** Les clubs qu'on gère ; null pendant la première lecture. */
   equipes: Team[] | null;
+  /** La dernière lecture de la liste a échoué (réseau) : ne pas en conclure qu'il n'y a pas de club. */
+  erreur: boolean;
   /** Le club affiché, à jour en direct. */
   equipe: Team | null;
   choisir(id: string): void;
@@ -45,6 +47,7 @@ function ranger(equipes: Team[], uid: string): Team[] {
 
 export function useMonClub(uid: string): MonClub {
   const [equipes, setEquipes] = useState<Team[] | null>(null);
+  const [erreur, setErreur] = useState(false);
   const [choisi, setChoisi] = useState<string | null>(null);
   const [vivante, setVivante] = useState<Lue<Team | null>>(null);
   const [fantomes, setFantomes] = useState<Lue<GhostPlayer[]>>(null);
@@ -56,10 +59,12 @@ export function useMonClub(uid: string): MonClub {
     let vivant = true;
     equipesQueJeGere(uid)
       .then((l) => {
-        if (vivant) setEquipes(ranger(l, uid));
+        if (!vivant) return;
+        setEquipes(ranger(l, uid));
+        setErreur(false);
       })
       .catch(() => {
-        if (vivant) setEquipes((e) => e ?? []);
+        if (vivant) setErreur(true);
       });
     return () => {
       vivant = false;
@@ -84,6 +89,12 @@ export function useMonClub(uid: string): MonClub {
     return ecouterFantomes(id, (g) => setFantomes({ id, valeur: g }));
   }, [id]);
 
+  // Le club affiché a disparu (supprimé depuis le site) : relire la liste.
+  const disparu = enDirect === null;
+  useEffect(() => {
+    if (disparu) lireLesClubs();
+  }, [disparu, lireLesClubs]);
+
   useEffect(() => {
     if (!id || !managerId) return;
     return ecouterCandidatures(id, managerId, (d) => setCandidatures({ id, valeur: d }));
@@ -101,6 +112,7 @@ export function useMonClub(uid: string): MonClub {
 
   return {
     equipes,
+    erreur,
     equipe,
     choisir: setChoisi,
     fantomes: pour(fantomes, id) ?? AUCUN_FANTOME,

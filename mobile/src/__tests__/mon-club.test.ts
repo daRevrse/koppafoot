@@ -3,7 +3,7 @@ import type { FirestoreTeam, GhostPlayer, Invitation, JoinRequest } from "@/type
 import type { FicheClub } from "~/lib/fiche-du-club";
 import {
   aDesChangements, basculerTitulaire, brouillonDe, candidaturesParEtat, changerDossard, erreursEquipe, erreursFantome,
-  effectifPret, etatDuJoueur, identitesDeLaFiche, invitationsEnAttente, libelleNiveau, lignesParPoste, messageInvitation,
+  effectifPret, etatDesClubs, etatDuJoueur, identitesDeLaFiche, invitationsEnAttente, libelleNiveau, lignesParPoste, messageInvitation,
   nettoyerDossard,
   nomsDeSecoursDe, type IdentiteMembre,
 } from "~/lib/mon-club";
@@ -256,5 +256,30 @@ describe("effectifPret", () => {
 
   it("n'attend pas une fiche qui n'a pas pu se lire : les noms de secours prennent le relais", () => {
     expect(effectifPret(null, true)).toBe(true);
+  });
+});
+
+describe("etatDesClubs", () => {
+  const club = equipe();
+
+  it("attend la première lecture", () => {
+    expect(etatDesClubs(null, false, null)).toBe("chargement");
+  });
+
+  it("dit que la lecture a échoué, au lieu de prétendre qu'on n'a pas de club", () => {
+    expect(etatDesClubs(null, true, null)).toBe("erreur");
+    expect(etatDesClubs([], true, null)).toBe("erreur");
+  });
+
+  it("propose de créer un club seulement quand la lecture a réussi et n'a rien trouvé", () => {
+    expect(etatDesClubs([], false, null)).toBe("aucun");
+  });
+
+  it("garde les clubs déjà lus quand une relecture échoue", () => {
+    expect(etatDesClubs([club], true, club)).toBe("pret");
+  });
+
+  it("attend quand le club affiché vient de disparaître (supprimé ailleurs) : la liste se relit", () => {
+    expect(etatDesClubs([club], false, null)).toBe("chargement");
   });
 });
