@@ -169,9 +169,12 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="inscription" options={fenetre} />
         <Stack.Screen name="mot-de-passe" options={fenetre} />
       </Stack.Protected>
-      {/* Supprimer son compte : seulement connecté ; le compte parti, la garde referme la fenêtre. */}
+      {/* Supprimer son compte : seulement connecté ; le compte parti, la garde referme la fenêtre.
+          Les fenêtres du club qu'on gère aussi : elles écrivent au nom du compte. */}
       <Stack.Protected guard={accueil.vu && !profilManquant && !!utilisateur}>
         <Stack.Screen name="supprimer-compte" options={fenetre} />
+        <Stack.Screen name="creer-equipe" options={fenetre} />
+        <Stack.Screen name="joueur-sans-compte" options={fenetre} />
       </Stack.Protected>
     </Stack>
   );

@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import type { User } from "firebase/auth";
+import { ErreurLimiteOffre } from "@/lib/offre";
 import { API_URL } from "~/lib/config";
 import { chercherJoueurs, creerEquipe, notifierActiviteEquipe, retirerPhotoFantome } from "~/lib/equipe-api";
 
@@ -47,6 +48,14 @@ describe("creerEquipe", () => {
   it("dit quelque chose même quand la route ne dit rien", async () => {
     suivante = { ok: false, json: async () => { throw new Error("pas du JSON"); } } as unknown as Response;
     await expect(creerEquipe(compte, CHAMPS)).rejects.toThrow("La création de l'équipe a échoué.");
+  });
+
+  it("reconnaît la limite de l'offre gratuite, pour proposer KoppaFoot+", async () => {
+    const message = "Tu gères déjà 1 équipe, le maximum de l'offre gratuite. KoppaFoot+ lève cette limite.";
+    suivante = reponse(false, { error: message, code: "limite_offre", cle: "equipes", max: 1 });
+    const erreur = await creerEquipe(compte, CHAMPS).catch((e: unknown) => e);
+    expect(erreur).toBeInstanceOf(ErreurLimiteOffre);
+    expect(erreur).toMatchObject({ message, cle: "equipes", max: 1 });
   });
 });
 

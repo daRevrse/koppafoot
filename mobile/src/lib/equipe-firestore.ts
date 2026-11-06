@@ -1,5 +1,5 @@
 import {
-  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query,
+  addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query,
   serverTimestamp, updateDoc, where, writeBatch, type Unsubscribe,
 } from "firebase/firestore";
 import { toGhostPlayer, toInvitation, toJoinRequest, toTeam } from "@/lib/equipe-mappers";
@@ -132,6 +132,12 @@ const champsFantome = (f: ChampsFantome) => ({
   position: f.poste,
   squad_number: f.dossard.trim() || null,
 });
+
+/** Un joueur sans compte, pour préremplir sa modification ; null s'il n'existe plus. */
+export async function lireFantome(teamId: string, gid: string): Promise<GhostPlayer | null> {
+  const s = await getDoc(doc(db, "teams", teamId, "ghost_players", gid));
+  return s.exists() ? toGhostPlayer(s.id, teamId, s.data() as FirestoreGhostPlayer) : null;
+}
 
 /** Les dates d'un joueur sans compte sont des chaines ISO, comme sur le site. */
 export async function creerFantome(teamId: string, f: ChampsFantome): Promise<string> {

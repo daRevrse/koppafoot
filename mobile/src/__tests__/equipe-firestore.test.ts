@@ -8,7 +8,7 @@ import type { FirestoreJoinRequest, FirestoreTeam, Invitation, JoinRequest, Team
 import { notifierCompte } from "~/lib/equipe-api";
 import {
   annulerInvitation, creerFantome, ecouterCandidatures, ecouterInvitationsEnvoyees, enregistrerEffectif,
-  equipesQueJeGere, inviterJoueur, modifierFantome, repondreCandidature, retirerMembre, supprimerFantome,
+  equipesQueJeGere, inviterJoueur, lireFantome, modifierFantome, repondreCandidature, retirerMembre, supprimerFantome,
 } from "~/lib/equipe-firestore";
 import { EMULATEUR, connecterEnAdmin, connecterEnTantQue, fermer, viderLaBase } from "../test-aides/emulateur";
 
@@ -183,6 +183,14 @@ suite("l'effectif d'un club dans Firestore", () => {
 
       await supprimerFantome("t1", id);
       expect(await lire(`teams/t1/ghost_players/${id}`)).toBeUndefined();
+    });
+
+    it("relit un joueur pour le modifier, et rend null s'il n'existe plus", async () => {
+      enTantQue("m");
+      const id = await creerFantome("t1", { prenom: "Kodjo", nom: "Mensah", poste: "goalkeeper", dossard: "1" });
+      expect(await lireFantome("t1", id)).toMatchObject({ id, teamId: "t1", firstName: "Kodjo", position: "goalkeeper", squadNumber: "1" });
+      await supprimerFantome("t1", id);
+      expect(await lireFantome("t1", id)).toBeNull();
     });
 
     it("refuse un inconnu", async () => {

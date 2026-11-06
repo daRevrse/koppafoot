@@ -1,8 +1,9 @@
 import { toTeam } from "@/lib/equipe-mappers";
 import type { FirestoreTeam, GhostPlayer, Invitation, JoinRequest } from "@/types";
+import type { FicheClub } from "~/lib/fiche-du-club";
 import {
   aDesChangements, basculerTitulaire, brouillonDe, candidaturesParEtat, changerDossard, erreursEquipe, erreursFantome,
-  invitationsEnAttente, lignesParPoste, nettoyerDossard, type IdentiteMembre,
+  identitesDeLaFiche, invitationsEnAttente, lignesParPoste, nettoyerDossard, nomsDeSecoursDe, type IdentiteMembre,
 } from "~/lib/mon-club";
 
 // La logique de l'écran Mon club, sans écran : comment l'effectif se range,
@@ -177,5 +178,41 @@ describe("erreursEquipe", () => {
   it("garde le nombre de joueurs entre 5 et 25, comme le site", () => {
     expect(erreursEquipe({ ...champs, maxMembers: 4 })).toEqual({ maxMembers: "Entre 5 et 25 joueurs." });
     expect(erreursEquipe({ ...champs, maxMembers: 26 })).toEqual({ maxMembers: "Entre 5 et 25 joueurs." });
+  });
+});
+
+describe("identitesDeLaFiche", () => {
+  it("prend les comptes de l'effectif public et le manager, pas les joueurs sans compte", () => {
+    const fiche = {
+      genre: "fiche", id: "t1",
+      effectif: [
+        { id: "a", uid: "a", nom: "Ama Attaque", numero: "9", poste: "forward", photo: null },
+        { id: "g1", uid: null, nom: "Kodjo Mensah", numero: null, poste: "defender", photo: null },
+      ],
+      manager: { uid: "m", nom: "Mo Manager", photo: "https://x/m.jpg" },
+    } as unknown as FicheClub;
+    const ids = identitesDeLaFiche(fiche);
+    expect([...ids.keys()].sort()).toEqual(["a", "m"]);
+    expect(ids.get("a")).toEqual({ nom: "Ama Attaque", photo: null, poste: "forward" });
+    expect(ids.get("m")).toEqual({ nom: "Mo Manager", photo: "https://x/m.jpg", poste: null });
+  });
+
+  it("ne rend rien sans fiche, ou pour un club fantôme", () => {
+    expect(identitesDeLaFiche(undefined).size).toBe(0);
+    expect(identitesDeLaFiche(null).size).toBe(0);
+    expect(identitesDeLaFiche({ genre: "fantome", id: "t1", nom: "X", logo: null }).size).toBe(0);
+  });
+});
+
+describe("nomsDeSecoursDe", () => {
+  it("nomme un membre que la fiche publique ne connaît pas encore : staff, candidature, invitation", () => {
+    const noms = nomsDeSecoursDe(
+      equipe(),
+      [demande("Céline", "accepted", "2026-10-01T10:00:00.000Z")],
+      [{ id: "i1", teamId: "t1", receiverId: "r", receiverName: "Rémi Recrue", status: "accepted" } as Invitation],
+    );
+    expect(noms.get("b")).toBe("Bébé");
+    expect(noms.get("p-Céline")).toBe("Céline");
+    expect(noms.get("r")).toBe("Rémi Recrue");
   });
 });

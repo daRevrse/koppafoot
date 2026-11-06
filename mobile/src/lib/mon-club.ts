@@ -2,6 +2,7 @@ import { normaliserPoste, POSTES, type Poste } from "@/lib/postes";
 import type { GhostPlayer, Invitation, JoinRequest, Team } from "@/types";
 import type { ChampsEquipe } from "~/lib/equipe-api";
 import type { Brouillon, ChampsFantome } from "~/lib/equipe-firestore";
+import type { FicheClub } from "~/lib/fiche-du-club";
 
 // La logique de l'écran Mon club, sans écran : l'effectif rangé comme une
 // feuille de match (du but vers l'attaque, comme le site), le brouillon de ce
@@ -36,6 +37,38 @@ const TITRES: Record<Poste, string> = {
 };
 
 const parNom = (a: LigneEffectif, b: LigneEffectif) => a.nom.localeCompare(b.nom, "fr");
+
+/**
+ * Qui est qui dans l'effectif, d'après la fiche publique du club : ses comptes
+ * (pas ses joueurs sans compte, qui ont leur propre document) et son manager.
+ * Les profils des autres ne se lisent pas dans Firestore (voir
+ * src/lib/membres-serveur) ; la fiche publie déjà ces noms.
+ */
+export function identitesDeLaFiche(fiche: FicheClub | null | undefined): Map<string, IdentiteMembre> {
+  const ids = new Map<string, IdentiteMembre>();
+  if (fiche?.genre !== "fiche") return ids;
+  for (const j of fiche.effectif) {
+    if (j.uid) ids.set(j.uid, { nom: j.nom, photo: j.photo, poste: j.poste });
+  }
+  if (fiche.manager) {
+    const { uid, nom, photo } = fiche.manager;
+    ids.set(uid, { nom, photo, poste: ids.get(uid)?.poste ?? null });
+  }
+  return ids;
+}
+
+/**
+ * Un nom pour le membre que la fiche publique ne connaît pas encore (elle se
+ * recalcule toutes les cinq minutes) : celui du staff, d'une candidature ou
+ * d'une invitation qu'on vient d'accepter. Le staff l'emporte.
+ */
+export function nomsDeSecoursDe(team: Team, candidatures: JoinRequest[], invitations: Invitation[]): Map<string, string> {
+  const noms = new Map<string, string>();
+  for (const i of invitations) if (i.receiverId && i.receiverName) noms.set(i.receiverId, i.receiverName);
+  for (const d of candidatures) if (d.playerId && d.playerName) noms.set(d.playerId, d.playerName);
+  for (const m of team.staff ?? []) if (m.uid && m.name) noms.set(m.uid, m.name);
+  return noms;
+}
 
 /** Un dossard tel qu'on le tape : trois chiffres au plus, rien d'autre. */
 export function nettoyerDossard(v: string): string {

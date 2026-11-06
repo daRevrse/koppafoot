@@ -1,16 +1,13 @@
 import { ActivityIndicator, ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bouton } from "~/components/Bouton";
-import { FicheDuClubContenu } from "~/components/club/EcranClub";
 import { DefilementClavier } from "~/components/DefilementClavier";
 import { EnTeteOnglet } from "~/components/EnTeteOnglet";
 import { EtatVide } from "~/components/EtatVide";
 import { ChoixDuRole } from "~/components/evolution/ChoixDuRole";
 import { ContenuFicheJoueur } from "~/components/joueur/EcranJoueur";
-import { useFicheDuClub } from "~/hooks/useFicheDuClub";
+import { EcranMonClub } from "~/components/mon-club/EcranMonClub";
 import { useFicheJoueur } from "~/hooks/useFicheJoueur";
 import { useAuth } from "~/lib/auth";
-import { ouvrirSurLeSite } from "~/lib/navigateur";
 import { titreDeLOnglet } from "~/lib/roles";
 import { creerStyles, polices, useCouleurs } from "~/theme";
 
@@ -35,33 +32,13 @@ function MaFiche({ uid }: { uid: string }) {
   );
 }
 
-/** Un manager : la fiche du club qu'il dirige. */
-function MonClub({ uid }: { uid: string }) {
-  const styles = useStyles();
-  const { fiche: moi } = useFicheJoueur(uid);
-  const club = moi?.genre === "fiche" ? moi.equipes.find((e) => e.dirige) ?? null : null;
-  const fiche = useFicheDuClub(club?.id ?? null);
-  if (moi === undefined || (club && fiche === undefined)) return <Chargement />;
-  if (!club || !fiche) {
-    return (
-      <EtatVide icone="briefcase-outline" texte="Tu ne diriges pas encore d'équipe. Crée-la sur le site, ou un organisateur t'invitera à gérer une équipe de sa compétition.">
-        <Bouton titre="Créer mon équipe sur le site" variante="contour" onPress={() => ouvrirSurLeSite("/mon-equipe")} />
-      </EtatVide>
-    );
-  }
-  return (
-    <ScrollView contentContainerStyle={styles.contenu}>
-      <FicheDuClubContenu fiche={fiche} />
-    </ScrollView>
-  );
-}
-
 /**
  * L'onglet Évolution : sans rôle, l'écran où l'on choisit le sien (joueur,
  * manager, arbitre) ; le rôle choisi, l'onglet prend son nom et montre la
- * fiche qui va avec — la sienne pour un joueur ou un arbitre, celle de son
- * club pour un manager. Changer de rôle ensuite se fait sur le site : ses
- * conséquences (KoppaFoot+, les équipes gelées) n'ont pas encore leur parcours.
+ * fiche qui va avec — la sienne pour un joueur ou un arbitre — ou, pour un
+ * manager, le club qu'il gère (EcranMonClub). Changer de rôle ensuite se fait
+ * sur le site : ses conséquences (KoppaFoot+, les équipes gelées) n'ont pas
+ * encore leur parcours.
  */
 export default function EcranEvolution() {
   const styles = useStyles();
@@ -71,7 +48,7 @@ export default function EcranEvolution() {
 
   let contenu;
   if (uid && (role === "player" || role === "referee")) contenu = <MaFiche uid={uid} />;
-  else if (uid && role === "manager") contenu = <MonClub uid={uid} />;
+  else if (uid && role === "manager") contenu = <EcranMonClub uid={uid} />;
   else {
     contenu = (
       <DefilementClavier contentContainerStyle={styles.contenu}>

@@ -1,6 +1,7 @@
 import type { User } from "firebase/auth";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import type { Categorie } from "@/lib/genre";
+import { ErreurLimiteOffre, estLimiteAtteinte, messageLimite } from "@/lib/offre";
 import { API_URL } from "~/lib/config";
 import { db } from "~/lib/firebase";
 
@@ -40,15 +41,21 @@ async function refus(rep: Response, parDefaut: string): Promise<Error> {
   return new Error(data.error ?? parDefaut);
 }
 
-/** POST /api/teams : le manager est l'appelant ; rend l'identifiant de l'équipe. */
+/**
+ * POST /api/teams : le manager est l'appelant ; rend l'identifiant de l'équipe.
+ * Refusée pour la limite de l'offre gratuite, elle lève ErreurLimiteOffre :
+ * l'écran propose alors KoppaFoot+.
+ */
 export async function creerEquipe(u: User, c: ChampsEquipe): Promise<string> {
   const rep = await fetch(`${API_URL}/api/teams`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(await jeton(u)) },
     body: JSON.stringify(c),
   });
-  if (!rep.ok) throw await refus(rep, "La création de l'équipe a échoué.");
-  return ((await rep.json()) as { id: string }).id;
+  if (rep.ok) return ((await rep.json()) as { id: string }).id;
+  const data = (await rep.json().catch(() => ({}))) as { error?: string };
+  if (estLimiteAtteinte(data)) throw new ErreurLimiteOffre(data.error ?? messageLimite(data.cle, data.max), data.cle, data.max);
+  throw new Error(data.error ?? "La création de l'équipe a échoué.");
 }
 
 /** GET /api/membres/recherche?role=joueur : les joueurs du mercato, filtrés par nom et par ville. */
