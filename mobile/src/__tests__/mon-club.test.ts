@@ -1,0 +1,285 @@
+import { toTeam } from "@/lib/equipe-mappers";
+import type { FirestoreTeam, GhostPlayer, Invitation, JoinRequest } from "@/types";
+import type { FicheClub } from "~/lib/fiche-du-club";
+import {
+  aDesChangements, basculerTitulaire, brouillonDe, candidaturesParEtat, changerDossard, erreursEquipe, erreursFantome,
+  effectifPret, etatDesClubs, etatDuJoueur, identitesDeLaFiche, invitationsEnAttente, libelleNiveau, lignesParPoste, messageInvitation,
+  nettoyerDossard,
+  nomsDeSecoursDe, type IdentiteMembre,
+} from "~/lib/mon-club";
+
+// La logique de l'écran Mon club, sans écran : comment l'effectif se range,
+// ce que le bouton Enregistrer enregistre, et ce que les formulaires refusent.
+
+const equipe = (d: Partial<FirestoreTeam> = {}) =>
+  toTeam("t1", {
+    name: "FC Koppa", manager_id: "m", city: "Lomé", description: "", level: "amateur", max_members: 20, color: "emerald",
+    member_ids: ["a", "b", "c"], squad_numbers: { m: "1", a: "9" }, lineup_ids: ["a"],
+    staff: [{ uid: "b", name: "Bébé", title: "Adjoint", delegated: true }], staff_manager_ids: ["b"],
+    ...d,
+  } as FirestoreTeam);
+
+const fantome = (g: Partial<GhostPlayer>): GhostPlayer => ({
+  id: "g1", teamId: "t1", firstName: "Kodjo", lastName: "Mensah", position: "defender", squadNumber: undefined,
+  goals: 0, assists: 0, matchesPlayed: 0, condition: null, photoUrl: null, photoConsentement: null,
+  createdAt: "2026-11-01T10:00:00.000Z", updatedAt: "2026-11-01T10:00:00.000Z", ...g,
+}) as GhostPlayer;
+
+const identites = new Map<string, IdentiteMembre>([
+  ["m", { nom: "Mo Manager", photo: null, poste: null }],
+  ["a", { nom: "Ama Attaque", photo: "https://x/a.jpg", poste: "forward" }],
+  ["b", { nom: "Bébé But", photo: null, poste: "goalkeeper" }],
+]);
+
+describe("nettoyerDossard", () => {
+  it("ne garde que trois chiffres", () => {
+    expect(nettoyerDossard("1a23x4")).toBe("123");
+    expect(nettoyerDossard(" 7 ")).toBe("7");
+    expect(nettoyerDossard("abc")).toBe("");
+  });
+});
+
+describe("lignesParPoste", () => {
+  it("met le manager en tête, puis les postes du but vers l'attaque, puis les sans-poste", () => {
+    const t = equipe();
+    const groupes = lignesParPoste(t, identites, [fantome({})], brouillonDe(t), new Map());
+    expect(groupes.map((g) => g.titre)).toEqual(["Manager", "Gardiens", "Défenseurs", "Attaquants", "Sans poste"]);
+    expect(groupes[0].lignes).toEqual([
+      expect.objectContaining({ genre: "compte", id: "m", nom: "Mo Manager", dossard: "1", manager: true }),
+    ]);
+    expect(groupes[2].lignes).toEqual([
+      expect.objectContaining({ genre: "fantome", id: "g1", nom: "Kodjo Mensah", poste: "defender", titulaire: false }),
+    ]);
+    expect(groupes[3].lignes).toEqual([
+      expect.objectContaining({ genre: "compte", id: "a", nom: "Ama Attaque", photo: "https://x/a.jpg", dossard: "9", titulaire: true, manager: false }),
+    ]);
+  });
+
+  it("un membre sans identité prend le nom de secours, sinon « Joueur », et va dans « Sans poste »", () => {
+    const t = equipe({ member_ids: ["c", "d"] });
+    const groupes = lignesParPoste(t, identites, [], brouillonDe(t), new Map([["c", "Céline Candidate"]]));
+    const sansPoste = groupes.find((g) => g.titre === "Sans poste");
+    expect(sansPoste?.poste).toBeNull();
+    expect(sansPoste?.lignes.map((l) => l.nom)).toEqual(["Céline Candidate", "Joueur"]);
+  });
+
+  it("ne liste pas deux fois un manager qui est aussi dans l'effectif", () => {
+    const t = equipe({ member_ids: ["m", "a"] });
+    const lignes = lignesParPoste(t, identites, [], brouillonDe(t), new Map()).flatMap((g) => g.lignes);
+    expect(lignes.filter((l) => l.id === "m")).toHaveLength(1);
+  });
+
+  it("dit qui est du staff, et quel numéro d'un joueur sans compte un compte porte déjà", () => {
+    const t = equipe();
+    const lignes = lignesParPoste(t, identites, [fantome({ squadNumber: "9" }), fantome({ id: "g2", squadNumber: "5" })], brouillonDe(t), new Map())
+      .flatMap((g) => g.lignes);
+    expect(lignes.find((l) => l.id === "b")?.staff).toBe(true);
+    expect(lignes.find((l) => l.id === "a")?.staff).toBe(false);
+    expect(lignes.find((l) => l.id === "g1")).toMatchObject({ dossard: "9", dossardPris: true });
+    expect(lignes.find((l) => l.id === "g2")).toMatchObject({ dossard: "5", dossardPris: false });
+  });
+
+  it("lit le brouillon, pas l'équipe : ce que le manager tape se voit avant d'enregistrer", () => {
+    const t = equipe();
+    const b = basculerTitulaire(changerDossard(brouillonDe(t), "a", "10"), "a");
+    const a = lignesParPoste(t, identites, [], b, new Map()).flatMap((g) => g.lignes).find((l) => l.id === "a");
+    expect(a).toMatchObject({ dossard: "10", titulaire: false });
+  });
+
+  it("range par nom dans un même poste", () => {
+    const t = equipe({ member_ids: [] });
+    const groupes = lignesParPoste(t, identites, [fantome({ id: "g2", firstName: "Zak" }), fantome({ id: "g3", firstName: "Abdou" })], brouillonDe(t), new Map());
+    expect(groupes.find((g) => g.titre === "Défenseurs")?.lignes.map((l) => l.id)).toEqual(["g3", "g2"]);
+  });
+});
+
+describe("le brouillon de l'effectif", () => {
+  it("part de l'équipe telle qu'elle est enregistrée", () => {
+    expect(brouillonDe(equipe())).toEqual({ dossards: { m: "1", a: "9" }, titulaires: ["a"] });
+  });
+
+  it("aDesChangements : faux au départ, vrai après une bascule, faux une fois rebasculé", () => {
+    const t = equipe();
+    const b0 = brouillonDe(t);
+    expect(aDesChangements(t, b0)).toBe(false);
+    const b1 = basculerTitulaire(b0, "c");
+    expect(b1.titulaires).toEqual(["a", "c"]);
+    expect(aDesChangements(t, b1)).toBe(true);
+    expect(aDesChangements(t, basculerTitulaire(b1, "c"))).toBe(false);
+  });
+
+  it("aDesChangements : l'ordre des titulaires ne compte pas", () => {
+    const t = equipe({ lineup_ids: ["a", "c"] });
+    expect(aDesChangements(t, basculerTitulaire(basculerTitulaire(brouillonDe(t), "a"), "a"))).toBe(false);
+  });
+
+  it("aDesChangements : un dossard vidé qui n'existait pas n'est pas un changement", () => {
+    const t = equipe();
+    expect(aDesChangements(t, changerDossard(brouillonDe(t), "c", ""))).toBe(false);
+    expect(aDesChangements(t, changerDossard(brouillonDe(t), "c", "4"))).toBe(true);
+    expect(aDesChangements(t, changerDossard(brouillonDe(t), "a", "9x"))).toBe(false);
+  });
+});
+
+const demande = (id: string, status: JoinRequest["status"], createdAt: unknown): JoinRequest => ({
+  id, playerId: `p-${id}`, playerName: id, playerPhoto: null, teamLogo: null, playerCity: "Lomé", playerPosition: "forward",
+  playerLevel: "amateur", teamId: "t1", teamName: "FC Koppa", managerId: "m", message: "", status,
+  createdAt: createdAt as string, updatedAt: "",
+});
+
+describe("candidaturesParEtat", () => {
+  it("sépare les demandes en attente, les plus récentes d'abord, des réponses passées", () => {
+    const { enAttente, passees } = candidaturesParEtat([
+      demande("ancienne", "pending", "2026-10-01T10:00:00.000Z"),
+      demande("refusee", "rejected", "2026-10-05T10:00:00.000Z"),
+      // Le document porte un horodatage Firestore, pas une chaine (toJoinRequest le laisse tel quel).
+      demande("recente", "pending", { seconds: Date.parse("2026-11-01T10:00:00.000Z") / 1000, nanoseconds: 0 }),
+      demande("acceptee", "accepted", "2026-10-20T10:00:00.000Z"),
+    ]);
+    expect(enAttente.map((d) => d.id)).toEqual(["recente", "ancienne"]);
+    expect(passees.map((d) => d.id)).toEqual(["acceptee", "refusee"]);
+  });
+});
+
+const invitation = (id: string, teamId: string, status: Invitation["status"], createdAt: string) =>
+  ({ id, teamId, status, createdAt }) as Invitation;
+
+describe("invitationsEnAttente", () => {
+  it("garde celles de l'équipe qui attendent une réponse, les plus récentes d'abord", () => {
+    const liste = invitationsEnAttente([
+      invitation("i1", "t1", "pending", "2026-10-01T10:00:00.000Z"),
+      invitation("i2", "t2", "pending", "2026-10-02T10:00:00.000Z"),
+      invitation("i3", "t1", "accepted", "2026-10-03T10:00:00.000Z"),
+      invitation("i4", "t1", "pending", "2026-10-04T10:00:00.000Z"),
+    ], "t1");
+    expect(liste.map((i) => i.id)).toEqual(["i4", "i1"]);
+  });
+});
+
+describe("erreursFantome", () => {
+  it("demande un prénom et un nom, de 40 caractères au plus", () => {
+    expect(erreursFantome({ prenom: " ", nom: "", poste: "forward", dossard: "" })).toEqual({
+      prenom: "Le prénom est requis.", nom: "Le nom est requis.",
+    });
+    expect(erreursFantome({ prenom: "a".repeat(41), nom: "Mensah", poste: "forward", dossard: "" })).toEqual({
+      prenom: "40 caractères au plus.",
+    });
+    expect(erreursFantome({ prenom: "Kodjo", nom: "Mensah", poste: "forward", dossard: "5" })).toEqual({});
+  });
+});
+
+describe("erreursEquipe", () => {
+  const champs = { name: "FC Koppa", city: "Lomé", level: "amateur", category: "men" as const, color: "emerald", description: "", maxMembers: 14 };
+
+  it("demande un nom et une ville, de 80 caractères au plus", () => {
+    expect(erreursEquipe({ ...champs, name: "", city: "  " })).toEqual({ name: "Le nom est requis.", city: "La ville est requise." });
+    expect(erreursEquipe({ ...champs, city: "x".repeat(81) })).toEqual({ city: "80 caractères au plus." });
+    expect(erreursEquipe(champs)).toEqual({});
+  });
+
+  it("garde le nombre de joueurs entre 5 et 25, comme le site", () => {
+    expect(erreursEquipe({ ...champs, maxMembers: 4 })).toEqual({ maxMembers: "Entre 5 et 25 joueurs." });
+    expect(erreursEquipe({ ...champs, maxMembers: 26 })).toEqual({ maxMembers: "Entre 5 et 25 joueurs." });
+  });
+});
+
+describe("identitesDeLaFiche", () => {
+  it("prend les comptes de l'effectif public et le manager, pas les joueurs sans compte", () => {
+    const fiche = {
+      genre: "fiche", id: "t1",
+      effectif: [
+        { id: "a", uid: "a", nom: "Ama Attaque", numero: "9", poste: "forward", photo: null },
+        { id: "g1", uid: null, nom: "Kodjo Mensah", numero: null, poste: "defender", photo: null },
+      ],
+      manager: { uid: "m", nom: "Mo Manager", photo: "https://x/m.jpg" },
+    } as unknown as FicheClub;
+    const ids = identitesDeLaFiche(fiche);
+    expect([...ids.keys()].sort()).toEqual(["a", "m"]);
+    expect(ids.get("a")).toEqual({ nom: "Ama Attaque", photo: null, poste: "forward" });
+    expect(ids.get("m")).toEqual({ nom: "Mo Manager", photo: "https://x/m.jpg", poste: null });
+  });
+
+  it("ne rend rien sans fiche, ou pour un club fantôme", () => {
+    expect(identitesDeLaFiche(undefined).size).toBe(0);
+    expect(identitesDeLaFiche(null).size).toBe(0);
+    expect(identitesDeLaFiche({ genre: "fantome", id: "t1", nom: "X", logo: null }).size).toBe(0);
+  });
+});
+
+describe("nomsDeSecoursDe", () => {
+  it("nomme un membre que la fiche publique ne connaît pas encore : staff, candidature, invitation", () => {
+    const noms = nomsDeSecoursDe(
+      equipe(),
+      [demande("Céline", "accepted", "2026-10-01T10:00:00.000Z")],
+      [{ id: "i1", teamId: "t1", receiverId: "r", receiverName: "Rémi Recrue", status: "accepted" } as Invitation],
+    );
+    expect(noms.get("b")).toBe("Bébé");
+    expect(noms.get("p-Céline")).toBe("Céline");
+    expect(noms.get("r")).toBe("Rémi Recrue");
+  });
+});
+
+describe("libelleNiveau", () => {
+  it("dit le niveau comme le formulaire du site, et rend la saisie inconnue telle quelle", () => {
+    expect(libelleNiveau("advanced")).toBe("Avancé");
+    expect(libelleNiveau("beginner")).toBe("Débutant");
+    expect(libelleNiveau("pro")).toBe("pro");
+    expect(libelleNiveau("")).toBe("");
+  });
+});
+
+describe("etatDuJoueur", () => {
+  it("dit si un joueur trouvé est déjà là, déjà invité, ou libre", () => {
+    const t = equipe();
+    const invites = new Set(["q"]);
+    expect(etatDuJoueur("a", t, invites)).toBe("membre");
+    expect(etatDuJoueur("m", t, invites)).toBe("membre");
+    expect(etatDuJoueur("q", t, invites)).toBe("invite");
+    expect(etatDuJoueur("z", t, invites)).toBe("libre");
+  });
+});
+
+describe("messageInvitation", () => {
+  it("préremplit le message avec le manager et l'équipe", () => {
+    expect(messageInvitation("Mo Manager", "FC Koppa")).toBe("Mo Manager t'invite à rejoindre FC Koppa.");
+    expect(messageInvitation("", "FC Koppa")).toBe("FC Koppa t'invite à le rejoindre.");
+  });
+});
+
+describe("effectifPret", () => {
+  it("attend la fiche publique et les joueurs sans compte, pour ne pas montrer « Joueur » puis les vrais noms", () => {
+    const fiche = { genre: "fiche", id: "t1", effectif: [], manager: null } as unknown as FicheClub;
+    expect(effectifPret(undefined, true)).toBe(false);
+    expect(effectifPret(fiche, false)).toBe(false);
+    expect(effectifPret(fiche, true)).toBe(true);
+  });
+
+  it("n'attend pas une fiche qui n'a pas pu se lire : les noms de secours prennent le relais", () => {
+    expect(effectifPret(null, true)).toBe(true);
+  });
+});
+
+describe("etatDesClubs", () => {
+  const club = equipe();
+
+  it("attend la première lecture", () => {
+    expect(etatDesClubs(null, false, null)).toBe("chargement");
+  });
+
+  it("dit que la lecture a échoué, au lieu de prétendre qu'on n'a pas de club", () => {
+    expect(etatDesClubs(null, true, null)).toBe("erreur");
+    expect(etatDesClubs([], true, null)).toBe("erreur");
+  });
+
+  it("propose de créer un club seulement quand la lecture a réussi et n'a rien trouvé", () => {
+    expect(etatDesClubs([], false, null)).toBe("aucun");
+  });
+
+  it("garde les clubs déjà lus quand une relecture échoue", () => {
+    expect(etatDesClubs([club], true, club)).toBe("pret");
+  });
+
+  it("attend quand le club affiché vient de disparaître (supprimé ailleurs) : la liste se relit", () => {
+    expect(etatDesClubs([club], false, null)).toBe("chargement");
+  });
+});
