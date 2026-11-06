@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Keyboard, Platform, ScrollView, StyleSheet, TextInput, View, type ScrollViewProps } from "react-native";
+import { Keyboard, Platform, ScrollView, StyleSheet, TextInput, View, type ScrollViewProps, type ScrollViewInstance, type ViewInstance } from "react-native";
 import { margeSousLeClavier, remonteePourLeChamp } from "~/lib/clavier";
 
 /**
@@ -17,8 +17,8 @@ import { margeSousLeClavier, remonteePourLeChamp } from "~/lib/clavier";
 export function DefilementClavier({
   onLayout, onScroll, scrollEventThrottle = 16, keyboardShouldPersistTaps = "handled", children, ...reste
 }: ScrollViewProps) {
-  const cadre = useRef<View>(null);
-  const defilement = useRef<ScrollView>(null);
+  const cadre = useRef<ViewInstance>(null);
+  const defilement = useRef<ScrollViewInstance>(null);
   const decalage = useRef(0);
   const margeActuelle = useRef(0);
   // Le haut du clavier, le temps que l'écran réduit soit en place : avant, il n'a pas de quoi défiler.
