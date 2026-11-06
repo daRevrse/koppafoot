@@ -8,7 +8,7 @@ import type { FirestoreJoinRequest, FirestoreTeam, Invitation, JoinRequest, Team
 import { notifierCompte } from "~/lib/equipe-api";
 import {
   annulerInvitation, creerFantome, ecouterCandidatures, ecouterInvitationsEnvoyees, enregistrerEffectif,
-  equipesQueJeGere, inviterJoueur, lireFantome, modifierFantome, repondreCandidature, retirerMembre, supprimerFantome,
+  equipesQueJeGere, inviterJoueur, lireEquipe, lireFantome, modifierFantome, repondreCandidature, retirerMembre, supprimerFantome,
 } from "~/lib/equipe-firestore";
 import { EMULATEUR, connecterEnAdmin, connecterEnTantQue, fermer, viderLaBase } from "../test-aides/emulateur";
 
@@ -91,6 +91,12 @@ suite("l'effectif d'un club dans Firestore", () => {
     it("ne rend rien à qui ne gère rien", async () => {
       enTantQue("x");
       expect(await equipesQueJeGere("x")).toEqual([]);
+    });
+
+    it("lireEquipe rend le club, ou null s'il n'existe pas", async () => {
+      enTantQue("m");
+      expect(await lireEquipe("t1")).toMatchObject({ id: "t1", name: "FC Koppa", managerId: "m" });
+      expect(await lireEquipe("absente")).toBeNull();
     });
   });
 

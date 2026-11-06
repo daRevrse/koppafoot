@@ -213,3 +213,26 @@ export function erreursEquipe(c: ChampsEquipe): Partial<Record<keyof ChampsEquip
     maxMembers: Number.isInteger(c.maxMembers) && c.maxMembers >= 5 && c.maxMembers <= 25 ? undefined : "Entre 5 et 25 joueurs.",
   });
 }
+
+/** Les niveaux du formulaire de création du site, dans l'ordre. */
+export const NIVEAUX = [
+  { valeur: "beginner", libelle: "Débutant" },
+  { valeur: "amateur", libelle: "Amateur" },
+  { valeur: "intermediate", libelle: "Intermédiaire" },
+  { valeur: "advanced", libelle: "Avancé" },
+] as const;
+
+export function libelleNiveau(niveau: string): string {
+  return NIVEAUX.find((n) => n.valeur === niveau)?.libelle ?? niveau;
+}
+
+/** Un joueur trouvé par la recherche : déjà dans le club (ou son manager), déjà invité, ou libre. */
+export function etatDuJoueur(uid: string, team: Team, invitesEnAttente: Set<string>): "membre" | "invite" | "libre" {
+  if (uid === team.managerId || team.memberIds.includes(uid)) return "membre";
+  return invitesEnAttente.has(uid) ? "invite" : "libre";
+}
+
+/** Le message prérempli d'une invitation ; le manager le change s'il veut. */
+export function messageInvitation(manager: string, equipe: string): string {
+  return manager.trim() ? `${manager.trim()} t'invite à rejoindre ${equipe}.` : `${equipe} t'invite à le rejoindre.`;
+}

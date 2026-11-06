@@ -11,17 +11,11 @@ import { Pastilles } from "~/components/mon-club/Pastilles";
 import { useAuth } from "~/lib/auth";
 import { creerEquipe, type ChampsEquipe } from "~/lib/equipe-api";
 import { messageDe } from "~/lib/message-erreur";
-import { erreursEquipe } from "~/lib/mon-club";
+import { erreursEquipe, NIVEAUX } from "~/lib/mon-club";
 import { retourSelection } from "~/lib/retour";
 import { creerStyles, espacement, polices } from "~/theme";
 
 // Le formulaire de création du site (app/(app)/teams), champ pour champ.
-const NIVEAUX = [
-  { valeur: "beginner", libelle: "Débutant" },
-  { valeur: "amateur", libelle: "Amateur" },
-  { valeur: "intermediate", libelle: "Intermédiaire" },
-  { valeur: "advanced", libelle: "Avancé" },
-] as const;
 const OPTIONS_CATEGORIE = CATEGORIES.map((c) => ({ valeur: c, libelle: LIBELLES_CATEGORIE.fr[c] }));
 const COULEURS = [
   { valeur: "emerald", libelle: "Vert" },

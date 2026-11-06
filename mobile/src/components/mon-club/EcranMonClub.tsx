@@ -10,7 +10,9 @@ import { Bouton } from "~/components/Bouton";
 import { DefilementClavier } from "~/components/DefilementClavier";
 import { Ecusson } from "~/components/Ecusson";
 import { EtatVide } from "~/components/EtatVide";
+import { OngletCandidatures } from "~/components/mon-club/OngletCandidatures";
 import { OngletEffectif } from "~/components/mon-club/OngletEffectif";
+import { OngletInvitations } from "~/components/mon-club/OngletInvitations";
 import { useMonClub, type MonClub } from "~/hooks/useMonClub";
 import { useAuth } from "~/lib/auth";
 import { prevenir } from "~/lib/confirmer";
@@ -144,9 +146,9 @@ function ClubGere({ club, equipe, utilisateur, monNom }: { club: MonClub; equipe
             changer={setBrouillon}
           />
         ) : onglet === "candidatures" ? (
-          <EtatVide icone="mail-unread-outline" texte={enAttente ? `${enAttente} candidature(s) en attente.` : "Aucune candidature en attente."} />
+          <OngletCandidatures equipe={equipe} candidatures={club.candidatures} peutGerer={club.peutGerer} utilisateur={utilisateur} />
         ) : (
-          <EtatVide icone="paper-plane-outline" texte={invitees ? `${invitees} invitation(s) en attente.` : "Aucune invitation en attente."} />
+          <OngletInvitations equipe={equipe} invitations={club.invitations} peutGerer={club.peutGerer} />
         )}
       </DefilementClavier>
       {changements ? (

@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import type { User } from "firebase/auth";
 import { useState } from "react";
@@ -7,10 +6,10 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { LIBELLE_POSTE } from "@/lib/postes";
 import type { GhostPlayer, Team } from "@/types";
 import { Bouton } from "~/components/Bouton";
+import { Avatar } from "~/components/mon-club/Avatar";
 import { notifierActiviteEquipe } from "~/lib/equipe-api";
 import { retirerMembre, type Brouillon } from "~/lib/equipe-firestore";
 import { confirmer, prevenir } from "~/lib/confirmer";
-import { initiales } from "~/lib/initiales";
 import { messageDe } from "~/lib/message-erreur";
 import {
   basculerTitulaire, changerDossard, lignesParPoste, type IdentiteMembre, type LigneEffectif,
@@ -30,17 +29,6 @@ type Props = {
   courant: Brouillon;
   changer: (b: Brouillon) => void;
 };
-
-function Avatar({ nom, photo }: { nom: string; photo: string | null }) {
-  const styles = useStyles();
-  return photo ? (
-    <Image source={{ uri: photo }} style={styles.avatar} contentFit="cover" accessibilityIgnoresInvertColors />
-  ) : (
-    <View style={[styles.avatar, styles.avatarVide]}>
-      <Text style={styles.avatarTexte}>{initiales(nom)}</Text>
-    </View>
-  );
-}
 
 /** Ce qu'on lit sous le nom : le poste, et ce qui distingue la ligne. */
 function sousTitre(l: LigneEffectif): string {
@@ -197,9 +185,6 @@ const useStyles = creerStyles((couleurs) => ({
     flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 10, paddingHorizontal: 12,
     backgroundColor: couleurs.surface, borderWidth: StyleSheet.hairlineWidth, borderColor: couleurs.bordure, marginTop: -StyleSheet.hairlineWidth,
   },
-  avatar: { width: 40, height: 40, borderRadius: 20 },
-  avatarVide: { backgroundColor: couleurs.primaireVoile, alignItems: "center", justifyContent: "center" },
-  avatarTexte: { fontFamily: polices.texteNoir, fontSize: 13, color: couleurs.primaire },
   textes: { flex: 1, minWidth: 0, gap: 2 },
   nom: { fontFamily: polices.texteGras, fontSize: 15, color: couleurs.texte },
   sous: { fontFamily: polices.texte, fontSize: 12, color: couleurs.texteDiscret },

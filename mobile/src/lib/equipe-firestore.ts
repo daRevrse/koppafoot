@@ -51,6 +51,12 @@ export async function equipesQueJeGere(uid: string): Promise<Team[]> {
   return [...parId.values()];
 }
 
+/** Un club, une fois : l'écran d'invitation en a besoin pour son nom et son logo. */
+export async function lireEquipe(teamId: string): Promise<Team | null> {
+  const s = await getDoc(doc(db, "teams", teamId));
+  return s.exists() ? toTeam(s.id, s.data() as FirestoreTeam) : null;
+}
+
 export function ecouterEquipe(teamId: string, cb: (t: Team | null) => void, surErreur?: SurErreur): Unsubscribe {
   return onSnapshot(
     doc(db, "teams", teamId),

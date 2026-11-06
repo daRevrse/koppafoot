@@ -175,6 +175,7 @@ function Navigation({ policesPretes }: { policesPretes: boolean }) {
         <Stack.Screen name="supprimer-compte" options={fenetre} />
         <Stack.Screen name="creer-equipe" options={fenetre} />
         <Stack.Screen name="joueur-sans-compte" options={fenetre} />
+        <Stack.Screen name="inviter-joueur" options={fenetre} />
       </Stack.Protected>
     </Stack>
   );

@@ -3,7 +3,8 @@ import type { FirestoreTeam, GhostPlayer, Invitation, JoinRequest } from "@/type
 import type { FicheClub } from "~/lib/fiche-du-club";
 import {
   aDesChangements, basculerTitulaire, brouillonDe, candidaturesParEtat, changerDossard, erreursEquipe, erreursFantome,
-  identitesDeLaFiche, invitationsEnAttente, lignesParPoste, nettoyerDossard, nomsDeSecoursDe, type IdentiteMembre,
+  etatDuJoueur, identitesDeLaFiche, invitationsEnAttente, libelleNiveau, lignesParPoste, messageInvitation, nettoyerDossard,
+  nomsDeSecoursDe, type IdentiteMembre,
 } from "~/lib/mon-club";
 
 // La logique de l'écran Mon club, sans écran : comment l'effectif se range,
@@ -214,5 +215,32 @@ describe("nomsDeSecoursDe", () => {
     expect(noms.get("b")).toBe("Bébé");
     expect(noms.get("p-Céline")).toBe("Céline");
     expect(noms.get("r")).toBe("Rémi Recrue");
+  });
+});
+
+describe("libelleNiveau", () => {
+  it("dit le niveau comme le formulaire du site, et rend la saisie inconnue telle quelle", () => {
+    expect(libelleNiveau("advanced")).toBe("Avancé");
+    expect(libelleNiveau("beginner")).toBe("Débutant");
+    expect(libelleNiveau("pro")).toBe("pro");
+    expect(libelleNiveau("")).toBe("");
+  });
+});
+
+describe("etatDuJoueur", () => {
+  it("dit si un joueur trouvé est déjà là, déjà invité, ou libre", () => {
+    const t = equipe();
+    const invites = new Set(["q"]);
+    expect(etatDuJoueur("a", t, invites)).toBe("membre");
+    expect(etatDuJoueur("m", t, invites)).toBe("membre");
+    expect(etatDuJoueur("q", t, invites)).toBe("invite");
+    expect(etatDuJoueur("z", t, invites)).toBe("libre");
+  });
+});
+
+describe("messageInvitation", () => {
+  it("préremplit le message avec le manager et l'équipe", () => {
+    expect(messageInvitation("Mo Manager", "FC Koppa")).toBe("Mo Manager t'invite à rejoindre FC Koppa.");
+    expect(messageInvitation("", "FC Koppa")).toBe("FC Koppa t'invite à le rejoindre.");
   });
 });
