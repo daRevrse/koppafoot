@@ -1,4 +1,4 @@
-import { CHAMPS_DU_ROLE, patchDActivation, titreDeLOnglet } from "~/lib/roles";
+import { CHAMPS_DU_ROLE, equipeDeLActivation, patchDActivation, titreDeLOnglet } from "~/lib/roles";
 
 describe("titreDeLOnglet", () => {
   it("s'appelle Évolution tant que le compte n'a pas de rôle", () => {
@@ -37,5 +37,33 @@ describe("patchDActivation", () => {
 
   it("laisse de côté un champ vide", () => {
     expect(patchDActivation("player", { ...base, poste: "", pied: "" })).not.toHaveProperty("position");
+  });
+});
+
+describe("equipeDeLActivation", () => {
+  // Activer le rôle manager avec un nom d'équipe doit créer l'équipe : avant,
+  // le nom n'allait que dans `team_name` du profil, et « Mon club » restait vide.
+  const champs = { genre: "female" as const, ville: " Lomé ", poste: "", pied: "", equipe: " FC Étoile ", licence: "", numero: "" };
+
+  it("crée l'équipe d'un manager qui l'a nommée, avec les réglages par défaut du formulaire du site", () => {
+    expect(equipeDeLActivation("manager", champs, [])).toEqual({
+      genre: "creer",
+      champs: { name: "FC Étoile", city: "Lomé", level: "amateur", category: "women", color: "emerald", description: "", maxMembers: 14 },
+    });
+    expect(equipeDeLActivation("manager", { ...champs, genre: "male" }, [])).toMatchObject({ champs: { category: "men" } });
+  });
+
+  it("ne crée rien sans nom d'équipe, ni pour un joueur ou un arbitre", () => {
+    expect(equipeDeLActivation("manager", { ...champs, equipe: "  " }, [])).toEqual({ genre: "rien" });
+    expect(equipeDeLActivation("player", champs, [])).toEqual({ genre: "rien" });
+    expect(equipeDeLActivation("referee", champs, [])).toEqual({ genre: "rien" });
+  });
+
+  it("ne crée pas de doublon d'une équipe qu'on gère déjà, quelle que soit la casse ou les espaces", () => {
+    expect(equipeDeLActivation("manager", champs, ["fc  étoile"])).toEqual({ genre: "deja", nom: "FC Étoile" });
+  });
+
+  it("demande une ville : le serveur refuse une équipe sans ville", () => {
+    expect(equipeDeLActivation("manager", { ...champs, ville: " " }, [])).toEqual({ genre: "sans-ville" });
   });
 });

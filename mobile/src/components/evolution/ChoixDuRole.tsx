@@ -8,9 +8,13 @@ import type { EvolutionRole } from "@/types";
 import { Bouton } from "~/components/Bouton";
 import { Champ } from "~/components/Champ";
 import { useAuth } from "~/lib/auth";
+import { prevenir } from "~/lib/confirmer";
 import { activerLeRole } from "~/lib/direct-firestore";
+import { creerEquipe } from "~/lib/equipe-api";
+import { equipesQueJeGere } from "~/lib/equipe-firestore";
+import { messageDe } from "~/lib/message-erreur";
 import { retourImpact } from "~/lib/retour";
-import { nomDuRole, patchDActivation, ROLES } from "~/lib/roles";
+import { equipeDeLActivation, nomDuRole, patchDActivation, ROLES, type ChampsDActivation } from "~/lib/roles";
 import { creerStyles, espacement, polices, useCouleurs } from "~/theme";
 
 const ICONE: Record<EvolutionRole, ComponentProps<typeof Ionicons>["name"]> = {
@@ -76,6 +80,7 @@ export function ChoixDuRole() {
   const [licence, setLicence] = useState(profil?.licenseLevel ?? "");
   const [numero, setNumero] = useState(profil?.licenseNumber ?? "");
   const [ville, setVille] = useState(profil?.locationCity ?? "");
+  const [villeManquante, setVilleManquante] = useState(false);
   const [envoi, setEnvoi] = useState(false);
 
   const meta = ROLES.find((r) => r.role === choisi) ?? null;
@@ -86,15 +91,44 @@ export function ChoixDuRole() {
       setGenreManquant(true);
       return;
     }
+    // L'équipe nommée sera créée, et le serveur refuse une équipe sans ville.
+    if (choisi === "manager" && equipe.trim() && !ville.trim()) {
+      setVilleManquante(true);
+      return;
+    }
+    const champs: ChampsDActivation = { genre, ville, poste, pied, equipe, licence, numero };
     setEnvoi(true);
     try {
-      await activerLeRole(utilisateur.uid, patchDActivation(choisi, { genre, ville, poste, pied, equipe, licence, numero }));
-      retourImpact();
-      // Le profil relu, l'onglet prend le nom du rôle et montre sa fiche.
-      await rafraichirProfil();
+      await activerLeRole(utilisateur.uid, patchDActivation(choisi, champs));
     } catch {
       Alert.alert("Une erreur est survenue", "Ton rôle n'a pas été activé. Réessaie dans un instant.");
       setEnvoi(false);
+      return;
+    }
+    // AVANT de relire le profil : l'onglet Manager qui s'ouvre doit trouver l'équipe.
+    if (choisi === "manager") await creerLEquipeNommee(champs);
+    retourImpact();
+    // Le profil relu, l'onglet prend le nom du rôle et montre sa fiche.
+    await rafraichirProfil();
+  }
+
+  /**
+   * L'équipe que le manager a nommée, créée par la route du site (lib/roles,
+   * equipeDeLActivation). Le rôle est déjà activé : un échec ici le dit, sans
+   * le défaire ; l'équipe se crée ensuite depuis l'onglet Manager.
+   */
+  async function creerLEquipeNommee(champs: ChampsDActivation) {
+    if (!utilisateur) return;
+    const dejaGerees = await equipesQueJeGere(utilisateur.uid).then((l) => l.map((t) => t.name)).catch(() => []);
+    const issue = equipeDeLActivation("manager", champs, dejaGerees);
+    if (issue.genre !== "creer") return;
+    try {
+      await creerEquipe(utilisateur, issue.champs);
+    } catch (e) {
+      prevenir(
+        "Ton rôle est activé, pas ton équipe",
+        `${messageDe(e, "La création de l'équipe a échoué.")} Tu pourras la créer depuis l'onglet Manager.`,
+      );
     }
   }
 
@@ -181,10 +215,21 @@ export function ChoixDuRole() {
       {choisi === "manager" ? (
         <>
           <Champ etiquette="Nom de ton équipe (facultatif)" value={equipe} onChangeText={setEquipe} placeholder="ex : FC Étoile" />
-          <Text style={styles.note}>Pas d&apos;équipe ? Un organisateur pourra t&apos;inviter à gérer une équipe de sa compétition.</Text>
+          <Text style={styles.note}>
+            {"Nommée ici, ton équipe est créée avec ton rôle. Pas d'équipe ? Un organisateur pourra t'inviter à gérer une équipe de sa compétition."}
+          </Text>
         </>
       ) : null}
-      <Champ etiquette="Ta ville" value={ville} onChangeText={setVille} placeholder="Ta ville" />
+      <Champ
+        etiquette="Ta ville"
+        value={ville}
+        onChangeText={(v) => {
+          setVille(v);
+          setVilleManquante(false);
+        }}
+        placeholder="Ta ville"
+        erreur={villeManquante ? "Ta ville est nécessaire pour créer ton équipe." : null}
+      />
 
       <Bouton titre={`Activer mon ${meta.espace.toLowerCase()}`} occupe={envoi} onPress={() => void activer()} />
     </View>
