@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import type { EvolutionRole } from "@/types";
 import { AFFICHES } from "~/components/evolution/affiches";
@@ -22,7 +22,7 @@ export function CarteDuRole({ role, retournee, mouvementReduit, dos }: {
   mouvementReduit: boolean;
   dos: ReactNode;
 }) {
-  const rotation = useRef(new Animated.Value(retournee ? 1 : 0)).current;
+  const [rotation] = useState(() => new Animated.Value(retournee ? 1 : 0));
   const { carte, accentSombre } = PRESENTATION[role].couleurs;
   const nom = (ROLES.find((r) => r.role === role) ?? ROLES[0]).titre[0].toLowerCase();
 
