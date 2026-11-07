@@ -60,7 +60,7 @@ export function ChoixDuRole() {
   const { precedent, suivant } = voisins(index, N);
 
   // La carte la plus grande qui tienne : 3:4, les voisines dépassant sur les côtés.
-  const largeurCarte = Math.min(zone.largeur * 0.64, zone.hauteur * 0.75);
+  const largeurCarte = Math.min(zone.largeur * 0.74, zone.hauteur * 0.75);
   const hauteurCarte = largeurCarte / 0.75;
 
   /** La carte `vers` vient devant, depuis la place de sa voisine. */
@@ -105,8 +105,11 @@ export function ChoixDuRole() {
   });
   const remettreEnPlace = () => Animated.timing(decalage, { toValue: 0, duration: 150, useNativeDriver: NATIF }).start();
   const glisse = {
-    onTouchStart: (e: GestureResponderEvent) => {
+    // Appelé au début de tout geste, au doigt comme à la souris : on note d'où
+    // il part, sans prendre la main (un toucher reste un toucher).
+    onStartShouldSetResponder: (e: GestureResponderEvent) => {
       depart.current = { x: e.nativeEvent.pageX, y: e.nativeEvent.pageY };
+      return false;
     },
     onMoveShouldSetResponder: (e: GestureResponderEvent) => {
       if (retournee || anime.current) return false;
