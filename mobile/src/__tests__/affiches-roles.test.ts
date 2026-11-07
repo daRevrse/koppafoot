@@ -1,10 +1,12 @@
-import * as fs from "fs";
-import * as path from "path";
 import { AFFICHES } from "~/components/evolution/affiches";
 import { ROLES } from "~/lib/roles";
 
 // Les affiches des rôles, celles du site, embarquées dans l'appli : elles
 // doivent s'ouvrir dans Expo Go sans réseau, et sans alourdir l'appli.
+
+declare const __dirname: string;
+const fs = require("fs") as { existsSync: (chemin: string) => boolean; statSync: (chemin: string) => { size: number } };
+const path = require("path") as { join: (...morceaux: string[]) => string };
 
 const ASSETS = path.join(__dirname, "..", "..", "assets", "roles");
 

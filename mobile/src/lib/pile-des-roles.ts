@@ -10,7 +10,7 @@ import { ROLES } from "~/lib/roles";
 export type CouleursDuRole = {
   /** Le fond de la carte, sous l'affiche. */
   carte: string;
-  /** Le fond du dos de la carte. */
+  /** Le bandeau du titre, au dos de la carte (sous un texte blanc). */
   profond: string;
   /** Le cadre de la carte ; l'accroche et les points sur le thème sombre. */
   accentSombre: string;
