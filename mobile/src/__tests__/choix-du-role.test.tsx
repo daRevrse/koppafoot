@@ -124,22 +124,25 @@ describe("la pile des rôles", () => {
     }
   });
 
-  it("ne se retourne pas pendant qu'une carte glissée sort, au lieu de laisser une carte vide", async () => {
+  it("change de carte dès que le doigt se lève, et ne se retourne pas tant qu'elle n'est pas en place", async () => {
     // Le pilote natif simulé finit une animation en 16 ms : horloges figées.
     jest.useFakeTimers();
     try {
       const r = monter();
-      const carte = r.root.findAll((n) => typeof n.props.onResponderRelease === "function")[0];
+      const pile = r.root.findAll((n) => typeof n.props.onResponderRelease === "function")[0];
       act(() => {
-        carte.props.onStartShouldSetResponder({ nativeEvent: { pageX: 200, pageY: 300 } });
-        carte.props.onResponderRelease({ nativeEvent: { pageX: 80, pageY: 302 } });
-      });
-      await toucher(r, "Devenir joueuse");
-      act(() => {
-        jest.advanceTimersByTime(800);
+        pile.props.onStartShouldSetResponder({ nativeEvent: { pageX: 200, pageY: 300, timestamp: 0 } });
+        pile.props.onResponderMove({ nativeEvent: { pageX: 140, pageY: 301, timestamp: 50 } });
+        pile.props.onResponderRelease({ nativeEvent: { pageX: 80, pageY: 302, timestamp: 100 } });
       });
       expect(carteDeDevant(r)).toBe("Affiche du rôle manager");
-      expect(touchable(r, "Devenir manager")).toBeDefined();
+      await toucher(r, "Devenir manager");
+      expect(touchable(r, "ACTIVER MON ESPACE MANAGER")).toBeUndefined();
+      act(() => {
+        jest.advanceTimersByTime(2000);
+      });
+      await toucher(r, "Devenir manager");
+      expect(touchable(r, "ACTIVER MON ESPACE MANAGER")).toBeDefined();
     } finally {
       jest.useRealTimers();
     }

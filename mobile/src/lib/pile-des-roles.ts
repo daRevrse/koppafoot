@@ -50,11 +50,29 @@ export function estUnGlisseHorizontal(dx: number, dy: number): boolean {
   return Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy);
 }
 
-/** La carte de devant une fois le doigt levé : vers la gauche le suivant, vers la droite le précédent. */
-export function apresGlisse(index: number, dx: number, n: number, seuil = 40): number {
-  if (dx < -seuil) return voisins(index, n).suivant;
-  if (dx > seuil) return voisins(index, n).precedent;
+/** Combien de millisecondes d'élan comptent comme de la distance : un doigt lancé vaut un long glissé. */
+const ELAN_MS = 150;
+
+/**
+ * La carte de devant une fois le doigt levé : vers la gauche le suivant, vers
+ * la droite le précédent. `vx` est la vitesse du doigt au moment où il se lève
+ * (px/ms) : un geste court mais rapide change de carte.
+ */
+export function apresGlisse(index: number, dx: number, n: number, vx = 0, seuil = 40): number {
+  const porte = dx + vx * ELAN_MS;
+  if (porte < -seuil) return voisins(index, n).suivant;
+  if (porte > seuil) return voisins(index, n).precedent;
   return index;
+}
+
+/**
+ * La place de la carte `i` dans le carrousel quand la pile est à `position`
+ * (un réel, non borné : il suit le doigt) : 0 au centre, ±1 chez les
+ * voisines. Le résultat tourne dans [-n/2, n/2[ : la carte qui sort d'un côté
+ * revient de l'autre, là où elle est invisible.
+ */
+export function ecartALaCarte(i: number, position: number, n: number): number {
+  return (((i - position + n / 2) % n) + n) % n - n / 2;
 }
 
 /**
