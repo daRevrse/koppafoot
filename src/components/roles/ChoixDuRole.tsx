@@ -10,6 +10,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { roleDepuisURL } from "@/lib/onboarding";
 import type { EvolutionRole, FirestoreUser } from "@/types";
 import ChoixDuGenre from "@/components/genre/ChoixDuGenre";
+import { useSignalerLimite } from "@/components/offre/LimiteOffre";
+import { equipeDeLActivation } from "@/lib/equipe-activation";
 import { accorder, type Genre } from "@/lib/genre";
 import { POSTES as POSTES_CANON, nomDuPoste } from "@/lib/postes";
 
@@ -133,6 +135,7 @@ function Pastilles({
 export default function ChoixDuRole() {
   const { user, loading, updateProfile } = useAuth();
   const router = useRouter();
+  const signalerLimite = useSignalerLimite();
 
   const [envoi, setEnvoi] = useState(false);
 
@@ -202,11 +205,18 @@ export default function ChoixDuRole() {
       setGenreManquant(true);
       return;
     }
+    const ville = vVille.trim() || user?.locationCity || "";
+    // L'équipe nommée sera créée (voir creerLEquipeNommee), et la route refuse
+    // une équipe sans ville : on la demande avant d'activer, pas après.
+    if (role === "manager" && vEquipe.trim() && !ville.trim()) {
+      toast.error("Ta ville est nécessaire pour créer ton équipe.");
+      return;
+    }
     setEnvoi(true);
     try {
       const patch: Partial<FirestoreUser> = {
         evolution_role: role,
-        location_city: vVille.trim() || user?.locationCity || "",
+        location_city: ville,
         gender: vGenre,
       };
       // LE TYPE SUIT TOUJOURS LE RÔLE ACTIVÉ, sans exception. Les casquettes
@@ -223,6 +233,8 @@ export default function ChoixDuRole() {
         patch.team_name = vEquipe.trim();
       }
       await updateProfile(patch);
+      // Après le rôle (la route exige le rôle manager), avant de partir.
+      if (role === "manager") await creerLEquipeNommee(vEquipe, ville, vGenre);
 
       toast.success(`${ROLES.find((r) => r.role === role)?.espace} activé !`);
       // ON REPART SUR LE DIRECT, pas sur un écran de félicitations. Le direct
@@ -237,6 +249,31 @@ export default function ChoixDuRole() {
       console.error("Activation du rôle :", err);
       toast.error("Une erreur est survenue");
       setEnvoi(false);
+    }
+  };
+
+  /**
+   * L'ÉQUIPE NOMMÉE À L'ACTIVATION EST CRÉÉE (lib/equipe-activation) : son nom
+   * n'allait que dans `team_name` du profil, et le manager arrivait sans
+   * équipe. Le rôle est déjà activé : un échec le dit sans le défaire, et
+   * l'équipe se crée ensuite depuis « Mes équipes ».
+   *
+   * `lib/firestore` est chargé ICI, à la demande : ce composant vit sur la
+   * vitrine (voir plus haut), où tout le monde ne devient pas manager.
+   */
+  const creerLEquipeNommee = async (nomEquipe: string, ville: string, genre: Genre) => {
+    if (!user) return;
+    try {
+      const { createTeam, getTeamsIManage } = await import("@/lib/firestore");
+      const dejaGerees = await getTeamsIManage(user.uid).then((l) => l.map((t) => t.name)).catch(() => []);
+      const issue = equipeDeLActivation("manager", { equipe: nomEquipe, ville, genre }, dejaGerees);
+      if (issue.genre !== "creer") return;
+      await createTeam({ ...issue.champs, managerId: user.uid });
+    } catch (err) {
+      console.error("Création de l'équipe à l'activation :", err);
+      if (!signalerLimite(err)) {
+        toast.error("Ton rôle est activé, mais ton équipe n'a pas pu être créée : crée-la depuis « Mes équipes ».");
+      }
     }
   };
 
