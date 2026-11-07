@@ -139,6 +139,9 @@ export function ChoixDuRole() {
   };
 
   function devenir() {
+    // Pendant qu'une carte bouge, la carte de devant va changer : la retourner
+    // maintenant laisserait un dos vide, sans « Retour ».
+    if (anime.current) return;
     if (!utilisateur) {
       retenirLeRoleVise(meta.role);
       router.push({ pathname: "/connexion", params: { raison: "role" } });

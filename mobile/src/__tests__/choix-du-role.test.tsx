@@ -124,6 +124,27 @@ describe("la pile des rôles", () => {
     }
   });
 
+  it("ne se retourne pas pendant qu'une carte glissée sort, au lieu de laisser une carte vide", async () => {
+    // Le pilote natif simulé finit une animation en 16 ms : horloges figées.
+    jest.useFakeTimers();
+    try {
+      const r = monter();
+      const carte = r.root.findAll((n) => typeof n.props.onResponderRelease === "function")[0];
+      act(() => {
+        carte.props.onStartShouldSetResponder({ nativeEvent: { pageX: 200, pageY: 300 } });
+        carte.props.onResponderRelease({ nativeEvent: { pageX: 80, pageY: 302 } });
+      });
+      await toucher(r, "Devenir joueuse");
+      act(() => {
+        jest.advanceTimersByTime(800);
+      });
+      expect(carteDeDevant(r)).toBe("Affiche du rôle manager");
+      expect(touchable(r, "Devenir manager")).toBeDefined();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("se feuillette au lecteur d'écran : « augmenter » fait comme la flèche suivante", async () => {
     const r = monter();
     const pile = r.root.findAll((n) => n.props.accessibilityRole === "adjustable" && typeof n.props.onAccessibilityAction === "function")[0];
