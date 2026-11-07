@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useRef, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type ScrollViewInstance } from "react-native";
 import { TCHAT_MAX, tchatOuvert, type MessageDuTchat } from "@/lib/tchat";
 import { useAuth } from "~/lib/auth";
 import { envoyerMessage, signalerMessage, supprimerMessage } from "~/lib/interactions-match";
@@ -30,7 +30,7 @@ export function TchatDuMatch({ mid, cid, statut, messages, peutModerer }: {
   const [texte, setTexte] = useState("");
   const [envoi, setEnvoi] = useState(false);
   const [enCours, setEnCours] = useState<string | null>(null);
-  const liste = useRef<ScrollView>(null);
+  const liste = useRef<ScrollViewInstance>(null);
   // On ne ramène en bas que celui qui y était : on ne vole pas la lecture d'un ancien message.
   const enBas = useRef(true);
   const ouvert = tchatOuvert(statut);

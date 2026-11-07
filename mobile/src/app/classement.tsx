@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { LayoutAnimation, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LayoutAnimation, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MATCHS_NOTES_CLASSEMENT, type LigneJoueurPubliee, type TriClassement } from "@/lib/classement";
 import { Bouton } from "~/components/Bouton";
@@ -41,7 +41,7 @@ export default function EcranClassement() {
   const router = useRouter();
   const { utilisateur } = useAuth();
   const mouvementReduit = useMouvementReduit();
-  const defilement = useRef<ScrollView>(null);
+  const defilement = useRef<ScrollViewInstance>(null);
   const [joueurs, setJoueurs] = useState<LigneJoueurPubliee[] | null>(null);
   const [erreur, setErreur] = useState(false);
   const [recharge, setRecharge] = useState(false);

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import type { ComponentProps } from "react";
+import type { ColorValue } from "react-native";
 import { useAuth } from "~/lib/auth";
 import { titreDeLOnglet } from "~/lib/roles";
 import { polices, useCouleurs } from "~/theme";
@@ -12,6 +13,13 @@ import { polices, useCouleurs } from "~/theme";
 const ICONE_DU_ROLE: Record<string, ComponentProps<typeof Ionicons>["name"]> = {
   player: "person-outline", manager: "briefcase-outline", referee: "flag-outline",
 };
+
+/**
+ * La teinte que la barre passe à l'icône. Depuis React Native 0.88 une couleur
+ * peut être un nombre (déjà convertie) ou nulle, ce qu'Ionicons refuse ; nos
+ * teintes viennent du thème, ce sont des chaînes.
+ */
+const teinte = (c: ColorValue | null | undefined) => (typeof c === "number" || c == null ? undefined : c);
 
 export default function OngletsLayout() {
   const couleurs = useCouleurs();
@@ -31,19 +39,19 @@ export default function OngletsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Direct", tabBarIcon: ({ color, size }) => <Ionicons name="football" color={color} size={size} /> }}
+        options={{ title: "Direct", tabBarIcon: ({ color, size }) => <Ionicons name="football" color={teinte(color)} size={size} /> }}
       />
       <Tabs.Screen
         name="actus"
-        options={{ title: "Actus", tabBarIcon: ({ color, size }) => <Ionicons name="newspaper-outline" color={color} size={size} /> }}
+        options={{ title: "Actus", tabBarIcon: ({ color, size }) => <Ionicons name="newspaper-outline" color={teinte(color)} size={size} /> }}
       />
       <Tabs.Screen
         name="evolution"
-        options={{ title: titreDeLOnglet(profil), tabBarIcon: ({ color, size }) => <Ionicons name={iconeEvolution} color={color} size={size} /> }}
+        options={{ title: titreDeLOnglet(profil), tabBarIcon: ({ color, size }) => <Ionicons name={iconeEvolution} color={teinte(color)} size={size} /> }}
       />
       <Tabs.Screen
         name="espace"
-        options={{ title: "Espace casquette", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={color} size={size} /> }}
+        options={{ title: "Espace casquette", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={teinte(color)} size={size} /> }}
       />
     </Tabs>
   );

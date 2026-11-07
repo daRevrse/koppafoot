@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { Competition } from "@/types";
 import { Ecusson } from "~/components/Ecusson";
@@ -46,7 +46,7 @@ export default function EcranRecherche() {
   const [terme, setTerme] = useState("");
   const [competitions, setCompetitions] = useState<Competition[] | null>(null);
   const [clubs, setClubs] = useState<ClubTrouve[] | null>(null);
-  const champ = useRef<TextInput>(null);
+  const champ = useRef<TextInputInstance>(null);
 
   // Les compétitions et les clubs sont des listes courtes : lues une fois à
   // l'ouverture, puis filtrées à chaque lettre plutôt que relues.

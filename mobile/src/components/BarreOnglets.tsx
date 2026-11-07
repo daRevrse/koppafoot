@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, type ScrollViewInstance } from "react-native";
 import { espacement, polices } from "~/theme";
 
 /**
@@ -15,7 +15,7 @@ export function BarreOnglets<T extends string>({ onglets, libelles, actif, onCha
 }) {
   // Six onglets ne tiennent pas sur un téléphone : l'actif se ramène à
   // l'écran, qu'on l'ait touché ou qu'un lien de la page l'ait choisi.
-  const defilement = useRef<ScrollView>(null);
+  const defilement = useRef<ScrollViewInstance>(null);
   const positions = useRef(new Map<string, { x: number; largeur: number }>());
   const largeurVisible = useRef(0);
   useEffect(() => {

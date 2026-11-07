@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, type ImageStyle, type TextStyle, type ViewStyle } from "react-native";
 
 /**
  * Les deux palettes de l'application, celles du site : le thème sombre
@@ -118,6 +118,9 @@ export const ContexteCouleurs = createContext<Couleurs>(palettes.sombre);
 
 export const useCouleurs = (): Couleurs => useContext(ContexteCouleurs);
 
+/** Ce qu'accepte StyleSheet.create : à chaque nom, un style. */
+type FeuilleDeStyles = { [nom: string]: ViewStyle | TextStyle | ImageStyle };
+
 /**
  * Les styles d'un composant, pour la palette en cours. S'écrit comme
  * StyleSheet.create, la palette en paramètre :
@@ -128,10 +131,8 @@ export const useCouleurs = (): Couleurs => useContext(ContexteCouleurs);
  *
  * Chaque palette n'est créée qu'une fois, au premier rendu qui la demande.
  */
-export function creerStyles<T extends StyleSheet.NamedStyles<T> | StyleSheet.NamedStyles<any>>(
-  fabrique: (couleurs: Couleurs) => T & StyleSheet.NamedStyles<any>,
-): () => T {
-  const parPalette = new Map<Couleurs, T>();
+export function creerStyles<T extends FeuilleDeStyles>(fabrique: (couleurs: Couleurs) => T): () => Readonly<T> {
+  const parPalette = new Map<Couleurs, Readonly<T>>();
   return function useStyles() {
     const couleurs = useCouleurs();
     let styles = parPalette.get(couleurs);

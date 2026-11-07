@@ -84,7 +84,7 @@ export default function EcranActus() {
               />
             }
             // La route rend un fil vide quand les flux se taisent : c'est le même « injoignable ».
-            ListEmptyComponent={fil.une.length === 0 ? injoignable : null}
+            ListEmptyComponent={fil.une.length === 0 ? injoignable : undefined}
           />
         </>
       )}
