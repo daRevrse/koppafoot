@@ -1,5 +1,6 @@
 import { accorder, type Genre } from "@/lib/genre";
 import type { EvolutionRole } from "@/types";
+import type { ChampsEquipe } from "~/lib/equipe-api";
 
 // L'onglet Évolution : l'écran où un compte choisit son rôle (ChoixDuRole du
 // site), puis, le rôle choisi, celui de sa fiche. Les mots du site.
@@ -69,4 +70,41 @@ export function patchDActivation(role: EvolutionRole, c: ChampsDActivation): Rec
     patch.team_name = c.equipe.trim();
   }
   return patch;
+}
+
+/** Ce que l'activation fait de l'équipe nommée dans le formulaire du manager. */
+export type EquipeDeLActivation =
+  | { genre: "rien" }
+  | { genre: "deja"; nom: string }
+  | { genre: "sans-ville" }
+  | { genre: "creer"; champs: ChampsEquipe };
+
+const memeNom = (a: string, b: string) =>
+  a.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase() === b.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * L'ÉQUIPE NOMMÉE À L'ACTIVATION EST CRÉÉE. Le nom n'allait que dans
+ * `team_name` du profil (comme sur le site), et le manager tombait ensuite sur
+ * « Tu ne diriges pas encore d'équipe ». La création passe par la même route
+ * que « Créer mon équipe », avec les réglages par défaut de son formulaire ;
+ * pas de doublon d'une équipe qu'on gère déjà, et pas sans ville (le serveur
+ * la refuse).
+ */
+export function equipeDeLActivation(
+  role: EvolutionRole,
+  c: ChampsDActivation,
+  nomsDejaGeres: string[],
+): EquipeDeLActivation {
+  const nom = c.equipe.trim().replace(/\s+/g, " ");
+  if (role !== "manager" || !nom) return { genre: "rien" };
+  if (nomsDejaGeres.some((n) => memeNom(n, nom))) return { genre: "deja", nom };
+  const ville = c.ville.trim();
+  if (!ville) return { genre: "sans-ville" };
+  return {
+    genre: "creer",
+    champs: {
+      name: nom, city: ville, level: "amateur", category: c.genre === "female" ? "women" : "men",
+      color: "emerald", description: "", maxMembers: 14,
+    },
+  };
 }
