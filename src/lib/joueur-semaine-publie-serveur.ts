@@ -19,7 +19,7 @@ import sharp from "sharp";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, adminStorage } from "@/lib/firebase-admin";
 import { jourDeLome } from "@/lib/jour";
-import { donneesDeLAffiche, imagesDesCandidats, lireLaSemaine } from "@/lib/joueur-semaine-admin";
+import { donneesDeLAffiche, genreDuCandidat, imagesDesCandidats, lireLaSemaine } from "@/lib/joueur-semaine-admin";
 import { afficheJoueurSemaine } from "@/lib/og-joueur-semaine";
 import type { DemandeAffiche } from "@/lib/joueur-semaine-requete";
 import {
@@ -79,7 +79,7 @@ export async function publierLeJoueur(demande: DemandeAffiche, parUid: string): 
 
   // Sa photo : celle de son profil pour un compte (et relue à chaque lecture,
   // voir `lireLesJoueursDeLaSemaine`) ; pour un joueur sans compte, celle que
-  // l'affiche a le droit de montrer, sinon ses initiales.
+  // l'affiche a le droit de montrer, sinon son avatar (voir `genre`).
   const photo = c.uid
     ? (((await adminDb.doc(`users/${c.uid}`).get()).data()?.profile_picture_url as string | undefined) || null)
     : ((await imagesDesCandidats([c])).get(c.cle)?.photo ?? null);
@@ -100,6 +100,9 @@ export async function publierLeJoueur(demande: DemandeAffiche, parUid: string): 
     homme_du_match: c.hommeDuMatch,
     lignes: c.matchs.map((m) => ({ jour: m.jour, affiche: m.affiche, buts: m.buts, passes: m.passes, homme: m.homme })),
     photo,
+    // Toujours lu, même avec une photo : elle peut être retirée plus tard, et
+    // le site montre alors l'avatar.
+    genre: await genreDuCandidat(c),
     ecartees: demande.ecartees,
     partenaires: demande.partenaires,
     affiches,

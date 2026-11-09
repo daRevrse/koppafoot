@@ -24,6 +24,7 @@
 // Pur : aucun SDK.
 // ============================================
 
+import { lireGenre, type Genre } from "@/lib/genre";
 import { semaineDu } from "@/lib/joueur-semaine";
 
 export const COLLECTION_JOUEURS_SEMAINE = "joueurs_semaine";
@@ -72,9 +73,15 @@ export interface JoueurDeLaSemaine {
   /**
    * Sa photo : celle de son profil pour un compte (relue à chaque lecture,
    * voir lib/joueur-semaine-publie-serveur), celle que l'affiche a eu le droit
-   * de montrer pour un joueur sans compte. Null : ses initiales.
+   * de montrer pour un joueur sans compte. Null : son avatar (voir `genre`).
    */
   photo: string | null;
+  /**
+   * Son genre, pour l'avatar montré quand il n'y a pas de photo
+   * (components/ui/AvatarJoueurSemaine). Null pour une élection d'avant ce
+   * champ, ou quand on ne sait pas : le joueur.
+   */
+  genre: Genre | null;
   /** Le jour (Lomé) de la publication : la diapositive du Direct en dépend. */
   publieLe: string;
   /** Change à chaque publication : l'adresse des affiches en dépend, pour le cache. */
@@ -131,6 +138,7 @@ export function lireJoueurDeLaSemaine(id: string, d: Record<string, unknown> | u
     hommeDuMatch: entier(d.homme_du_match),
     lignes,
     photo: texte(d.photo, 2000),
+    genre: lireGenre(d.genre),
     publieLe,
     version,
   };

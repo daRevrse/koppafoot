@@ -407,3 +407,32 @@ le joueur choisi devient public.
 
 Code : lib/joueur-semaine-publie (pur, vérifié par
 scripts/test-joueur-semaine-publie.ts), lib/joueur-semaine-publie-serveur.
+
+## Révision du 2026-11-09 : des avatars vivants, un joueur et une joueuse
+
+Demande du propriétaire : « les avatars du joueur de la semaine (homme ou
+femme), il faut les rendre vivants ». L'avatar validé le 2026-10-19 — une
+silhouette grise, **sans visage ni carnation, la même pour tous** — est
+remplacé.
+
+- **Deux dessins**, `public/branding/avatars/joueur-semaine-homme.svg` et
+  `joueur-semaine-femme.svg` : un joueur et une joueuse **qui fêtent** — le
+  grand sourire, le poing levé, la tête penchée, des projecteurs verts et
+  des étincelles derrière eux. Maillot vert de KoppaFoot, jamais celui d'un
+  club. Ce sont des dessins, pas des portraits : ils ne ressemblent à
+  personne.
+- **Le genre** (`genreDuCandidat`, lib/joueur-semaine-admin) : celui que le
+  compte a déclaré ; sinon celui de son équipe ou de sa compétition quand
+  elle est féminine (`genreDuJoueur`, lib/genre). Quand on ne sait pas : le
+  joueur, comme partout dans le produit.
+- **Sur le site aussi** : la diapositive du Direct et l'historique des
+  joueurs de la semaine montraient des **initiales** quand il n'y avait pas
+  de photo. Ils montrent désormais le même avatar, cadré sur le visage
+  (components/ui/AvatarJoueurSemaine). Le document publié porte `genre` ;
+  une élection d'avant ce champ montre le joueur.
+- Les règles du consentement ne changent pas : l'avatar paraît exactement
+  quand il paraissait avant.
+
+*Mon choix, à relire* : une carnation brune pour les deux, celle du public
+du produit ; et le titre de l'affiche reste « JOUEUR DE LA SEMAINE » même
+pour une joueuse, faute de décision sur « JOUEUSE DE LA SEMAINE ».

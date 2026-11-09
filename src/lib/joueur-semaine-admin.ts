@@ -15,6 +15,7 @@ import {
 import { etatDuConsentement, photoAutorisee, type EtatConsentement } from "@/lib/consentement-image";
 import type { DemandeAffiche } from "@/lib/joueur-semaine-requete";
 import sharp from "sharp";
+import { genreDuJoueur, lireCategorie, lireGenre, type Genre } from "@/lib/genre";
 import { imageSure } from "@/lib/image-sure";
 import { preparerPhoto, type DonneesAffiche } from "@/lib/og-joueur-semaine";
 import { cleDeLaLigne, cleSansCompte } from "@/lib/photos-sans-compte";
@@ -155,6 +156,32 @@ export async function imagesDesCandidats(candidats: CandidatDeLaSemaine[]): Prom
 }
 
 /**
+ * Le genre d'un candidat, pour son avatar (lib/og-joueur-semaine) et pour le
+ * site : celui que son compte a déclaré ; sinon celui de son équipe la plus
+ * récente quand elle est féminine, ou de sa compétition (`genreDuJoueur`).
+ * Null : on ne sait pas, et l'avatar est le joueur.
+ */
+export async function genreDuCandidat(c: CandidatDeLaSemaine): Promise<Genre | null> {
+  try {
+    if (c.uid) {
+      const declare = lireGenre((await adminDb.doc(`users/${c.uid}`).get()).data()?.gender);
+      if (declare) return declare;
+    }
+    const dernier = c.matchs[c.matchs.length - 1];
+    if (!dernier) return null;
+    // Un amical nomme un club ; un match de compétition, une compétition.
+    const chemin = dernier.competitionId === AMICAL
+      ? (dernier.equipeId ? `teams/${dernier.equipeId}` : null)
+      : `competitions/${dernier.competitionId}`;
+    if (!chemin) return null;
+    return genreDuJoueur(null, lireCategorie((await adminDb.doc(chemin).get()).data()?.category));
+  } catch {
+    // L'avatar ne fait jamais échouer une affiche.
+    return null;
+  }
+}
+
+/**
  * De quoi dessiner l'affiche d'un candidat, d'après ce que la base en dit et
  * les deux choix de l'admin (le nom affiché, les partenaires). Null : ce joueur
  * n'est pas candidat cette semaine-là, avec ces compétitions écartées.
@@ -209,7 +236,10 @@ export async function donneesDeLAffiche(
     retenus.map(async (p) => ({ annonceur: p.annonceur, image: await imageReduite(p.logoUrl, 600) })),
   )).filter((p): p is { annonceur: string; image: string } => p.image !== null);
 
-  return { nom: demande.nom, numeroSemaine: semaine.semaine.numero, photo, lignes, ecussons, partenaires };
+  // Le genre ne sert qu'à l'avatar : avec une photo, rien à lire.
+  const genre = photo ? null : await genreDuCandidat(c);
+
+  return { nom: demande.nom, numeroSemaine: semaine.semaine.numero, photo, genre, lignes, ecussons, partenaires };
 }
 
 /** Les partenaires de l'emplacement `affiche_semaine` à l'affiche aujourd'hui, dans l'ordre proposé. */

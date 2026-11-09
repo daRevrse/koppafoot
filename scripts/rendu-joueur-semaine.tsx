@@ -10,8 +10,9 @@
  * dont `photo` et les `logo` peuvent être des chemins de fichiers locaux, il
  * rend en plus ce cas-là (`reel-*.png`).
  *
- * Rend : `complet-*` (trois matchs, deux partenaires), `vide-*` (pas de photo,
- * équipes sans logo, aucun partenaire), `long-*` (noms très longs, six matchs),
+ * Rend : `complet-*` (trois matchs, deux partenaires), `vide-*` (pas de photo :
+ * l'avatar du joueur, équipes sans logo, aucun partenaire), `vide-joueuse-*`
+ * (le même, avec l'avatar de la joueuse), `long-*` (noms très longs, six matchs),
  * et `zones-tiktok.png` (le vertical, les zones que TikTok recouvre en rose).
  */
 import sharp from "sharp";
@@ -111,9 +112,20 @@ async function main() {
   });
 
   await rendre("vide", {
+    nom: "KOFFI",
+    numeroSemaine: 1,
+    photo: null,
+    lignes: [{ jour: "SAM. 3 JANV.", competition: "MATCH AMICAL", equipe: "ÉQUIPE SANS LOGO", ecusson: null, affiche: "ÉQUIPE SANS LOGO 1–0 AUTRE", detail: "1 BUT" }],
+    ecussons: [{ equipe: "ÉQUIPE SANS LOGO", logo: null }],
+    partenaires: [],
+  });
+
+  // La joueuse : le même cas, avec l'autre avatar.
+  await rendre("vide-joueuse", {
     nom: "AFI",
     numeroSemaine: 1,
     photo: null,
+    genre: "female",
     lignes: [{ jour: "SAM. 3 JANV.", competition: "MATCH AMICAL", equipe: "ÉQUIPE SANS LOGO", ecusson: null, affiche: "ÉQUIPE SANS LOGO 1–0 AUTRE", detail: "1 BUT" }],
     ecussons: [{ equipe: "ÉQUIPE SANS LOGO", logo: null }],
     partenaires: [],

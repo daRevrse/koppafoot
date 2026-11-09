@@ -12,7 +12,8 @@ import {
   adresseDeLAffiche, cheminDuJoueur, nomEnPhrase, noteEnTexte, periodeDeLaSemaine, texteDuPartage,
   type JoueurDeLaSemaine,
 } from "@/lib/joueur-semaine-publie";
-import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
+import AvatarJoueurSemaine from "@/components/ui/AvatarJoueurSemaine";
+import { TeamCrest } from "@/components/ui/EntityAvatar";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
@@ -239,7 +240,7 @@ export default function DiapoJoueurDeLaSemaine({ joueur, onGeste }: {
           <Trophy aria-hidden size={132} strokeWidth={1.5} className="pointer-events-none absolute -right-7 -top-6 text-white/[0.06]" />
           <div className="relative flex items-center gap-3.5">
             <span className="relative shrink-0">
-              <PlayerAvatar name={nom} photo={joueur.photo} size={72} className="ring-4 ring-amber-300" />
+              <AvatarJoueurSemaine nom={nom} photo={joueur.photo} genre={joueur.genre} size={72} className="ring-4 ring-amber-300" />
               <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-300 text-emerald-950 ring-2 ring-emerald-950">
                 <Trophy size={14} />
               </span>

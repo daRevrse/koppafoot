@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chargerRessources } from "@/lib/og-da";
+import type { Genre } from "@/lib/genre";
 
 // ============================================
 // L'affiche « Joueur de la semaine » : en publication (1080×1350), en vertical
@@ -32,6 +33,11 @@ export interface DonneesAffiche {
   numeroSemaine: number;
   /** Une data URI JPEG ou PNG, déjà préparée (`preparerPhoto`), et AUTORISÉE ; null : l'avatar. */
   photo: string | null;
+  /**
+   * Le genre du joueur ou de la joueuse (lib/genre, `genreDuJoueur`) : choisit
+   * l'avatar quand il n'y a pas de photo. Absent ou null : le joueur.
+   */
+  genre?: Genre | null;
   /** Ses matchs, du plus ancien au plus récent. */
   lignes: { jour: string; competition: string; equipe: string; ecusson: string | null; affiche: string; detail: string }[];
   /** Ses équipes de la semaine, la plus récente d'abord. */
@@ -123,22 +129,35 @@ function tailleEcusson(n: number, hauteurPhoto: number, vertical: boolean): numb
   return Math.min(vertical ? 92 : 88, Math.floor((place - 22 * (n - 1)) / Math.max(1, n)));
 }
 
-let avatar: Promise<string> | null = null;
+const avatars: Partial<Record<Genre, Promise<string>>> = {};
 
 /**
- * L'AVATAR, À LA PLACE D'UNE PHOTO QUI N'EST PAS AUTORISÉE : une silhouette
- * de footballeur au maillot vert, sans visage ni carnation, la même pour tous
- * (voir lib/consentement-image). Jamais des initiales : le propriétaire veut
- * un vrai avatar. Lu une fois par instance, et passé en PNG, que Satori lit
- * sans surprise.
+ * L'AVATAR, À LA PLACE D'UNE PHOTO QUI N'EST PAS AUTORISÉE (voir
+ * lib/consentement-image). Jamais des initiales : le propriétaire veut un
+ * vrai avatar.
+ *
+ * VIVANT, ET IL Y EN A DEUX (révision du 2026-11-09). Le premier était une
+ * silhouette grise, sans visage ni carnation, la même pour tous : sur
+ * l'affiche de celui qu'on honore, un mannequin de vitrine. Ce sont
+ * désormais un joueur et une joueuse qui FÊTENT — le sourire, le poing levé,
+ * les projecteurs derrière eux —, au maillot vert de KoppaFoot, jamais à
+ * celui d'un club. Ils ne ressemblent à personne : ce sont des dessins, pas
+ * des portraits.
+ *
+ * LES MÊMES FICHIERS QUE LE SITE, qui les montre à la place des initiales
+ * (components/ui/AvatarJoueurSemaine) : `public/branding/avatars/`. Lus une
+ * fois par instance, et passés en PNG, que Satori lit sans surprise.
  */
-function chargerAvatar(): Promise<string> {
-  // LE CHEMIN ÉCRIT EN ENTIER, comme dans lib/og-da : un chemin calculé ferait
-  // embarquer tout le projet dans la fonction serveur.
-  avatar ??= readFile(join(process.cwd(), "assets/joueur-semaine/avatar.svg"))
+function chargerAvatar(genre: Genre | null | undefined): Promise<string> {
+  const lequel: Genre = genre === "female" ? "female" : "male";
+  // CHAQUE CHEMIN ÉCRIT EN ENTIER, comme dans lib/og-da : un chemin calculé
+  // ferait embarquer tout le projet dans la fonction serveur.
+  avatars[lequel] ??= (lequel === "female"
+    ? readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-femme.svg"))
+    : readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-homme.svg")))
     .then((svg) => sharp(svg).png().toBuffer())
     .then((png) => `data:image/png;base64,${png.toString("base64")}`);
-  return avatar;
+  return avatars[lequel]!;
 }
 
 /**
@@ -338,7 +357,7 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
 export async function afficheJoueurSemaine(d: DonneesAffiche, format: FormatAffiche): Promise<Buffer> {
   const { fonts, logo } = await chargerRessources();
   const H = format === "vertical" ? 1920 : 1350;
-  const r = new ImageResponse(<Affiche d={d} format={format} logoKf={logo} avatarPng={await chargerAvatar()} />, { width: W, height: H, fonts });
+  const r = new ImageResponse(<Affiche d={d} format={format} logoKf={logo} avatarPng={await chargerAvatar(d.genre)} />, { width: W, height: H, fonts });
   return Buffer.from(await r.arrayBuffer());
 }
 
@@ -359,7 +378,7 @@ export function clesDesCalques(d: DonneesAffiche): string[] {
  */
 export async function calquesJoueurSemaine(d: DonneesAffiche): Promise<CalqueVideo[]> {
   const { fonts, logo } = await chargerRessources();
-  const avatarPng = await chargerAvatar();
+  const avatarPng = await chargerAvatar(d.genre);
   const calques: CalqueVideo[] = [];
   for (const cle of clesDesCalques(d)) {
     const r = new ImageResponse(<Affiche d={d} format="vertical" logoKf={logo} avatarPng={avatarPng} couche={cle} />, { width: W, height: 1920, fonts });

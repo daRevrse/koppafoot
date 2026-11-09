@@ -5,7 +5,8 @@ import { Trophy } from "lucide-react";
 import {
   ancreDuJoueur, nomEnPhrase, noteEnTexte, resumeDuJoueur, type JoueurDeLaSemaine,
 } from "@/lib/joueur-semaine-publie";
-import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
+import AvatarJoueurSemaine from "@/components/ui/AvatarJoueurSemaine";
+import { TeamCrest } from "@/components/ui/EntityAvatar";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
@@ -61,7 +62,7 @@ export default function HistoriqueJoueursDeLaSemaine({ joueurs }: { joueurs: Jou
                 <Trophy aria-hidden size={86} strokeWidth={1.5} className="pointer-events-none absolute -right-5 -top-4 text-white/[0.06]" />
                 <span className="relative text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">{t.semaine(j.numero)}</span>
                 <span className="relative mt-2">
-                  <PlayerAvatar name={nom} photo={j.photo} size={60} className="ring-[3px] ring-amber-300" />
+                  <AvatarJoueurSemaine nom={nom} photo={j.photo} genre={j.genre} size={60} className="ring-[3px] ring-amber-300" />
                   <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-300 text-emerald-950 ring-2 ring-emerald-950">
                     <Trophy size={12} />
                   </span>
