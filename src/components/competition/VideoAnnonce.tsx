@@ -13,9 +13,9 @@ import type { CompMatch } from "@/types";
 
 // ============================================
 // La vidéo d'annonce d'un match chaud, depuis le calendrier de l'organisateur :
-// le flyer MATCHDAY en vertical qui se construit (lib/og-annonce,
-// lib/video-annonce), 8 secondes, pour les statuts WhatsApp, TikTok et les
-// Shorts. Voir docs/superpowers/specs/2026-10-22-matchs-chauds-design.md.
+// l'accroche « Match à ne pas manquer », puis le flyer MATCHDAY en vertical
+// qui se construit (lib/og-annonce, lib/video-annonce), 10 secondes, pour les
+// statuts WhatsApp, TikTok et les Shorts. Voir docs/superpowers/specs/2026-10-22-matchs-chauds-design.md.
 //
 // FABRIQUÉE ICI, DANS LE NAVIGATEUR, comme celle du joueur de la semaine :
 // Vercel n'a pas ffmpeg. Le serveur rend les calques, le navigateur les anime
@@ -86,8 +86,8 @@ export default function VideoAnnonce({ cid, slug, match, onFermer }: {
           </button>
         </div>
         <p className="text-sm text-gray-500">
-          {titre} : le flyer MATCHDAY qui se construit, {DUREE_ANNONCE} secondes en vertical, pour les statuts WhatsApp,
-          TikTok et les Shorts. Sans musique.
+          {titre} : la vidéo s&apos;ouvre sur « Match à ne pas manquer », puis le flyer MATCHDAY se construit.{" "}
+          {DUREE_ANNONCE} secondes en vertical, pour les statuts WhatsApp, TikTok et les Shorts. Sans musique.
         </p>
 
         <div className="mt-4 min-h-0 flex-1 overflow-y-auto">

@@ -25,6 +25,11 @@ export interface EtatCalque {
   devoile: number;
   /** Le zoom du contenu, centré (la photo). */
   zoom: number;
+  /**
+   * La taille du calque entier, autour de son centre : 1 par défaut. Ce qui
+   * surgit en grossissant ou qui bat (la flamme de lib/video-annonce).
+   */
+  echelle?: number;
 }
 
 /** Ce qu'il faut d'un calque pour l'animer : sa clé et sa place (voir `CalqueVideo`). */

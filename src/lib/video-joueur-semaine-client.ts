@@ -83,10 +83,14 @@ export async function fabriquerLaVideo(
         const sx = (c.w - sw) / 2;
         const sy = (c.h - sh) / 2;
         const v = e.devoile;
+        // L'échelle : le calque entier, autour de son centre.
+        const k = e.echelle ?? 1;
+        const cx = c.left + e.dx + c.w / 2;
+        const cy = c.top + e.dy + c.h / 2;
         ctx.drawImage(
           img,
           sx, sy + sh * (1 - v), sw, sh * v,
-          c.left + e.dx, c.top + e.dy + c.h * (1 - v), c.w, c.h * v,
+          cx - (c.w / 2) * k, cy + (c.h * (1 - v) - c.h / 2) * k, c.w * k, c.h * v * k,
         );
       }
       await source.add(t, 1 / FPS);

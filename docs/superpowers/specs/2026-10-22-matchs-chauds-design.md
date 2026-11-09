@@ -194,3 +194,27 @@ d'autre » et « pas de notification push match chaud ».
 - **Pas de rappel « une heure avant »** : les tâches planifiées de Vercel
   tournent une fois par jour sur l'offre actuelle. Qui a touché « Me
   prévenir » reçoit de toute façon le coup d'envoi en direct.
+
+### La vidéo d'annonce, plus parlante (même jour)
+
+Demande du propriétaire : la vidéo ne disait pas pourquoi regarder — un
+flyer de match comme les autres. Retenu parmi quatre pistes : **l'accroche
+d'ouverture**, seule. Le classement, la forme des équipes (toujours écartée)
+et les buteurs n'y entrent pas.
+
+- **L'accroche**, deux secondes : une flamme sur sa lueur orange, et « MATCH
+  À NE PAS MANQUER » en Anton, la première ligne par la gauche, « MANQUER »
+  par la droite. La flamme est là **dès la première image**, celle que
+  WhatsApp et TikTok prennent en vignette.
+- **Un bandeau orange « À ne pas manquer »** en tête de l'affiche prend le
+  relais quand l'accroche s'efface : l'image finale, celle qu'on lit, le dit
+  encore. Le logo de la compétition rapetisse un peu pour lui faire place.
+- **Dix secondes** au lieu de huit (la fourchette décidée était « 8 à
+  10 ») : l'affiche est en place à 5,6 s, il reste plus de quatre secondes
+  pour lire.
+- Le titre reste « MATCHDAY ». Toujours sans musique.
+- L'encodeur (lib/video-joueur-semaine-client) sait désormais changer la
+  taille d'un calque (`echelle`) : la flamme surgit et bat, le bandeau
+  surgit. La vidéo du joueur de la semaine n'en use pas et ne change pas.
+- `scripts/rendu-annonce.tsx --images` écrit les 300 images de la vidéo,
+  à monter avec ffmpeg pour la voir bouger sans navigateur.
