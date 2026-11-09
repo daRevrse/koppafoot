@@ -153,3 +153,44 @@ jamais chauds.
 - L'animation exacte de chaque calque et leur ordre.
 - La place de l'encart « Suggestions » et de la flamme dans le calendrier.
 - La place de la flamme sur la carte de l'accueil.
+
+## Révision du 2026-11-09 : plus visibles, et des notifications d'avant match
+
+Demande du propriétaire : la flamme seule ne mettait pas assez en avant un
+match chaud sur le Direct, et il veut des notifications d'avant match. Deux
+non-objectifs ci-dessus tombent donc : « une icône flamme, et rien
+d'autre » et « pas de notification push match chaud ».
+
+### Sur l'accueil Direct
+
+- **La carte mise en avant** d'un match chaud porte un **bandeau orange** en
+  tête : « À NE PAS MANQUER », le **temps qui reste** avant le coup d'envoi
+  (« Coup d'envoi dans 2 h 15 », « Demain », « J-3 », « En direct
+  maintenant » — `avantLeCoupDEnvoi`, lib/chauds) et un bouton **« Me
+  prévenir »**, qui suit le match (lib/suivi-match). La carte prend un liseré
+  orange.
+- **Les matchs chauds ouvrent le carrousel**, avant le joueur de la semaine,
+  et y restent **12 secondes** au lieu de 7. Leurs points de pagination sont
+  orange.
+- **Dans le tableau des scores**, la ligne d'un match chaud porte un filet
+  orange à gauche, un fond orangé et une flamme sous l'heure.
+- Tout cela s'éteint au coup de sifflet final, comme avant.
+
+### Les notifications d'avant match (lib/chauds-serveur)
+
+- **Destinataires** : les abonnés du match (`match_follows`) et ceux de sa
+  compétition — les listes et le plafond (500) des buts en direct, dans la
+  catégorie push « competitions ». Jamais une compétition d'entraînement.
+- **L'annonce**, quand l'organisateur allume la flamme depuis son
+  calendrier (`POST /api/competitions/[cid]/matches/[mid]/chaud`, réservée à
+  `peutConfigurer`). **Une fois par match** (`chaud_annonce_le`) : éteindre
+  et rallumer ne sonne pas deux fois.
+- **Le rappel du matin**, le jour du match, par la tâche de 6 h
+  (`/api/cron/scoreur-manquant`). **Une fois par date** (`chaud_rappel_pour`)
+  : un match reporté se rappelle à sa nouvelle date. Pas de rappel pour un
+  match annoncé le jour même.
+- Les deux marqueurs se posent dans une transaction **avant** l'envoi, et
+  les règles Firestore les réservent au serveur.
+- **Pas de rappel « une heure avant »** : les tâches planifiées de Vercel
+  tournent une fois par jour sur l'offre actuelle. Qui a touché « Me
+  prévenir » reçoit de toute façon le coup d'envoi en direct.

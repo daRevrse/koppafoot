@@ -7,7 +7,10 @@
  *   npx tsx scripts/test-chauds.ts
  */
 import assert from "node:assert/strict";
-import { CHAUDS_PAR_COMPETITION, chaudsAVenir, peutMarquerChaud, suggererChocs } from "@/lib/chauds";
+import {
+  CHAUDS_PAR_COMPETITION, avantLeCoupDEnvoi, chaudsAVenir, peutMarquerChaud, suggererChocs,
+  texteAnnonceChaud, texteRappelChaud,
+} from "@/lib/chauds";
 import { chaudsEnTete, type Entry } from "@/lib/direct-shared";
 import type { Competition, CompMatch } from "@/types";
 
@@ -157,6 +160,57 @@ cas("un match chaud sans date passe après ceux qui en ont une", () => {
     entree("c2", { id: "date", chaud: true, date: "2026-12-01" }),
   ], AUJOURDHUI);
   assert.deepEqual(r.map((e) => e.match.id), ["date", "sans-date"]);
+});
+
+console.log("avantLeCoupDEnvoi (bandeau de l'accueil)");
+
+// Le 9 novembre 2026 à 14 h, heure de l'appareil, comme l'heure d'un match.
+const MAINTENANT = new Date(2026, 10, 9, 14, 0);
+
+cas("en direct, imminent, en minutes, en heures", () => {
+  assert.deepEqual(avantLeCoupDEnvoi(match("d", { status: "live" }), MAINTENANT), { type: "direct" });
+  assert.deepEqual(avantLeCoupDEnvoi(match("i", { date: "2026-11-09", time: "13:30" }), MAINTENANT), { type: "imminent" });
+  assert.deepEqual(avantLeCoupDEnvoi(match("m", { date: "2026-11-09", time: "14:25" }), MAINTENANT), { type: "minutes", n: 25 });
+  assert.deepEqual(avantLeCoupDEnvoi(match("h", { date: "2026-11-10", time: "09:15" }), MAINTENANT), { type: "minutes", n: 19 * 60 + 15 });
+});
+
+cas("au-delà de 24 heures, en jours ; sans heure, le jour même dit « aujourd'hui »", () => {
+  assert.deepEqual(avantLeCoupDEnvoi(match("demain", { date: "2026-11-10", time: "16:00" }), MAINTENANT), { type: "jours", n: 1 });
+  assert.deepEqual(avantLeCoupDEnvoi(match("j3", { date: "2026-11-12", time: "16:00" }), MAINTENANT), { type: "jours", n: 3 });
+  assert.deepEqual(avantLeCoupDEnvoi(match("ajd", { date: "2026-11-09", time: null }), MAINTENANT), { type: "aujourdhui" });
+  assert.deepEqual(avantLeCoupDEnvoi(match("j2", { date: "2026-11-11", time: null }), MAINTENANT), { type: "jours", n: 2 });
+});
+
+cas("rien à dire : sans date, joué, annulé, d'une date passée", () => {
+  assert.equal(avantLeCoupDEnvoi(match("s", { date: null }), MAINTENANT), null);
+  assert.equal(avantLeCoupDEnvoi(match("f", { status: "completed", date: "2026-11-09" }), MAINTENANT), null);
+  assert.equal(avantLeCoupDEnvoi(match("a", { status: "cancelled", date: "2026-11-10" }), MAINTENANT), null);
+  assert.equal(avantLeCoupDEnvoi(match("p", { date: "2026-11-08", time: "16:00" }), MAINTENANT), null);
+});
+
+console.log("texteAnnonceChaud, texteRappelChaud (notifications d'avant match)");
+
+const affiche = { homeTeamName: "Les Lions", awayTeamName: "Les Aigles", date: "2026-11-14", time: "16:00", venueName: "Stade du Quartier" };
+
+cas("l'annonce dit le jour en toutes lettres, l'heure et le terrain", () => {
+  const t = texteAnnonceChaud(affiche, "Coupe du Quartier", "2026-11-09");
+  assert.equal(t.title, "🔥 Match à ne pas manquer · Coupe du Quartier");
+  assert.equal(t.body, "Les Lions – Les Aigles, samedi 14 novembre à 16h00, Stade du Quartier. Suis-le en direct sur KoppaFoot.");
+});
+
+cas("l'annonce d'un match du jour dit « aujourd'hui » ; sans date ni terrain, l'affiche seule", () => {
+  assert.match(texteAnnonceChaud(affiche, "C", "2026-11-14").body, /^Les Lions – Les Aigles, aujourd'hui à 16h00,/);
+  assert.equal(
+    texteAnnonceChaud({ ...affiche, date: null, time: null, venueName: null }, "C", "2026-11-09").body,
+    "Les Lions – Les Aigles. Suis-le en direct sur KoppaFoot.",
+  );
+});
+
+cas("le rappel du matin donne l'heure du coup d'envoi", () => {
+  const t = texteRappelChaud(affiche, "Coupe du Quartier");
+  assert.equal(t.title, "🔥 C'est aujourd'hui : Les Lions – Les Aigles");
+  assert.equal(t.body, "Coup d'envoi à 16h00, Stade du Quartier. Coupe du Quartier, à suivre en direct sur KoppaFoot.");
+  assert.match(texteRappelChaud({ ...affiche, time: null }, "C").body, /^Le match à ne pas manquer se joue aujourd'hui/);
 });
 
 if (echecs) {

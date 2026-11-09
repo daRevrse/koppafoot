@@ -418,10 +418,32 @@ export default function CompetitionSchedulePage() {
   // sont les matchs où les deux équipes arrivent le plus en forme.
   const [videoMatch, setVideoMatch] = useState<CompMatch | null>(null);
   const suggestions = useMemo(() => suggererChocs(matches, jourDeLome()), [matches]);
+  // Allumée, la flamme PRÉVIENT AUSSI les abonnés du match et de la
+  // compétition (lib/chauds-serveur), une fois par match : rallumer une
+  // flamme éteinte ne sonne pas deux fois. L'annonce ne fait jamais échouer
+  // la flamme, qui est déjà enregistrée.
+  const annoncerChaud = async (mid: string) => {
+    if (!firebaseUser) return;
+    try {
+      const jeton = await firebaseUser.getIdToken();
+      const res = await fetch(`/api/competitions/${cid}/matches/${mid}/chaud`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${jeton}` },
+      });
+      const bilan = (await res.json().catch(() => null)) as { envoye?: boolean; destinataires?: number } | null;
+      if (bilan?.envoye && (bilan.destinataires ?? 0) > 0) {
+        const n = bilan.destinataires!;
+        toast.success(`Annonce envoyée à ${n} abonné${n > 1 ? "s" : ""}`, { icon: "🔔" });
+      }
+    } catch {
+      // Best-effort : la flamme est posée, l'accueil la montre déjà.
+    }
+  };
   const basculerChaud = async (m: CompMatch) => {
     try {
       await updateCompMatch(cid, m.id, { chaud: !m.chaud });
       toast.success(m.chaud ? "Le match n'est plus chaud" : "Match chaud : il passe en tête de l'accueil Direct");
+      if (!m.chaud) void annoncerChaud(m.id);
     } catch {
       toast.error("La flamme n'a pas pu être enregistrée");
     }
@@ -1400,7 +1422,7 @@ export default function CompetitionSchedulePage() {
               </p>
               <p className="mt-0.5 text-xs text-gray-500">
                 Les matchs à venir où les deux équipes arrivent le plus en forme sur leurs derniers matchs.
-                Un match chaud passe en tête de l&apos;accueil Direct, {CHAUDS_PAR_COMPETITION} à la fois au plus.
+                Un match chaud passe en tête de l&apos;accueil Direct, {CHAUDS_PAR_COMPETITION} à la fois au plus. Ses abonnés et ceux de la compétition sont prévenus à l&apos;annonce, puis le matin du match.
               </p>
               <ul className="mt-2 divide-y divide-orange-100">
                 {suggestions.map(({ match: s, forme }) => (
