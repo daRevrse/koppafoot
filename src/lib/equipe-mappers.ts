@@ -3,7 +3,7 @@
 // l'application mobile les lit tels quels, comme le site.
 
 import { lireCondition } from "@/lib/etat-de-forme";
-import { lireCategorie } from "@/lib/genre";
+import { lireCategorie, lireGenre } from "@/lib/genre";
 import { normaliserPoste } from "@/lib/postes";
 import { lireEmplacement } from "@/lib/terrain";
 import type {
@@ -33,6 +33,7 @@ export function toGhostPlayer(id: string, teamId: string, d: FirestoreGhostPlaye
     lastName: d.last_name,
     position: d.position,
     squadNumber: d.squad_number ?? undefined,
+    gender: lireGenre(d.gender),
     goals: d.goals ?? 0,
     assists: d.assists ?? 0,
     matchesPlayed: d.matches_played ?? 0,

@@ -28,7 +28,7 @@ import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
-import { useComptesPublics, usePhotosSansCompte } from "@/hooks/usePhotosDesComptes";
+import { useComptesPublics, useSansCompte } from "@/hooks/usePhotosDesComptes";
 import { cleDeLaLigne, photoDeLaLigne } from "@/lib/photos-sans-compte";
 import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import { useMedia } from "@/hooks/useMedia";
@@ -317,9 +317,16 @@ export default function PublicCompMatchView() {
     e.userId || photoPoseeSur(teamId, e.playerId)
       ? null
       : cleDeLaLigne(clubDe(teamId), { id: e.playerId, club_ghost_id: ficheDuClubDe(teamId, e.playerId) });
-  const photosSansCompte = usePhotosSansCompte([
+  // L'homme du match sans compte : sa fiche de club, même quand sa ligne
+  // porte déjà une photo — c'est son SEXE qu'on y lit, indiqué par son club
+  // dans une équipe mixte, pour accorder « Joueuse du match ».
+  const cleHommeSansCompte = match && !match.mvpUserId && match.mvpPlayerId
+    ? cleDeLaLigne(clubDe(match.mvpTeamId), { id: match.mvpPlayerId, club_ghost_id: ficheDuClubDe(match.mvpTeamId, match.mvpPlayerId) })
+    : null;
+  const { photos: photosSansCompte, genres: genresSansCompte } = useSansCompte([
     ...(match?.homeLineup ?? []).map((e) => cleSansCompteDe(match?.homeTeamId, e)),
     ...(match?.awayLineup ?? []).map((e) => cleSansCompteDe(match?.awayTeamId, e)),
+    cleHommeSansCompte,
   ]);
   // Sur grand écran, le fil a une colonne à côté de lui (voir plus bas).
   const grandEcran = useMedia("(min-width: 1024px)");
@@ -626,7 +633,12 @@ export default function PublicCompMatchView() {
           motif={match.mvpPlayerId ? motifDesMarques(marques[match.mvpPlayerId], langue) : null}
           note={noteDeLHomme}
           href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
-          genre={genreDuJoueur(match.mvpUserId ? genresParCompte[match.mvpUserId] : null, compCategorie)}
+          genre={genreDuJoueur(
+            match.mvpUserId
+              ? genresParCompte[match.mvpUserId]
+              : (cleHommeSansCompte ? genresSansCompte[cleHommeSansCompte] : null),
+            compCategorie,
+          )}
         />
         {/* Chaque evenement du cote de son acteur, les reperes communs au
             centre. Voir MatchTimeline. */}

@@ -44,7 +44,7 @@ import { notesDuCamp } from "@/lib/notes";
 import { DUREE_MATCH_DEFAUT } from "@/lib/player-stats";
 import { marquesDesJoueurs, motifDesMarques } from "@/lib/recit-du-match";
 import { couleursDesBarres } from "@/lib/couleurs-equipe";
-import { useComptesPublics, usePhotosSansCompte } from "@/hooks/usePhotosDesComptes";
+import { useComptesPublics, useSansCompte } from "@/hooks/usePhotosDesComptes";
 import { cleSansCompte } from "@/lib/photos-sans-compte";
 import { genreDuJoueur, type Categorie } from "@/lib/genre";
 import MatchLineups from "@/components/match/MatchLineups";
@@ -896,7 +896,9 @@ export default function MatchDetailPage() {
   // tout visiteur — dans un amical, sa ligne porte l'identifiant de sa fiche
   // (voir lib/photos-sans-compte).
   const cleHommeSansCompte = match && !match.mvpUserId ? cleSansCompte(match.mvpTeamId, match.mvpPlayerId) : null;
-  const photosSansCompte = usePhotosSansCompte([cleHommeSansCompte]);
+  // Son sexe aussi, quand son club l'a indiqué (équipe mixte) : il accorde
+  // « Joueuse du match ».
+  const { photos: photosSansCompte, genres: genresSansCompte } = useSansCompte([cleHommeSansCompte]);
 
   /**
    * LA COULEUR DES DEUX CLUBS, pour les barres de stats. Une équipe hors
@@ -1207,7 +1209,9 @@ export default function MatchDetailPage() {
                 note={noteDeLHomme}
                 href={match.mvpUserId ? `/profile/${match.mvpUserId}` : null}
                 genre={genreDuJoueur(
-                  match.mvpUserId ? genresParCompte[match.mvpUserId] : null,
+                  match.mvpUserId
+                    ? genresParCompte[match.mvpUserId]
+                    : (cleHommeSansCompte ? genresSansCompte[cleHommeSansCompte] : null),
                   match.mvpTeamId === match.homeTeamId ? couleursClubs?.categorieHome : couleursClubs?.categorieAway,
                 )}
               />

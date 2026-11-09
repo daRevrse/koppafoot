@@ -80,15 +80,15 @@ export function usePhotosDesComptes(uids: (string | null | undefined)[]): Record
   return useComptesPublics(uids).photos;
 }
 
-/** Les photos de joueurs sans compte déjà demandées, par clé `<club>:<id>`. */
-const lignesConnues = new Map<string, string | null>();
+/** Les joueurs sans compte déjà demandés, par clé `<club>:<id>`. */
+const lignesConnues = new Map<string, Compte>();
 
 /**
- * La photo des joueurs SANS COMPTE d'une feuille, par clé `<club>:<id>` (voir
- * lib/photos-sans-compte) : celle que leur club leur a mise. Même mémoire
- * pour la visite, même requête que les comptes.
+ * La photo et le sexe des joueurs SANS COMPTE d'une feuille, par clé
+ * `<club>:<id>` (voir lib/photos-sans-compte) : ceux que leur club leur a
+ * mis. Même mémoire pour la visite, même requête que les comptes.
  */
-export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record<string, string | null> {
+export function useSansCompte(cles: (string | null | undefined)[]): ComptesPublics {
   const liste = [...new Set(cles.filter((c): c is string => !!c))].sort();
   const cle = liste.join(",");
   const [, setReponses] = useState(0);
@@ -99,8 +99,10 @@ export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record
     let vivant = true;
     fetch(`/api/public/photos?lignes=${encodeURIComponent(manquantes.join(","))}`)
       .then((r) => (r.ok ? r.json() : { lignes: {} }))
-      .then((j: { lignes?: Record<string, string> }) => {
-        for (const c of manquantes) lignesConnues.set(c, j.lignes?.[c] ?? null);
+      .then((j: { lignes?: Record<string, string>; genresLignes?: Record<string, Genre> }) => {
+        for (const c of manquantes) {
+          lignesConnues.set(c, { photo: j.lignes?.[c] ?? null, genre: j.genresLignes?.[c] ?? null });
+        }
         if (vivant) setReponses((n) => n + 1);
       })
       .catch(() => {
@@ -110,8 +112,19 @@ export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record
   }, [cle]);
 
   const photos: Record<string, string | null> = {};
-  for (const c of liste) if (lignesConnues.has(c)) photos[c] = lignesConnues.get(c) ?? null;
-  return photos;
+  const genres: Record<string, Genre | null> = {};
+  for (const c of liste) {
+    const connue = lignesConnues.get(c);
+    if (!connue) continue;
+    photos[c] = connue.photo;
+    genres[c] = connue.genre;
+  }
+  return { photos, genres };
+}
+
+/** La photo seule des joueurs sans compte, pour les écrans qui n'accordent rien. */
+export function usePhotosSansCompte(cles: (string | null | undefined)[]): Record<string, string | null> {
+  return useSansCompte(cles).photos;
 }
 
 /**

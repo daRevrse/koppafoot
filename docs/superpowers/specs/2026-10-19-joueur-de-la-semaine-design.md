@@ -407,3 +407,50 @@ le joueur choisi devient public.
 
 Code : lib/joueur-semaine-publie (pur, vérifié par
 scripts/test-joueur-semaine-publie.ts), lib/joueur-semaine-publie-serveur.
+
+## Révision du 2026-11-09 : des avatars vivants, un joueur et une joueuse
+
+Demande du propriétaire : « les avatars du joueur de la semaine (homme ou
+femme), il faut les rendre vivants ». L'avatar validé le 2026-10-19 — une
+silhouette grise, **sans visage ni carnation, la même pour tous** — est
+remplacé.
+
+- **Deux dessins, fournis par le propriétaire** (un premier jet dessiné en
+  SVG a été écarté le jour même) : un joueur et une joueuse **qui
+  sourient**, sous des projecteurs verts et des étoiles, au maillot vert de
+  KoppaFoot, jamais celui d'un club. Ils ne ressemblent à personne.
+  `public/branding/avatars/joueur-semaine-homme.webp` et
+  `joueur-semaine-femme.webp` (828 × 941), et leurs cadrages sur le visage
+  pour le site, `-rond.webp` (256 × 256).
+- **Le genre** (`genreDuCandidat`, lib/joueur-semaine-admin) : celui que le
+  compte a déclaré ; sinon celui de son équipe ou de sa compétition quand
+  elle est féminine (`genreDuJoueur`, lib/genre). Quand on ne sait pas : le
+  joueur, comme partout dans le produit.
+- **Sur le site aussi** : la diapositive du Direct et l'historique des
+  joueurs de la semaine montraient des **initiales** quand il n'y avait pas
+  de photo. Ils montrent désormais le même avatar, cadré sur le visage
+  (components/ui/AvatarJoueurSemaine). Le document publié porte `genre` ;
+  une élection d'avant ce champ montre le joueur.
+- Les règles du consentement ne changent pas : l'avatar paraît exactement
+  quand il paraissait avant.
+
+### Le titre s'accorde, et le sexe d'un joueur sans compte (même jour)
+
+Décidé par le propriétaire :
+
+- **« JOUEUSE DE LA SEMAINE »** pour une joueuse : sur l'affiche et dans la
+  vidéo, sur la diapositive du Direct, dans le texte du partage ; « Joueuse
+  du match » là où le site écrivait « Homme du match » pour elle. Le genre
+  se lit désormais toujours, photo ou non.
+- **Le sexe d'un joueur sans compte** s'indique à son ajout ou à sa
+  modification (`ghost_players.gender`), **quand son équipe est mixte** —
+  ou d'avant le réglage du type d'équipe. Dans une équipe masculine ou
+  féminine, la question n'est pas posée : **le joueur tire son genre du
+  type de son équipe** (`genreDuJoueur`). Sans réponse, pareil.
+- L'ordre, pour un candidat (`genreDuCandidat`) : son compte ; sans compte,
+  sa fiche de club ; sinon le type de son équipe ou de sa compétition.
+- La fiche d'un match lit ce sexe avec la photo (`/api/public/photos`,
+  `genresLignes`) pour accorder « Joueuse du match ».
+- **Pas encore dans l'application mobile** : son écran « Joueur sans
+  compte » ne pose pas la question. Un joueur ajouté depuis le téléphone
+  suit le type de son équipe, et se corrige sur le site.

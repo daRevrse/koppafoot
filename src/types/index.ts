@@ -1665,6 +1665,13 @@ export interface FirestoreGhostPlayer {
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squad_number?: string;
   /**
+   * Son sexe, indiqué par ceux qui gèrent l'équipe : il n'a pas de compte
+   * pour le déclarer lui-même. Utile dans une ÉQUIPE MIXTE, où le type de
+   * l'équipe ne dit rien de chacun ; absent ou `null`, le joueur tire son
+   * genre du type de son équipe (voir lib/genre, `genreDuJoueur`).
+   */
+  gender?: Genre | null;
+  /**
    * La carrière d'un joueur sans compte.
    *
    * Elle vit ici, sur la sous-collection de son équipe, et non sur un document
@@ -1704,6 +1711,8 @@ export interface GhostPlayer {
   lastName: string;
   position: "goalkeeper" | "defender" | "midfielder" | "forward";
   squadNumber?: string;
+  /** Voir `FirestoreGhostPlayer.gender`. Absent ou null : celui de son équipe. */
+  gender?: Genre | null;
   /** Voir `FirestoreGhostPlayer.goals`. */
   goals: number;
   assists: number;

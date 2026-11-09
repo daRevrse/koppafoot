@@ -5,7 +5,9 @@ import { Trophy } from "lucide-react";
 import {
   ancreDuJoueur, nomEnPhrase, noteEnTexte, resumeDuJoueur, type JoueurDeLaSemaine,
 } from "@/lib/joueur-semaine-publie";
-import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
+import AvatarJoueurSemaine from "@/components/ui/AvatarJoueurSemaine";
+import { TeamCrest } from "@/components/ui/EntityAvatar";
+import { accorder, type Genre } from "@/lib/genre";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
@@ -29,13 +31,13 @@ const T = textes(
     titre: "Joueurs de la semaine",
     semaine: (n: number) => `Semaine ${n}`,
     note: (n: string) => `Note ${n}`,
-    hommeDuMatch: "Homme du match",
+    hommeDuMatch: (genre: Genre | null) => accorder(genre, "Homme du match", "Joueuse du match"),
   },
   {
     titre: "Players of the week",
     semaine: (n: number) => `Week ${n}`,
     note: (n: string) => `Rating ${n}`,
-    hommeDuMatch: "Man of the match",
+    hommeDuMatch: (genre: Genre | null) => accorder(genre, "Man of the match", "Player of the match"),
   },
 );
 
@@ -61,7 +63,7 @@ export default function HistoriqueJoueursDeLaSemaine({ joueurs }: { joueurs: Jou
                 <Trophy aria-hidden size={86} strokeWidth={1.5} className="pointer-events-none absolute -right-5 -top-4 text-white/[0.06]" />
                 <span className="relative text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">{t.semaine(j.numero)}</span>
                 <span className="relative mt-2">
-                  <PlayerAvatar name={nom} photo={j.photo} size={60} className="ring-[3px] ring-amber-300" />
+                  <AvatarJoueurSemaine nom={nom} photo={j.photo} genre={j.genre} size={60} className="ring-[3px] ring-amber-300" />
                   <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-300 text-emerald-950 ring-2 ring-emerald-950">
                     <Trophy size={12} />
                   </span>
@@ -78,7 +80,7 @@ export default function HistoriqueJoueursDeLaSemaine({ joueurs }: { joueurs: Jou
                 <span className="mt-1.5 text-[12px] font-black text-emerald-600">{resumeDuJoueur(j, lng)}</span>
                 {(j.note !== null || j.hommeDuMatch > 0) && (
                   <span className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                    {j.note !== null ? t.note(noteEnTexte(j.note, lng)) : t.hommeDuMatch}
+                    {j.note !== null ? t.note(noteEnTexte(j.note, lng)) : t.hommeDuMatch(j.genre)}
                   </span>
                 )}
               </span>

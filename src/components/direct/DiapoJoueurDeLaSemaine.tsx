@@ -12,7 +12,9 @@ import {
   adresseDeLAffiche, cheminDuJoueur, nomEnPhrase, noteEnTexte, periodeDeLaSemaine, texteDuPartage,
   type JoueurDeLaSemaine,
 } from "@/lib/joueur-semaine-publie";
-import { PlayerAvatar, TeamCrest } from "@/components/ui/EntityAvatar";
+import AvatarJoueurSemaine from "@/components/ui/AvatarJoueurSemaine";
+import { accorder, type Genre } from "@/lib/genre";
+import { TeamCrest } from "@/components/ui/EntityAvatar";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
@@ -39,11 +41,14 @@ import { textes } from "@/i18n/textes";
 
 const T = textes(
   {
-    titre: "Joueur de la semaine",
+    titre: (genre: Genre | null) => accorder(genre, "Joueur de la semaine", "Joueuse de la semaine"),
     semaine: (n: number, periode: string) => `Semaine ${n} · ${periode}`,
     voirTous: "Tous les joueurs de la semaine",
     bravo: (prenom: string) => `Bravo, ${prenom} !`,
-    hommeDuMatch: (n: number) => (n > 1 ? `Homme du match ×${n}` : "Homme du match"),
+    hommeDuMatch: (n: number, genre: Genre | null) => {
+      const mot = accorder(genre, "Homme du match", "Joueuse du match");
+      return n > 1 ? `${mot} ×${n}` : mot;
+    },
     buts: (n: number) => (n > 1 ? "buts" : "but"),
     passes: (n: number) => (n > 1 ? "passes" : "passe"),
     matchs: (n: number) => (n > 1 ? "matchs" : "match"),
@@ -61,11 +66,14 @@ const T = textes(
     erreur: "Une erreur est survenue",
   },
   {
-    titre: "Player of the week",
+    titre: () => "Player of the week",
     semaine: (n: number, periode: string) => `Week ${n} · ${periode}`,
     voirTous: "All players of the week",
     bravo: (prenom: string) => `Well played, ${prenom}!`,
-    hommeDuMatch: (n: number) => (n > 1 ? `Man of the match ×${n}` : "Man of the match"),
+    hommeDuMatch: (n: number, genre: Genre | null) => {
+      const mot = accorder(genre, "Man of the match", "Player of the match");
+      return n > 1 ? `${mot} ×${n}` : mot;
+    },
     buts: (n: number) => (n > 1 ? "goals" : "goal"),
     passes: (n: number) => (n > 1 ? "assists" : "assist"),
     matchs: (n: number) => (n > 1 ? "matches" : "match"),
@@ -197,7 +205,7 @@ export default function DiapoJoueurDeLaSemaine({ joueur, onGeste }: {
   const partager = async () => {
     onGeste?.();
     const resultat = await partagerLien({
-      title: t.titre,
+      title: t.titre(joueur.genre),
       text: texteDuPartage(joueur, langue === "en" ? "en" : "fr"),
       url: lienAbsolu(cheminDuJoueur(joueur.lundi)),
       fichier,
@@ -218,7 +226,7 @@ export default function DiapoJoueurDeLaSemaine({ joueur, onGeste }: {
           <Trophy size={15} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[13px] font-black text-gray-900">{t.titre}</span>
+          <span className="block truncate text-[13px] font-black text-gray-900">{t.titre(joueur.genre)}</span>
           <span className="block truncate text-[11px] font-bold text-gray-400">
             {t.semaine(joueur.numero, periodeDeLaSemaine(joueur, langue === "en" ? "en" : "fr"))}
           </span>
@@ -239,14 +247,14 @@ export default function DiapoJoueurDeLaSemaine({ joueur, onGeste }: {
           <Trophy aria-hidden size={132} strokeWidth={1.5} className="pointer-events-none absolute -right-7 -top-6 text-white/[0.06]" />
           <div className="relative flex items-center gap-3.5">
             <span className="relative shrink-0">
-              <PlayerAvatar name={nom} photo={joueur.photo} size={72} className="ring-4 ring-amber-300" />
+              <AvatarJoueurSemaine nom={nom} photo={joueur.photo} genre={joueur.genre} size={72} className="ring-4 ring-amber-300" />
               <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-amber-300 text-emerald-950 ring-2 ring-emerald-950">
                 <Trophy size={14} />
               </span>
             </span>
             <div className="min-w-0">
               {joueur.hommeDuMatch > 0 && (
-                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">{t.hommeDuMatch(joueur.hommeDuMatch)}</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">{t.hommeDuMatch(joueur.hommeDuMatch, joueur.genre)}</p>
               )}
               <p className="line-clamp-2 font-display text-xl font-black leading-tight">{nom}</p>
               {equipe && (

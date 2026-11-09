@@ -3,6 +3,7 @@ import sharp from "sharp";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { chargerRessources } from "@/lib/og-da";
+import type { Genre } from "@/lib/genre";
 
 // ============================================
 // L'affiche « Joueur de la semaine » : en publication (1080×1350), en vertical
@@ -32,6 +33,12 @@ export interface DonneesAffiche {
   numeroSemaine: number;
   /** Une data URI JPEG ou PNG, déjà préparée (`preparerPhoto`), et AUTORISÉE ; null : l'avatar. */
   photo: string | null;
+  /**
+   * Le genre du joueur ou de la joueuse (lib/genre, `genreDuJoueur`) : accorde
+   * le titre (« JOUEUSE DE LA SEMAINE ») et choisit l'avatar quand il n'y a
+   * pas de photo. Absent ou null : le joueur.
+   */
+  genre?: Genre | null;
   /** Ses matchs, du plus ancien au plus récent. */
   lignes: { jour: string; competition: string; equipe: string; ecusson: string | null; affiche: string; detail: string }[];
   /** Ses équipes de la semaine, la plus récente d'abord. */
@@ -123,22 +130,35 @@ function tailleEcusson(n: number, hauteurPhoto: number, vertical: boolean): numb
   return Math.min(vertical ? 92 : 88, Math.floor((place - 22 * (n - 1)) / Math.max(1, n)));
 }
 
-let avatar: Promise<string> | null = null;
+const avatars: Partial<Record<Genre, Promise<string>>> = {};
 
 /**
- * L'AVATAR, À LA PLACE D'UNE PHOTO QUI N'EST PAS AUTORISÉE : une silhouette
- * de footballeur au maillot vert, sans visage ni carnation, la même pour tous
- * (voir lib/consentement-image). Jamais des initiales : le propriétaire veut
- * un vrai avatar. Lu une fois par instance, et passé en PNG, que Satori lit
- * sans surprise.
+ * L'AVATAR, À LA PLACE D'UNE PHOTO QUI N'EST PAS AUTORISÉE (voir
+ * lib/consentement-image). Jamais des initiales : le propriétaire veut un
+ * vrai avatar.
+ *
+ * VIVANT, ET IL Y EN A DEUX (révision du 2026-11-09). Le premier était une
+ * silhouette grise, sans visage ni carnation, la même pour tous : sur
+ * l'affiche de celui qu'on honore, un mannequin de vitrine. Ce sont
+ * désormais un joueur et une joueuse qui SOURIENT, sous les projecteurs,
+ * au maillot vert de KoppaFoot, jamais à celui d'un club. Les deux dessins
+ * sont ceux que le propriétaire a fournis ; ils ne ressemblent à personne.
+ *
+ * `public/branding/avatars/`, 828 × 941, à côté de leurs cadrages ronds que
+ * le site montre à la place des initiales
+ * (components/ui/AvatarJoueurSemaine). Lus une fois par instance, et passés
+ * de WebP en PNG : Satori ne lit pas le WebP.
  */
-function chargerAvatar(): Promise<string> {
-  // LE CHEMIN ÉCRIT EN ENTIER, comme dans lib/og-da : un chemin calculé ferait
-  // embarquer tout le projet dans la fonction serveur.
-  avatar ??= readFile(join(process.cwd(), "assets/joueur-semaine/avatar.svg"))
-    .then((svg) => sharp(svg).png().toBuffer())
+function chargerAvatar(genre: Genre | null | undefined): Promise<string> {
+  const lequel: Genre = genre === "female" ? "female" : "male";
+  // CHAQUE CHEMIN ÉCRIT EN ENTIER, comme dans lib/og-da : un chemin calculé
+  // ferait embarquer tout le projet dans la fonction serveur.
+  avatars[lequel] ??= (lequel === "female"
+    ? readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-femme.webp"))
+    : readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-homme.webp")))
+    .then((webp) => sharp(webp).png().toBuffer())
     .then((png) => `data:image/png;base64,${png.toString("base64")}`);
-  return avatar;
+  return avatars[lequel]!;
 }
 
 /**
@@ -261,7 +281,8 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
           {d.photo ? (
             <Img src={d.photo} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center top" />
           ) : (
-            <Img src={avatarPng} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center 30%" />
+            // Cadré presque en haut : le chignon de la joueuse touche le bord du dessin.
+            <Img src={avatarPng} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center 10%" />
           )}
           <div style={{ position: "absolute", bottom: 0, left: 0, width: p.w, height: 150, backgroundImage: `linear-gradient(180deg, rgba(43,43,43,0), ${PHOTO_FOND})` }} />
         </div>
@@ -270,7 +291,8 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
       {voir("bandeau") && (
         <div style={{ position: "absolute", top: b.y, left: p.x - 88, width: 800, height: b.h, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
           <Img src={camo(800, b.h, VERT, TACHES_VERTES, 31)} top={0} left={0} width={800} height={b.h} />
-          <div style={{ display: "flex", fontFamily: "Anton", fontSize: b.taille, lineHeight: 1, color: NOIR }}>JOUEUR DE</div>
+          {/* Le titre s'accorde : « JOUEUSE DE » tient dans la même largeur que « LA SEMAINE ». */}
+          <div style={{ display: "flex", fontFamily: "Anton", fontSize: b.taille, lineHeight: 1, color: NOIR }}>{d.genre === "female" ? "JOUEUSE DE" : "JOUEUR DE"}</div>
           <div style={{ display: "flex", fontFamily: "Anton", fontSize: b.taille, lineHeight: 1, color: NOIR }}>LA SEMAINE</div>
         </div>
       )}
@@ -338,7 +360,7 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
 export async function afficheJoueurSemaine(d: DonneesAffiche, format: FormatAffiche): Promise<Buffer> {
   const { fonts, logo } = await chargerRessources();
   const H = format === "vertical" ? 1920 : 1350;
-  const r = new ImageResponse(<Affiche d={d} format={format} logoKf={logo} avatarPng={await chargerAvatar()} />, { width: W, height: H, fonts });
+  const r = new ImageResponse(<Affiche d={d} format={format} logoKf={logo} avatarPng={await chargerAvatar(d.genre)} />, { width: W, height: H, fonts });
   return Buffer.from(await r.arrayBuffer());
 }
 
@@ -359,7 +381,7 @@ export function clesDesCalques(d: DonneesAffiche): string[] {
  */
 export async function calquesJoueurSemaine(d: DonneesAffiche): Promise<CalqueVideo[]> {
   const { fonts, logo } = await chargerRessources();
-  const avatarPng = await chargerAvatar();
+  const avatarPng = await chargerAvatar(d.genre);
   const calques: CalqueVideo[] = [];
   for (const cle of clesDesCalques(d)) {
     const r = new ImageResponse(<Affiche d={d} format="vertical" logoKf={logo} avatarPng={avatarPng} couche={cle} />, { width: W, height: 1920, fonts });
