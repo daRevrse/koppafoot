@@ -14,7 +14,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Flame, ChevronLeft, ChevronRight, ChevronDown, Star, Trophy,
-  MapPin, CalendarDays,
+  MapPin, CalendarDays, Bell, BellRing, Loader2,
 } from "lucide-react";
 import { onCompMatches, listCompTeams, setCompetitionFollow } from "@/lib/competition-firestore";
 import toast from "react-hot-toast";
@@ -41,7 +41,8 @@ import DiapoTerrain, { useVitrineDesTerrains } from "@/components/direct/DiapoTe
 import DiapoJoueurDeLaSemaine from "@/components/direct/DiapoJoueurDeLaSemaine";
 import type { JoueurDeLaSemaine } from "@/lib/joueur-semaine-publie";
 import { useMedia } from "@/hooks/useMedia";
-import { estAVenir } from "@/lib/chauds";
+import { avantLeCoupDEnvoi, estAVenir, type AvantLeCoupDEnvoi } from "@/lib/chauds";
+import { useSuiviMatch } from "@/components/match/ClocheMatch";
 
 // ============================================
 // DirectHomeV2, the live-score home, a scores board rather than a timeline.
@@ -96,6 +97,24 @@ const T = textes(
     suivant: "Suivant",
     affiche: (i: number) => `Affiche ${i}`,
     chaud: "Match à ne pas manquer",
+    aNePasManquer: "À ne pas manquer",
+    mePrevenir: "Me prévenir",
+    prevenu: "Prévenu",
+    mePrevenirAide: "Recevoir le rappel du jour, le coup d'envoi et les buts",
+    rebours: (r: AvantLeCoupDEnvoi) => {
+      switch (r.type) {
+        case "direct": return "En direct maintenant";
+        case "imminent": return "Coup d'envoi imminent";
+        case "aujourdhui": return "Aujourd'hui";
+        case "jours": return r.n === 1 ? "Demain" : `J-${r.n}`;
+        case "minutes": {
+          if (r.n < 60) return `Coup d'envoi dans ${r.n} min`;
+          const h = Math.floor(r.n / 60);
+          const m = r.n % 60;
+          return `Coup d'envoi dans ${h} h${m ? ` ${String(m).padStart(2, "0")}` : ""}`;
+        }
+      }
+    },
     topPerformances: "Top performances",
     carteDefilante: "Top performances et terrains",
     cinqDerniers: "5 derniers matchs",
@@ -149,6 +168,24 @@ const T = textes(
     suivant: "Next",
     affiche: (i: number) => `Featured match ${i}`,
     chaud: "Must-see match",
+    aNePasManquer: "Must-see match",
+    mePrevenir: "Remind me",
+    prevenu: "Reminder on",
+    mePrevenirAide: "Get the match-day reminder, kick-off and goals",
+    rebours: (r: AvantLeCoupDEnvoi) => {
+      switch (r.type) {
+        case "direct": return "Live now";
+        case "imminent": return "Kick-off any minute";
+        case "aujourdhui": return "Today";
+        case "jours": return r.n === 1 ? "Tomorrow" : `${r.n} days to go`;
+        case "minutes": {
+          if (r.n < 60) return `Kick-off in ${r.n} min`;
+          const h = Math.floor(r.n / 60);
+          const m = r.n % 60;
+          return `Kick-off in ${h} h${m ? ` ${String(m).padStart(2, "0")}` : ""}`;
+        }
+      }
+    },
     topPerformances: "Top performances",
     carteDefilante: "Top performances and pitches",
     cinqDerniers: "Last 5 matches",
@@ -765,13 +802,20 @@ function MatchRow({
   const home = match.scoreHome ?? 0;
   const away = match.scoreAway ?? 0;
   const hasPens = match.penaltyHome != null && match.penaltyAway != null;
+  // Un match chaud se repère aussi dans le tableau : un filet orange et sa
+  // flamme sous l'heure, jusqu'au coup de sifflet final (lib/chauds).
+  const chaud = estChaudAVenir(entry);
 
   // The beaten side greys out, the standard scoreboard reading.
   const sideClass = (mine: number, theirs: number) =>
     finished && !hideScores && mine < theirs ? "text-gray-400" : "text-gray-900";
 
   return (
-    <div className="group flex items-stretch gap-1 border-b border-gray-200/70 pl-2 pr-1 transition-colors last:border-0 hover:bg-gray-50/70">
+    <div
+      className={`group flex items-stretch gap-1 border-b border-gray-200/70 pl-2 pr-1 transition-colors last:border-b-0 ${
+        chaud ? "border-l-2 border-l-orange-400 bg-orange-50/50 hover:bg-orange-50" : "hover:bg-gray-50/70"
+      }`}
+    >
       <Link href={matchHref(entry)} className="flex min-w-0 flex-1 items-center gap-2 py-2">
         {/* Kickoff / live clock */}
         <div className="flex w-10 shrink-0 flex-col items-center justify-center gap-0.5">
@@ -780,14 +824,18 @@ function MatchRow({
               <span className="text-[11px] font-black tabular-nums text-red-500">
                 {minuteDuDirect(entry, { pause: f.minutePause, avant: f.minuteAvant, interrompu: f.minuteInterrompu, tirs: f.minuteTirs })}
               </span>
-              <span className="h-1 w-1 animate-pulse rounded-full bg-red-500" />
+              {chaud
+                ? <Flame size={11} className="fill-orange-200 text-orange-500" role="img" aria-label={t.chaud} />
+                : <span className="h-1 w-1 animate-pulse rounded-full bg-red-500" />}
             </>
           ) : (
             <>
               <span className="text-[11px] font-black tabular-nums text-gray-500">
                 {finished ? f.fin : (match.time ?? "–")}
               </span>
-              {!finished && <span className="text-[10px] font-bold text-gray-300">-</span>}
+              {!finished && (chaud
+                ? <Flame size={11} className="fill-orange-200 text-orange-500" role="img" aria-label={t.chaud} />
+                : <span className="text-[10px] font-bold text-gray-300">-</span>)}
             </>
           )}
         </div>
@@ -984,6 +1032,70 @@ function PickButton({
   );
 }
 
+/** Un match chaud à venir ou en direct (lib/chauds) : celui qu'on met en avant. */
+function estChaudAVenir(e: Entry): boolean {
+  return e.match.chaud && estAVenir(e.match);
+}
+
+/**
+ * LE BANDEAU D'UN MATCH CHAUD, en tête de sa carte mise en avant.
+ *
+ * Une flamme de 14 pixels à côté du nom de la compétition ne se voyait pas :
+ * le match que l'organisateur avait désigné ressemblait aux autres. Le
+ * bandeau dit trois choses, dans l'ordre où on les lit : que ce match-là est
+ * à ne pas manquer, dans combien de temps il commence, et qu'on peut être
+ * prévenu — le bouton suit le match (lib/suivi-match), ce qui vaut le rappel
+ * du matin, le coup d'envoi et les buts (lib/chauds-serveur).
+ *
+ * Le compte à rebours se relit toutes les trente secondes : à la minute près,
+ * sans faire travailler la page pour rien.
+ */
+function BandeauChaud({ entry, onGeste }: { entry: Entry; onGeste: () => void }) {
+  const t = useTextes(T);
+  const { match, competition } = entry;
+  const suivi = useSuiviMatch(match.id, competition.id);
+  const [maintenant, setMaintenant] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setMaintenant(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const rebours = avantLeCoupDEnvoi(match, maintenant);
+  const enDirect = rebours?.type === "direct";
+  const Icone = suivi.suivi ? BellRing : Bell;
+
+  return (
+    <div className="flex items-center gap-2.5 bg-gradient-to-br from-orange-600 via-orange-500 to-amber-400 px-4 py-2 text-white">
+      <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15">
+        <Flame size={16} className="animate-pulse-soft fill-amber-200 text-white" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[11px] font-black uppercase tracking-wider">{t.aNePasManquer}</span>
+        {rebours && (
+          <span className="flex items-center gap-1 truncate text-[11px] font-bold tabular-nums text-white/90">
+            {enDirect && <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-white" />}
+            {t.rebours(rebours)}
+          </span>
+        )}
+      </span>
+      <button
+        type="button"
+        onClick={() => { onGeste(); suivi.basculer(); }}
+        disabled={suivi.occupe || suivi.charge}
+        aria-pressed={suivi.suivi}
+        title={t.mePrevenirAide}
+        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black transition-colors disabled:opacity-60 ${
+          suivi.suivi
+            ? "bg-white/20 text-white hover:bg-white/30"
+            : "bg-white text-orange-600 hover:bg-orange-50"
+        }`}
+      >
+        {suivi.occupe || suivi.charge ? <Loader2 size={12} className="animate-spin" /> : <Icone size={12} />}
+        {suivi.suivi ? t.prevenu : t.mePrevenir}
+      </button>
+    </div>
+  );
+}
+
 function Spotlight({
   entries, ecusson, picks, onPick, joueurDeLaSemaine = null,
 }: {
@@ -1014,20 +1126,33 @@ function Spotlight({
   const f = useTextes(FOOT);
   const nomCompetition = useNomCompetition();
 
-  // Les diapositives : le joueur de la semaine d'abord, s'il y en a un, puis
-  // les matchs. `decalage` traduit un rang de diapositive en rang de match.
-  const decalage = joueurDeLaSemaine ? 1 : 0;
-  const count = entries.length + decalage;
-
-  useEffect(() => {
-    if (count < 2 || locked) return;
-    const t = setInterval(() => setIndex((i) => (i + 1) % count), 7000);
-    return () => clearInterval(t);
-  }, [count, locked]);
+  // Les diapositives : LES MATCHS CHAUDS D'ABORD (ils ouvrent la liste, voir
+  // chaudsEnTete), puis le joueur de la semaine s'il y en a un, puis les
+  // autres matchs. Le joueur de la semaine ouvrait l'affiche et poussait le
+  // match que l'organisateur avait désigné en deuxième diapositive — sept
+  // secondes plus tard, quand la moitié des visiteurs avait déjà défilé.
+  const enTete = entries.findIndex((e) => !estChaudAVenir(e));
+  const nbChauds = enTete === -1 ? entries.length : enTete;
+  const diapos: { cle: string; entry: Entry | null }[] = [
+    ...entries.slice(0, nbChauds).map((e) => ({ cle: entryKey(e), entry: e })),
+    ...(joueurDeLaSemaine ? [{ cle: "joueur-de-la-semaine", entry: null }] : []),
+    ...entries.slice(nbChauds).map((e) => ({ cle: entryKey(e), entry: e })),
+  ];
+  const count = diapos.length;
 
   const safe = count === 0 ? 0 : index % count;
-  const surLeJoueur = !!joueurDeLaSemaine && safe === 0;
-  const entry = surLeJoueur ? undefined : entries[safe - decalage];
+  const surLeJoueur = !!joueurDeLaSemaine && diapos[safe]?.entry === null;
+  const entry = diapos[safe]?.entry ?? undefined;
+  const chaudCourant = !!entry && estChaudAVenir(entry);
+
+  // Un match chaud reste plus longtemps à l'écran : douze secondes, contre
+  // sept pour les autres affiches. Un minuteur par diapositive, et non un
+  // intervalle fixe, pour que la durée suive celle qu'on regarde.
+  useEffect(() => {
+    if (count < 2 || locked) return;
+    const t = setTimeout(() => setIndex((i) => (i + 1) % count), chaudCourant ? 12000 : 7000);
+    return () => clearTimeout(t);
+  }, [count, locked, index, chaudCourant]);
 
   // Les comptes ne sont demandes qu'apres le vote : avant, ils n'ont rien a
   // dire qu'on veuille montrer, et c'est une requete de moins par affiche.
@@ -1097,17 +1222,22 @@ function Spotlight({
         {t.precedent}
       </button>
       <div className="flex gap-1.5">
-        {[...(joueurDeLaSemaine ? ["joueur-de-la-semaine"] : []), ...entries.map(entryKey)].map((cle, i) => (
-          <button
-            key={cle}
-            type="button"
-            aria-label={t.affiche(i + 1)}
-            onClick={() => go(i)}
-            className={`h-1.5 rounded-full transition-all ${
-              i === safe ? "w-4 bg-emerald-500" : "w-1.5 bg-gray-200 hover:bg-gray-300"
-            }`}
-          />
-        ))}
+        {diapos.map(({ cle, entry: e }, i) => {
+          const chaud = !!e && estChaudAVenir(e);
+          return (
+            <button
+              key={cle}
+              type="button"
+              aria-label={chaud ? `${t.affiche(i + 1)} · ${t.chaud}` : t.affiche(i + 1)}
+              onClick={() => go(i)}
+              className={`h-1.5 rounded-full transition-all ${
+                i === safe
+                  ? `w-4 ${chaud ? "bg-orange-500" : "bg-emerald-500"}`
+                  : `w-1.5 ${chaud ? "bg-orange-300 hover:bg-orange-400" : "bg-gray-200 hover:bg-gray-300"}`
+              }`}
+            />
+          );
+        })}
       </div>
       <button
         type="button"
@@ -1164,20 +1294,20 @@ function Spotlight({
     : null;
 
   return (
-    <div className="overflow-hidden border border-gray-200/70 bg-white">
+    <div
+      className={`overflow-hidden border bg-white ${
+        chaudCourant ? "border-orange-300 shadow-[0_0_0_3px_rgba(249,115,22,0.12)]" : "border-gray-200/70"
+      }`}
+    >
+      {/* Un match chaud, marqué par l'organisateur (lib/chauds) : son bandeau,
+          le temps qui reste et de quoi être prévenu. */}
+      {chaudCourant && <BandeauChaud key={entryKey(entry)} entry={entry} onGeste={() => setLocked(true)} />}
+
       {/* Competition header */}
       <div className="flex items-center gap-2.5 px-4 py-3">
         <CompCrest competition={competition} size={28} />
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-1">
-            <span className="block truncate text-[13px] font-black text-gray-900">{nomCompetition(competition)}</span>
-            {/* Un match chaud, marqué par l'organisateur (lib/chauds) : la flamme seule, pas de mot. */}
-            {match.chaud && estAVenir(match) && (
-              <Flame size={14} className="shrink-0 text-orange-500" role="img" aria-label={t.chaud}>
-                <title>{t.chaud}</title>
-              </Flame>
-            )}
-          </span>
+          <span className="block truncate text-[13px] font-black text-gray-900">{nomCompetition(competition)}</span>
           <span className="block truncate text-[11px] font-bold text-gray-400">
             {stageTagLabel(match, f) ?? competitionSubtitle(competition)}
           </span>
@@ -1201,7 +1331,7 @@ function Spotlight({
           transition={{ duration: 0.2 }}
         >
           <Link href={matchHref(entry)} className="block px-4">
-            <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 bg-gray-50/70 p-4">
+            <div className={`grid grid-cols-[1fr_auto_1fr] items-start gap-2 p-4 ${chaudCourant ? "bg-orange-50/70" : "bg-gray-50/70"}`}>
               <div className="flex flex-col items-center gap-2">
                 <Crest
                   name={match.homeTeamName}

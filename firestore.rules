@@ -1003,7 +1003,9 @@ service cloud.firestore {
         // `chaud` (lib/chauds) met un match en tête de l'accueil Direct : le
         // décider revient à l'organisateur et à ses modérateurs, pas au
         // détenteur d'un code de scoreur, qui ne couvre que le jeu.
-        allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['venue_booking'])
+        // `chaud_annonce_le` et `chaud_rappel_pour` marquent les notifications
+        // d'avant match déjà parties (lib/chauds-serveur) : le serveur seul.
+        allow update: if !request.resource.data.diff(resource.data).affectedKeys().hasAny(['venue_booking', 'chaud_annonce_le', 'chaud_rappel_pour'])
                       && (configureLaCompetition(cid)
                           || (hasStaffGrantFor(cid, mid)
                               && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['chaud'])));

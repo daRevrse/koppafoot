@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendPushToUser } from "@/lib/fcm-server";
 import { rappelerEcheances, reverifierPaiementsOuverts } from "@/lib/paiement-serveur";
+import { rappelerLesMatchsChaudsDuJour } from "@/lib/chauds-serveur";
 import { rappelerLesMatchsDuJour } from "@/lib/rappels-serveur";
 import { suivreReglementsOuverts } from "@/lib/reglement-serveur";
 import type { FirestoreMatch } from "@/types";
@@ -35,6 +36,11 @@ export const dynamic = "force-dynamic";
  * LA MÊME TÂCHE RAPPELLE LES MATCHS DU JOUR aux convoqués (lib/rappels-
  * serveur) : six heures du matin est aussi la bonne heure pour « tu joues
  * aujourd'hui », et une tâche de plus ne dirait rien que celle-ci ne dise.
+ *
+ * ET LES MATCHS CHAUDS DU JOUR à leurs abonnés et à ceux de leur compétition
+ * (lib/chauds-serveur) : « c'est aujourd'hui, coup d'envoi à 16h ». Sans
+ * faire échouer la tâche : un rappel de supporter manqué ne doit pas priver
+ * un joueur du sien.
  *
  * ELLE RATTRAPE AUSSI LES PAIEMENTS (lib/paiement-serveur) : quelqu'un qui a
  * payé et dont ni le webhook ni le retour sur le site n'ont abouti ne reste
@@ -94,6 +100,10 @@ export async function GET(request: Request) {
     }
 
     const rappels = await rappelerLesMatchsDuJour();
+    const chauds = await rappelerLesMatchsChaudsDuJour().catch((err) => {
+      console.error("[cron/scoreur-manquant] matchs chauds:", err);
+      return null;
+    });
 
     const [paiements, echeances] = await Promise.all([
       reverifierPaiementsOuverts().catch((err) => {
@@ -121,6 +131,7 @@ export async function GET(request: Request) {
       relances,
       dejaRelances: ignores.length,
       rappels,
+      chauds,
       paiements,
       echeances,
       reglements,

@@ -2368,6 +2368,18 @@ export interface FirestoreCompMatch {
    */
   chaud?: boolean;
   /**
+   * L'ANNONCE du match chaud, poussée aux abonnés quand la flamme s'allume
+   * (lib/chauds-serveur) : l'instant ISO de l'envoi. Une fois par match,
+   * même si l'organisateur éteint et rallume. Écrit par le serveur seul.
+   */
+  chaud_annonce_le?: string | null;
+  /**
+   * LE RAPPEL DU MATIN d'un match chaud (tâche de 6 h) : la DATE du match
+   * pour laquelle il est parti, « AAAA-MM-JJ ». Un match reporté se rappelle
+   * à sa nouvelle date. Écrit par le serveur seul.
+   */
+  chaud_rappel_pour?: string | null;
+  /**
    * L'HOMME DU MATCH, désigné par le scoreur au coup de sifflet final.
    *
    * Jamais calculé : la console propose un classement, un humain tranche. Un
