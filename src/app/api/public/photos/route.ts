@@ -21,8 +21,9 @@ import { lireCleSansCompte } from "@/lib/photos-sans-compte";
  *
  * `lignes` : les joueurs SANS COMPTE d'une feuille, désignés par leur club et
  * leur fiche (voir lib/photos-sans-compte). Leur photo, que le club a posée
- * avec leur accord, est déjà sur la fiche publique du club ; rien d'autre de
- * la fiche ne sort d'ici.
+ * avec leur accord, est déjà sur la fiche publique du club. Avec elle, leur
+ * sexe quand le club l'a indiqué (`genresLignes`), pour les mêmes accords
+ * que ceux d'un compte ; rien d'autre de la fiche ne sort d'ici.
  */
 
 export const dynamic = "force-dynamic";
@@ -43,7 +44,7 @@ export async function GET(req: Request) {
     .filter((c): c is NonNullable<typeof c> => c !== null)
     .slice(0, MAX_COMPTES);
 
-  if (uids.length === 0 && lignes.length === 0) return NextResponse.json({ photos: {}, genres: {}, lignes: {} });
+  if (uids.length === 0 && lignes.length === 0) return NextResponse.json({ photos: {}, genres: {}, lignes: {}, genresLignes: {} });
 
   try {
     // `getAll` refuse une liste vide : chaque lecture n'a lieu que si on a
@@ -63,18 +64,24 @@ export async function GET(req: Request) {
       if (genre) genres[d.id] = genre;
     }
     const photosSansCompte: Record<string, string> = {};
+    const genresSansCompte: Record<string, Genre> = {};
     fiches.forEach((d, i) => {
+      const cle = `${lignes[i].clubId}:${lignes[i].ghostId}`;
       const url = d.get("photo_url");
-      if (typeof url === "string" && url) photosSansCompte[`${lignes[i].clubId}:${lignes[i].ghostId}`] = url;
+      if (typeof url === "string" && url) photosSansCompte[cle] = url;
+      // Le sexe que son club a indiqué (équipe mixte) : même raison que pour
+      // un compte, il n'en sort que des accords.
+      const genre = lireGenre(d.get("gender"));
+      if (genre) genresSansCompte[cle] = genre;
     });
     return NextResponse.json(
-      { photos, genres, lignes: photosSansCompte },
+      { photos, genres, lignes: photosSansCompte, genresLignes: genresSansCompte },
       // Une photo change rarement : cinq minutes en cache partagé, et une
       // heure de plus à servir l'ancienne pendant qu'on relit la nouvelle.
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
     );
   } catch (err) {
     console.error("GET /api/public/photos failed:", err);
-    return NextResponse.json({ photos: {}, genres: {}, lignes: {} }, { status: 500 });
+    return NextResponse.json({ photos: {}, genres: {}, lignes: {}, genresLignes: {} }, { status: 500 });
   }
 }

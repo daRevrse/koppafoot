@@ -50,7 +50,7 @@ import type {
 } from "@/types";
 import { SYSTEM_AUTHOR_ID, SYSTEM_AUTHOR_NAME } from "@/types";
 import { type Poste } from "@/lib/postes";
-import { lireGenre, type Categorie } from "@/lib/genre";
+import { lireGenre, type Categorie, type Genre } from "@/lib/genre";
 import { equipeArbitraleLue, toMatch } from "@/lib/match-mappers";
 import { toBooking } from "@/lib/booking-mappers";
 // La notification se lit aussi dans l'application : son convertisseur vit
@@ -3405,6 +3405,8 @@ export async function createGhostPlayer(
     lastName: string;
     position: "goalkeeper" | "defender" | "midfielder" | "forward";
     squadNumber?: string;
+    /** Son sexe, s'il a été indiqué ; sinon il tire son genre de son équipe. */
+    gender?: Genre | null;
   }
 ): Promise<string> {
   const ref = collection(db, "teams", teamId, "ghost_players");
@@ -3413,6 +3415,7 @@ export async function createGhostPlayer(
     last_name: data.lastName.trim(),
     position: data.position,
     squad_number: data.squadNumber?.trim() || null,
+    gender: data.gender ?? null,
     goals: 0,
     assists: 0,
     matches_played: 0,
@@ -3430,6 +3433,8 @@ export async function updateGhostPlayer(
     lastName?: string;
     position?: "goalkeeper" | "defender" | "midfielder" | "forward";
     squadNumber?: string;
+    /** `null` efface : le joueur tire de nouveau son genre de son équipe. */
+    gender?: Genre | null;
   }
 ): Promise<void> {
   const ref = doc(db, "teams", teamId, "ghost_players", ghostId);
@@ -3438,6 +3443,7 @@ export async function updateGhostPlayer(
   if (data.lastName !== undefined) update.last_name = data.lastName.trim();
   if (data.position !== undefined) update.position = data.position;
   if (data.squadNumber !== undefined) update.squad_number = data.squadNumber.trim() || null;
+  if (data.gender !== undefined) update.gender = data.gender;
   await updateDoc(ref, update);
 }
 

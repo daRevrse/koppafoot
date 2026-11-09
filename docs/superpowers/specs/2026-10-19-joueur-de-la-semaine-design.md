@@ -434,5 +434,23 @@ remplacé.
 - Les règles du consentement ne changent pas : l'avatar paraît exactement
   quand il paraissait avant.
 
-*À relire* : le titre de l'affiche reste « JOUEUR DE LA SEMAINE » même pour
-une joueuse, faute de décision sur « JOUEUSE DE LA SEMAINE ».
+### Le titre s'accorde, et le sexe d'un joueur sans compte (même jour)
+
+Décidé par le propriétaire :
+
+- **« JOUEUSE DE LA SEMAINE »** pour une joueuse : sur l'affiche et dans la
+  vidéo, sur la diapositive du Direct, dans le texte du partage ; « Joueuse
+  du match » là où le site écrivait « Homme du match » pour elle. Le genre
+  se lit désormais toujours, photo ou non.
+- **Le sexe d'un joueur sans compte** s'indique à son ajout ou à sa
+  modification (`ghost_players.gender`), **quand son équipe est mixte** —
+  ou d'avant le réglage du type d'équipe. Dans une équipe masculine ou
+  féminine, la question n'est pas posée : **le joueur tire son genre du
+  type de son équipe** (`genreDuJoueur`). Sans réponse, pareil.
+- L'ordre, pour un candidat (`genreDuCandidat`) : son compte ; sans compte,
+  sa fiche de club ; sinon le type de son équipe ou de sa compétition.
+- La fiche d'un match lit ce sexe avec la photo (`/api/public/photos`,
+  `genresLignes`) pour accorder « Joueuse du match ».
+- **Pas encore dans l'application mobile** : son écran « Joueur sans
+  compte » ne pose pas la question. Un joueur ajouté depuis le téléphone
+  suit le type de son équipe, et se corrige sur le site.

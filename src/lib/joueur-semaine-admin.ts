@@ -156,16 +156,45 @@ export async function imagesDesCandidats(candidats: CandidatDeLaSemaine[]): Prom
 }
 
 /**
- * Le genre d'un candidat, pour son avatar (lib/og-joueur-semaine) et pour le
- * site : celui que son compte a déclaré ; sinon celui de son équipe la plus
- * récente quand elle est féminine, ou de sa compétition (`genreDuJoueur`).
- * Null : on ne sait pas, et l'avatar est le joueur.
+ * Le sexe indiqué sur la fiche d'un joueur SANS COMPTE (`ghost_players`,
+ * voir `FirestoreGhostPlayer.gender`) : sa fiche de club pour un amical ;
+ * en compétition, la fiche de club derrière sa ligne d'effectif, s'il y en a
+ * une. Le même chemin que sa photo (`imagesDesCandidats`).
+ */
+async function genreDeLaFiche(l: LigneSansCompte): Promise<Genre | null> {
+  let fiche: string | null;
+  if (l.competitionId === AMICAL) {
+    fiche = cleSansCompte(l.teamId, l.playerId);
+  } else {
+    if (!l.teamId) return null;
+    const equipe = (await adminDb.doc(`competitions/${l.competitionId}/comp_teams/${l.teamId}`).get())
+      .data() as FirestoreCompTeam | undefined;
+    const ligne = equipe?.players?.find((p) => p.id === l.playerId);
+    fiche = ligne && !ligne.user_id ? cleDeLaLigne(equipe?.claimed_by_team_id, ligne) : null;
+  }
+  if (!fiche) return null;
+  const [clubId, ghostId] = fiche.split(":");
+  return lireGenre((await adminDb.doc(`teams/${clubId}/ghost_players/${ghostId}`).get()).data()?.gender);
+}
+
+/**
+ * Le genre d'un candidat : il accorde le titre de son affiche (« JOUEUSE DE
+ * LA SEMAINE ») et choisit son avatar (lib/og-joueur-semaine), sur le site
+ * aussi.
+ *
+ * DANS L'ORDRE : ce que son compte a déclaré ; sans compte, le sexe indiqué
+ * sur sa fiche de club ; sinon le type de son équipe la plus récente, ou de
+ * sa compétition, quand il est féminin (`genreDuJoueur`). Null : on ne sait
+ * pas, et c'est le joueur.
  */
 export async function genreDuCandidat(c: CandidatDeLaSemaine): Promise<Genre | null> {
   try {
     if (c.uid) {
       const declare = lireGenre((await adminDb.doc(`users/${c.uid}`).get()).data()?.gender);
       if (declare) return declare;
+    } else if (c.ligneSansCompte) {
+      const indique = await genreDeLaFiche(c.ligneSansCompte);
+      if (indique) return indique;
     }
     const dernier = c.matchs[c.matchs.length - 1];
     if (!dernier) return null;
@@ -176,7 +205,7 @@ export async function genreDuCandidat(c: CandidatDeLaSemaine): Promise<Genre | n
     if (!chemin) return null;
     return genreDuJoueur(null, lireCategorie((await adminDb.doc(chemin).get()).data()?.category));
   } catch {
-    // L'avatar ne fait jamais échouer une affiche.
+    // Le genre ne fait jamais échouer une affiche.
     return null;
   }
 }
@@ -236,8 +265,8 @@ export async function donneesDeLAffiche(
     retenus.map(async (p) => ({ annonceur: p.annonceur, image: await imageReduite(p.logoUrl, 600) })),
   )).filter((p): p is { annonceur: string; image: string } => p.image !== null);
 
-  // Le genre ne sert qu'à l'avatar : avec une photo, rien à lire.
-  const genre = photo ? null : await genreDuCandidat(c);
+  // Le genre accorde le titre, et choisit l'avatar quand il n'y a pas de photo.
+  const genre = await genreDuCandidat(c);
 
   return { nom: demande.nom, numeroSemaine: semaine.semaine.numero, photo, genre, lignes, ecussons, partenaires };
 }

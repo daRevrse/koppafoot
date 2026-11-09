@@ -34,8 +34,9 @@ export interface DonneesAffiche {
   /** Une data URI JPEG ou PNG, déjà préparée (`preparerPhoto`), et AUTORISÉE ; null : l'avatar. */
   photo: string | null;
   /**
-   * Le genre du joueur ou de la joueuse (lib/genre, `genreDuJoueur`) : choisit
-   * l'avatar quand il n'y a pas de photo. Absent ou null : le joueur.
+   * Le genre du joueur ou de la joueuse (lib/genre, `genreDuJoueur`) : accorde
+   * le titre (« JOUEUSE DE LA SEMAINE ») et choisit l'avatar quand il n'y a
+   * pas de photo. Absent ou null : le joueur.
    */
   genre?: Genre | null;
   /** Ses matchs, du plus ancien au plus récent. */
@@ -290,7 +291,8 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
       {voir("bandeau") && (
         <div style={{ position: "absolute", top: b.y, left: p.x - 88, width: 800, height: b.h, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
           <Img src={camo(800, b.h, VERT, TACHES_VERTES, 31)} top={0} left={0} width={800} height={b.h} />
-          <div style={{ display: "flex", fontFamily: "Anton", fontSize: b.taille, lineHeight: 1, color: NOIR }}>JOUEUR DE</div>
+          {/* Le titre s'accorde : « JOUEUSE DE » tient dans la même largeur que « LA SEMAINE ». */}
+          <div style={{ display: "flex", fontFamily: "Anton", fontSize: b.taille, lineHeight: 1, color: NOIR }}>{d.genre === "female" ? "JOUEUSE DE" : "JOUEUR DE"}</div>
           <div style={{ display: "flex", fontFamily: "Anton", fontSize: b.taille, lineHeight: 1, color: NOIR }}>LA SEMAINE</div>
         </div>
       )}

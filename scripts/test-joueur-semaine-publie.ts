@@ -124,6 +124,12 @@ cas("les capitales de l'affiche s'adoucissent, un nom déjà écrit reste tel qu
   assert.equal(nomEnPhrase("Kafui MENSAH"), "Kafui MENSAH");
 });
 
+cas("le genre : lu quand il est valable, null pour une élection d'avant ce champ", () => {
+  assert.equal(lireJoueurDeLaSemaine("2026-10-26", doc())!.genre, null);
+  assert.equal(lireJoueurDeLaSemaine("2026-10-26", doc({ genre: "female" }))!.genre, "female");
+  assert.equal(lireJoueurDeLaSemaine("2026-10-26", doc({ genre: "autre" }))!.genre, null);
+});
+
 cas("la période, à cheval sur deux mois ou non", () => {
   assert.equal(periodeDeLaSemaine({ lundi: "2026-10-26", dimanche: "2026-11-01" }), "26 oct. – 1 nov.");
   assert.equal(periodeDeLaSemaine({ lundi: "2026-11-02", dimanche: "2026-11-08" }), "2–8 nov.");
@@ -133,6 +139,7 @@ cas("la période, à cheval sur deux mois ou non", () => {
 cas("le partage : le texte, le chemin vers l'élu, l'affiche versionnée", () => {
   const j = elu("2026-10-26", "2026-11-02");
   assert.equal(texteDuPartage(j), "Ekoué Bawa, joueur de la semaine 44 sur KoppaFoot ⚽");
+  assert.equal(texteDuPartage({ ...j, genre: "female" }), "Ekoué Bawa, joueuse de la semaine 44 sur KoppaFoot ⚽");
   assert.equal(cheminDuJoueur(j.lundi), "/top-players#joueur-semaine-2026-10-26");
   assert.equal(adresseDeLAffiche(j, "vertical"), "/api/joueur-semaine/2026-10-26/affiche?format=vertical&v=abc123");
 });

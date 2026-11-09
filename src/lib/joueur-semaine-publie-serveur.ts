@@ -19,7 +19,7 @@ import sharp from "sharp";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, adminStorage } from "@/lib/firebase-admin";
 import { jourDeLome } from "@/lib/jour";
-import { donneesDeLAffiche, genreDuCandidat, imagesDesCandidats, lireLaSemaine } from "@/lib/joueur-semaine-admin";
+import { donneesDeLAffiche, imagesDesCandidats, lireLaSemaine } from "@/lib/joueur-semaine-admin";
 import { afficheJoueurSemaine } from "@/lib/og-joueur-semaine";
 import type { DemandeAffiche } from "@/lib/joueur-semaine-requete";
 import {
@@ -100,9 +100,8 @@ export async function publierLeJoueur(demande: DemandeAffiche, parUid: string): 
     homme_du_match: c.hommeDuMatch,
     lignes: c.matchs.map((m) => ({ jour: m.jour, affiche: m.affiche, buts: m.buts, passes: m.passes, homme: m.homme })),
     photo,
-    // Toujours lu, même avec une photo : elle peut être retirée plus tard, et
-    // le site montre alors l'avatar.
-    genre: await genreDuCandidat(c),
+    // Celui de l'affiche : le site accorde son titre et choisit son avatar avec.
+    genre: donnees.genre ?? null,
     ecartees: demande.ecartees,
     partenaires: demande.partenaires,
     affiches,

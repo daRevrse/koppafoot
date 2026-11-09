@@ -71,7 +71,7 @@ interface FichePublique {
 }
 import { PlayerAvatar } from "@/components/ui/EntityAvatar";
 import { POSTES, libellePoste, normaliserPoste } from "@/lib/postes";
-import { genreDuJoueur } from "@/lib/genre";
+import { genreDuJoueur, type Categorie, type Genre } from "@/lib/genre";
 import { dateAvecJour } from "@/lib/dates";
 import type { Team, UserProfile, Match, JoinRequest, Achievement, Training, GhostPlayer, TrainingScheduleSlot, TeamStaffMember } from "@/types";
 import CompositionsTypes from "@/components/team/CompositionsTypes";
@@ -751,11 +751,14 @@ function GhostPlayerModal({
   onClose,
   onSaved,
   teamId,
+  categorie,
 }: {
   ghost: GhostPlayer | null;
   onClose: () => void;
   onSaved: () => void;
   teamId: string;
+  /** Le type de l'équipe : masculine ou féminine, il dit déjà le genre de chacun. */
+  categorie: Categorie | null | undefined;
 }) {
   const [form, setForm] = useState({
     firstName: ghost?.firstName ?? "",
@@ -763,6 +766,13 @@ function GhostPlayerModal({
     position: (ghost?.position ?? "midfielder") as GhostPlayer["position"],
     squadNumber: ghost?.squadNumber ?? "",
   });
+  // LE SEXE NE SE DEMANDE QUE LÀ OÙ L'ÉQUIPE NE LE DIT PAS : une équipe
+  // mixte, ou une équipe d'avant ce réglage. Dans une équipe masculine ou
+  // féminine, le joueur tire son genre du type de l'équipe (lib/genre,
+  // `genreDuJoueur`), et la question serait une case de plus pour rien. Sans
+  // réponse, pareil : le type de l'équipe, puis le masculin par défaut.
+  const demanderLeSexe = categorie !== "men" && categorie !== "women";
+  const [sexe, setSexe] = useState<Genre | null>(ghost?.gender ?? null);
   // La photo enregistrée ("" une fois retirée), et celle qu'on vient de
   // choisir, déjà allégée par le champ.
   const [photoUrl, setPhotoUrl] = useState(ghost?.photoUrl ?? "");
@@ -784,10 +794,12 @@ function GhostPlayerModal({
     setSubmitting(true);
     let ghostId = ghost?.id ?? null;
     try {
+      // Hors équipe mixte, le sexe n'est pas demandé : on n'y touche pas.
+      const fiche = demanderLeSexe ? { ...form, gender: sexe } : form;
       if (ghost) {
-        await updateGhostPlayer(teamId, ghost.id, form);
+        await updateGhostPlayer(teamId, ghost.id, fiche);
       } else {
-        ghostId = await createGhostPlayer(teamId, form);
+        ghostId = await createGhostPlayer(teamId, fiche);
       }
     } catch {
       toast.error("Erreur");
@@ -870,6 +882,33 @@ function GhostPlayerModal({
               <option value="forward">Attaquant</option>
             </select>
           </div>
+          {demanderLeSexe && (
+            <fieldset>
+              <legend className="mb-1 block text-xs font-semibold text-gray-500">Sexe (optionnel)</legend>
+              <div className="grid grid-cols-3 gap-2">
+                {([[null, "Non précisé"], ["male", "Homme"], ["female", "Femme"]] as const).map(([valeur, libelle]) => (
+                  <button
+                    key={libelle}
+                    type="button"
+                    aria-pressed={sexe === valeur}
+                    onClick={() => setSexe(valeur)}
+                    className={`border px-3 py-2 text-sm font-medium transition-colors ${
+                      sexe === valeur
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : "border-gray-200/70 text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {libelle}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-gray-400">
+                {categorie === "mixed"
+                  ? "Ton équipe est mixte : son type ne dit pas qui est une joueuse. Sert à accorder ses libellés (« Gardienne », « Joueuse du match »)."
+                  : "Sert à accorder ses libellés (« Gardienne », « Joueuse du match »). Sans réponse, il suit le type de l'équipe."}
+              </p>
+            </fieldset>
+          )}
           <div>
             <label className="mb-1 block text-xs font-semibold text-gray-500">Numéro de dossard (optionnel)</label>
             <input
@@ -2082,7 +2121,7 @@ export default function TeamDetailPage() {
                               )
                             )}
                             <span className={` px-1.5 py-0.5 text-xs font-medium ${POSITION_COLORS[ghost.position] ?? "bg-gray-100 text-gray-600"}`}>
-                              {libellePoste(ghost.position, "fr", genreDuJoueur(null, team.category)) ?? POSITION_LABELS[ghost.position] ?? ghost.position}
+                              {libellePoste(ghost.position, "fr", genreDuJoueur(ghost.gender, team.category)) ?? POSITION_LABELS[ghost.position] ?? ghost.position}
                             </span>
                           </div>
                           <PastillesEtatDeForme
@@ -2652,6 +2691,7 @@ export default function TeamDetailPage() {
           <GhostPlayerModal
             ghost={editingGhost}
             teamId={teamId}
+            categorie={team?.category}
             onClose={() => { setShowGhostModal(false); setEditingGhost(null); }}
             onSaved={() => {}}
           />

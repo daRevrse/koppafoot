@@ -24,7 +24,7 @@
 // Pur : aucun SDK.
 // ============================================
 
-import { lireGenre, type Genre } from "@/lib/genre";
+import { accorder, lireGenre, type Genre } from "@/lib/genre";
 import { semaineDu } from "@/lib/joueur-semaine";
 
 export const COLLECTION_JOUEURS_SEMAINE = "joueurs_semaine";
@@ -77,7 +77,8 @@ export interface JoueurDeLaSemaine {
    */
   photo: string | null;
   /**
-   * Son genre, pour l'avatar montré quand il n'y a pas de photo
+   * Son genre : accorde le titre (« Joueuse de la semaine ») et choisit
+   * l'avatar montré quand il n'y a pas de photo
    * (components/ui/AvatarJoueurSemaine). Null pour une élection d'avant ce
    * champ, ou quand on ne sait pas : le joueur.
    */
@@ -211,10 +212,13 @@ export function nomEnPhrase(nom: string): string {
 }
 
 /** Le texte du partage, avant le lien. */
-export function texteDuPartage(j: Pick<JoueurDeLaSemaine, "nom" | "numero">, langue: "fr" | "en" = "fr"): string {
+export function texteDuPartage(
+  j: Pick<JoueurDeLaSemaine, "nom" | "numero"> & { genre?: Genre | null },
+  langue: "fr" | "en" = "fr",
+): string {
   const nom = nomEnPhrase(j.nom);
   return langue === "fr"
-    ? `${nom}, joueur de la semaine ${j.numero} sur KoppaFoot ⚽`
+    ? `${nom}, ${accorder(j.genre, "joueur", "joueuse")} de la semaine ${j.numero} sur KoppaFoot ⚽`
     : `${nom}, KoppaFoot player of week ${j.numero} ⚽`;
 }
 

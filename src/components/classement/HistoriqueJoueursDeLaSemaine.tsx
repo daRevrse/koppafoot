@@ -7,6 +7,7 @@ import {
 } from "@/lib/joueur-semaine-publie";
 import AvatarJoueurSemaine from "@/components/ui/AvatarJoueurSemaine";
 import { TeamCrest } from "@/components/ui/EntityAvatar";
+import { accorder, type Genre } from "@/lib/genre";
 import { useLangue, useTextes } from "@/i18n";
 import { textes } from "@/i18n/textes";
 
@@ -30,13 +31,13 @@ const T = textes(
     titre: "Joueurs de la semaine",
     semaine: (n: number) => `Semaine ${n}`,
     note: (n: string) => `Note ${n}`,
-    hommeDuMatch: "Homme du match",
+    hommeDuMatch: (genre: Genre | null) => accorder(genre, "Homme du match", "Joueuse du match"),
   },
   {
     titre: "Players of the week",
     semaine: (n: number) => `Week ${n}`,
     note: (n: string) => `Rating ${n}`,
-    hommeDuMatch: "Man of the match",
+    hommeDuMatch: (genre: Genre | null) => accorder(genre, "Man of the match", "Player of the match"),
   },
 );
 
@@ -79,7 +80,7 @@ export default function HistoriqueJoueursDeLaSemaine({ joueurs }: { joueurs: Jou
                 <span className="mt-1.5 text-[12px] font-black text-emerald-600">{resumeDuJoueur(j, lng)}</span>
                 {(j.note !== null || j.hommeDuMatch > 0) && (
                   <span className="mt-1 text-[10px] font-bold uppercase tracking-wide text-gray-400">
-                    {j.note !== null ? t.note(noteEnTexte(j.note, lng)) : t.hommeDuMatch}
+                    {j.note !== null ? t.note(noteEnTexte(j.note, lng)) : t.hommeDuMatch(j.genre)}
                   </span>
                 )}
               </span>
