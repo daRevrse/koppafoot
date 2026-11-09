@@ -139,23 +139,23 @@ const avatars: Partial<Record<Genre, Promise<string>>> = {};
  * VIVANT, ET IL Y EN A DEUX (révision du 2026-11-09). Le premier était une
  * silhouette grise, sans visage ni carnation, la même pour tous : sur
  * l'affiche de celui qu'on honore, un mannequin de vitrine. Ce sont
- * désormais un joueur et une joueuse qui FÊTENT — le sourire, le poing levé,
- * les projecteurs derrière eux —, au maillot vert de KoppaFoot, jamais à
- * celui d'un club. Ils ne ressemblent à personne : ce sont des dessins, pas
- * des portraits.
+ * désormais un joueur et une joueuse qui SOURIENT, sous les projecteurs,
+ * au maillot vert de KoppaFoot, jamais à celui d'un club. Les deux dessins
+ * sont ceux que le propriétaire a fournis ; ils ne ressemblent à personne.
  *
- * LES MÊMES FICHIERS QUE LE SITE, qui les montre à la place des initiales
- * (components/ui/AvatarJoueurSemaine) : `public/branding/avatars/`. Lus une
- * fois par instance, et passés en PNG, que Satori lit sans surprise.
+ * `public/branding/avatars/`, 828 × 941, à côté de leurs cadrages ronds que
+ * le site montre à la place des initiales
+ * (components/ui/AvatarJoueurSemaine). Lus une fois par instance, et passés
+ * de WebP en PNG : Satori ne lit pas le WebP.
  */
 function chargerAvatar(genre: Genre | null | undefined): Promise<string> {
   const lequel: Genre = genre === "female" ? "female" : "male";
   // CHAQUE CHEMIN ÉCRIT EN ENTIER, comme dans lib/og-da : un chemin calculé
   // ferait embarquer tout le projet dans la fonction serveur.
   avatars[lequel] ??= (lequel === "female"
-    ? readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-femme.svg"))
-    : readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-homme.svg")))
-    .then((svg) => sharp(svg).png().toBuffer())
+    ? readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-femme.webp"))
+    : readFile(join(process.cwd(), "public/branding/avatars/joueur-semaine-homme.webp")))
+    .then((webp) => sharp(webp).png().toBuffer())
     .then((png) => `data:image/png;base64,${png.toString("base64")}`);
   return avatars[lequel]!;
 }
@@ -280,7 +280,8 @@ function Affiche({ d, format, logoKf, avatarPng, couche }: {
           {d.photo ? (
             <Img src={d.photo} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center top" />
           ) : (
-            <Img src={avatarPng} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center 30%" />
+            // Cadré presque en haut : le chignon de la joueuse touche le bord du dessin.
+            <Img src={avatarPng} top={0} left={0} width={p.w} height={p.h} objectFit="cover" objectPosition="center 10%" />
           )}
           <div style={{ position: "absolute", bottom: 0, left: 0, width: p.w, height: 150, backgroundImage: `linear-gradient(180deg, rgba(43,43,43,0), ${PHOTO_FOND})` }} />
         </div>

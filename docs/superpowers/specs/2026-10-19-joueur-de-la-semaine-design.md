@@ -415,12 +415,13 @@ femme), il faut les rendre vivants ». L'avatar validé le 2026-10-19 — une
 silhouette grise, **sans visage ni carnation, la même pour tous** — est
 remplacé.
 
-- **Deux dessins**, `public/branding/avatars/joueur-semaine-homme.svg` et
-  `joueur-semaine-femme.svg` : un joueur et une joueuse **qui fêtent** — le
-  grand sourire, le poing levé, la tête penchée, des projecteurs verts et
-  des étincelles derrière eux. Maillot vert de KoppaFoot, jamais celui d'un
-  club. Ce sont des dessins, pas des portraits : ils ne ressemblent à
-  personne.
+- **Deux dessins, fournis par le propriétaire** (un premier jet dessiné en
+  SVG a été écarté le jour même) : un joueur et une joueuse **qui
+  sourient**, sous des projecteurs verts et des étoiles, au maillot vert de
+  KoppaFoot, jamais celui d'un club. Ils ne ressemblent à personne.
+  `public/branding/avatars/joueur-semaine-homme.webp` et
+  `joueur-semaine-femme.webp` (828 × 941), et leurs cadrages sur le visage
+  pour le site, `-rond.webp` (256 × 256).
 - **Le genre** (`genreDuCandidat`, lib/joueur-semaine-admin) : celui que le
   compte a déclaré ; sinon celui de son équipe ou de sa compétition quand
   elle est féminine (`genreDuJoueur`, lib/genre). Quand on ne sait pas : le
@@ -433,6 +434,5 @@ remplacé.
 - Les règles du consentement ne changent pas : l'avatar paraît exactement
   quand il paraissait avant.
 
-*Mon choix, à relire* : une carnation brune pour les deux, celle du public
-du produit ; et le titre de l'affiche reste « JOUEUR DE LA SEMAINE » même
-pour une joueuse, faute de décision sur « JOUEUSE DE LA SEMAINE ».
+*À relire* : le titre de l'affiche reste « JOUEUR DE LA SEMAINE » même pour
+une joueuse, faute de décision sur « JOUEUSE DE LA SEMAINE ».
