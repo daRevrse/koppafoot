@@ -45,7 +45,7 @@ const T = textes(
 //    à l'intérieur d'une carte cliquable, d'où le stopPropagation.
 //  - "star" : l'étoile nue, là où la cloche rentrerait en concurrence
 //    visuelle avec le badge "en direct" (l'en-tête de compétition de la fiche
-//    de match, MatchInfoList ; l'ancien DirectHome).
+//    de match, MatchInfoList).
 //
 // Le Direct actuel (DirectHomeV2) n'utilise PAS ce bouton : son étoile de
 // compétition vit dans son annuaire (useSuiviCompetitions). Connecté, elle
