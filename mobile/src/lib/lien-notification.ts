@@ -6,6 +6,7 @@
 // son identifiant : l'écran se trouve une fois le slug lu (voir cidDuSlug).
 
 import type { Href } from "expo-router";
+import { publicationVisee } from "~/lib/tribune";
 
 export type Destination =
   | { genre: "competition"; slug: string }
@@ -15,6 +16,7 @@ export type Destination =
   | { genre: "club"; id: string }
   | { genre: "joueur"; uid: string }
   | { genre: "classement" }
+  | { genre: "tribune"; post: string | null; commentaires: boolean }
   | { genre: "site"; lien: string };
 
 // L'hôte s'arrête au premier « / » : « koppafoot.com.evil.example » ne passe pas.
@@ -51,6 +53,7 @@ export function destinationDuLien(lien: string): Destination {
     if (a === "teams" && b && c === undefined) return { genre: "club", id: b };
     if (a === "profile" && b && c === undefined) return { genre: "joueur", uid: b };
     if (a === "top-players" && b === undefined) return { genre: "classement" };
+    if (a === "feed" && b === undefined) return { genre: "tribune", ...publicationVisee(lien) };
   }
   return { genre: "site", lien };
 }
@@ -69,6 +72,11 @@ export function ecranDeLaDestination(d: Destination, cid: string | null): Href |
       return { pathname: "/joueur/[uid]", params: { uid: d.uid } };
     case "classement":
       return "/classement";
+    case "tribune":
+      // La publication visée, et ses commentaires à ouvrir (la notification d'un commentaire).
+      return d.post
+        ? { pathname: "/tribune", params: d.commentaires ? { post: d.post, commentaires: "1" } : { post: d.post } }
+        : "/tribune";
     case "competition":
       return cid ? { pathname: "/competition/[cid]", params: { cid } } : null;
     case "match":

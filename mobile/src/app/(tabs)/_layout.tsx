@@ -6,7 +6,7 @@ import { useAuth } from "~/lib/auth";
 import { titreDeLOnglet } from "~/lib/roles";
 import { polices, useCouleurs } from "~/theme";
 
-// La barre du bas : Direct, Actus, Évolution, Espace casquette. Le compte et
+// La barre du bas : Direct, Actus, Tribune, Évolution, Espace casquette. Le compte et
 // la cloche sont dans l'en-tête (EnTeteOnglet), les compétitions au bout des
 // filtres du Direct.
 /** L'icône de l'onglet Évolution : la courbe sans rôle, puis celle du rôle. */
@@ -46,12 +46,17 @@ export default function OngletsLayout() {
         options={{ title: "Actus", tabBarIcon: ({ color, size }) => <Ionicons name="newspaper-outline" color={teinte(color)} size={size} /> }}
       />
       <Tabs.Screen
+        name="tribune"
+        options={{ title: "Tribune", tabBarIcon: ({ color, size }) => <Ionicons name="chatbubbles-outline" color={teinte(color)} size={size} /> }}
+      />
+      <Tabs.Screen
         name="evolution"
         options={{ title: titreDeLOnglet(profil), tabBarIcon: ({ color, size }) => <Ionicons name={iconeEvolution} color={teinte(color)} size={size} /> }}
       />
       <Tabs.Screen
         name="espace"
-        options={{ title: "Espace casquette", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={teinte(color)} size={size} /> }}
+        // « Casquette » dans la barre : à cinq onglets, « Espace casquette » y était coupé. L'écran garde son titre.
+        options={{ title: "Casquette", tabBarIcon: ({ color, size }) => <Ionicons name="grid-outline" color={teinte(color)} size={size} /> }}
       />
     </Tabs>
   );

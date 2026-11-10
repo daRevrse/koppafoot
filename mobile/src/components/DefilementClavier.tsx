@@ -15,8 +15,11 @@ import { margeSousLeClavier, remonteePourLeChamp } from "~/lib/clavier";
  * `automaticallyAdjustKeyboardInsets`.
  */
 export function DefilementClavier({
-  onLayout, onScroll, scrollEventThrottle = 16, keyboardShouldPersistTaps = "handled", children, ...reste
-}: ScrollViewProps) {
+  onLayout, onScroll, scrollEventThrottle = 16, keyboardShouldPersistTaps = "handled", children, versY = null, ...reste
+}: ScrollViewProps & {
+  /** Fait défiler jusqu'à cette hauteur quand elle change : une publication visée par un lien. */
+  versY?: number | null;
+}) {
   const cadre = useRef<ViewInstance>(null);
   const defilement = useRef<ScrollViewInstance>(null);
   const decalage = useRef(0);
@@ -24,6 +27,10 @@ export function DefilementClavier({
   // Le haut du clavier, le temps que l'écran réduit soit en place : avant, il n'a pas de quoi défiler.
   const aRamener = useRef<number | null>(null);
   const [marge, setMarge] = useState(0);
+
+  useEffect(() => {
+    if (versY !== null) defilement.current?.scrollTo({ y: versY, animated: true });
+  }, [versY]);
 
   const ramenerLeChamp = useCallback((hautDuClavier: number) => {
     TextInput.State.currentlyFocusedInput()?.measureInWindow((_x, y, _largeur, hauteur) => {

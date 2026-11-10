@@ -46,6 +46,13 @@ describe("destinationDuLien", () => {
     expect(destinationDuLien("/top-players/x")).toEqual({ genre: "site", lien: "/top-players/x" });
   });
 
+  it("lit la Tribune, la publication visée et ses commentaires à ouvrir", () => {
+    expect(destinationDuLien("/feed")).toEqual({ genre: "tribune", post: null, commentaires: false });
+    expect(destinationDuLien("/feed?post=p1")).toEqual({ genre: "tribune", post: "p1", commentaires: false });
+    expect(destinationDuLien("/feed?post=p1&commentaires=1")).toEqual({ genre: "tribune", post: "p1", commentaires: true });
+    expect(destinationDuLien("/feed/x")).toEqual({ genre: "site", lien: "/feed/x" });
+  });
+
   it("lit un amical", () => {
     expect(destinationDuLien("/matches/abc")).toEqual({ genre: "amical", id: "abc" });
   });
@@ -84,6 +91,14 @@ describe("ecranDeLaDestination", () => {
 
   it("ouvre le classement des joueurs", () => {
     expect(ecranDeLaDestination({ genre: "classement" }, null)).toBe("/classement");
+  });
+
+  it("ouvre la Tribune, sur sa publication quand le lien en vise une", () => {
+    expect(ecranDeLaDestination({ genre: "tribune", post: null, commentaires: false }, null)).toBe("/tribune");
+    expect(ecranDeLaDestination({ genre: "tribune", post: "p1", commentaires: false }, null))
+      .toEqual({ pathname: "/tribune", params: { post: "p1" } });
+    expect(ecranDeLaDestination({ genre: "tribune", post: "p1", commentaires: true }, null))
+      .toEqual({ pathname: "/tribune", params: { post: "p1", commentaires: "1" } });
   });
 
   it("rend la main au site quand le slug ne mène à aucune compétition", () => {
