@@ -45,6 +45,11 @@ function useLecture(
   return Object.fromEntries(liste.map((c) => [c, connus.get(c) ?? null]));
 }
 
+/** La photo de profil de chaque compte, par identifiant : les auteurs de la Tribune et de ses commentaires. */
+export function usePhotosDesComptes(uids: (string | null | undefined)[]): Record<string, string | null> {
+  return useLecture(uids, comptesConnus, "uids");
+}
+
 /**
  * Le visage de chaque ligne d'un effectif de compétition (hooks/usePhotosDesComptes
  * du site) : le compte, la photo de la ligne, sinon celle de sa fiche au club.

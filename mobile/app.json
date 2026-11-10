@@ -33,7 +33,8 @@
             { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/matches/" },
             { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/teams/" },
             { "scheme": "https", "host": "www.koppafoot.com", "pathPrefix": "/profile/" },
-            { "scheme": "https", "host": "www.koppafoot.com", "path": "/top-players" }
+            { "scheme": "https", "host": "www.koppafoot.com", "path": "/top-players" },
+            { "scheme": "https", "host": "www.koppafoot.com", "path": "/feed" }
           ]
         }
       ]
@@ -64,6 +65,14 @@
           "icon": "./assets/android-icon-monochrome.png",
           "color": "#059669",
           "defaultChannel": "koppafoot"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "KoppaFoot ouvre tes photos pour que tu en joignes une à ta publication dans la Tribune.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ],
