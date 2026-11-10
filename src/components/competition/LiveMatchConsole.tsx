@@ -14,17 +14,13 @@ import { useConfirmation } from "@/components/ui/socle";
 import { couleursDuMaillot, type CouleursEquipe } from "@/lib/couleurs-equipe";
 import { useAuth } from "@/contexts/AuthContext";
 import type { PiloteConsole } from "@/lib/console-pilote";
-import { normaliserPoste } from "@/lib/postes";
 import { gardienDe } from "@/lib/terrain";
 import {
   EMOJI_EVENEMENT, LIBELLE_EVENEMENT, PENALTY_FOUL_DETAIL, PENALTY_GOAL_DETAIL,
   RECIT_ISSUE_PENALTY, demandeUneVictime, estStatistique, nouvelIdEvenement, penaltyDitParSonBut,
   penaltyEnAttente, type IssuePenalty, type TypeEvenementEquipe, type TypeEvenementJoueur,
 } from "@/lib/evenements";
-import {
-  POSSESSION_VIDE, appuyer, basculer, partPossession, reprendre, suspendre, versStockage,
-  type Possession,
-} from "@/lib/possession";
+import { partPossession } from "@/lib/possession";
 import { notesDuCamp, type NoteJoueur } from "@/lib/notes";
 import { libelleMinute } from "@/lib/minute-du-match";
 import { SEANCE_VIDE, etatDeLaSeance, type Seance, type Tir } from "@/lib/tirs-au-but";
@@ -36,21 +32,18 @@ import {
 } from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
 import {
-  gardienDeDepart, gardienEnPlace, gardienExige, gardienPropose, lignesSurLaPelouse,
+  gardienDeDepart, gardienEnPlace, gardienExige, lignesSurLaPelouse,
   regleDuGardienDesigne, type GardienEnPlace,
 } from "@/lib/gardiens";
 import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
-import {
-  ajouterRetouche, appliquerRetouches, estHorsLigne, lireFile, sansLesEvenements, type Retouche,
-} from "@/lib/retouches-en-attente";
+import { sansLesEvenements } from "@/lib/retouches-en-attente";
 import { useEnLigne } from "@/hooks/useEnLigne";
 import { useMedia } from "@/hooks/useMedia";
 import MatchStats from "@/components/match/MatchStats";
 import TerrainsFaceAFace, { ModaleActionsJoueur, type ActionJoueur } from "@/components/competition/TerrainConsole";
-import { estLigneDossard, lignesDeSecours } from "@/lib/dossards";
-import { appliquerNumeros, lireNumero, numeroModifiable, numerosDeLaFeuille } from "@/lib/numeros-du-jour";
+import { appliquerNumeros } from "@/lib/numeros-du-jour";
 import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
-import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
+import type { CompMatch, LineupEntry, GoalVarStatus } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
 import { demanderLeRecalculDuClassement } from "@/lib/classement-client";
 import { actionsDuJoueur } from "@/lib/actions-joueur";
@@ -58,7 +51,7 @@ import { avertis, leBanc, remplacementsEpuises, surLaPelouse } from "@/lib/banc"
 import {
   CONSIGNE_ENGAGEMENT, apresLeTempsDeJeu, attenteDesCamps, boutonDuDeroule, estUnePeriodeDeJeu,
 } from "@/lib/deroule";
-import type { LiveEvent, Side, SheetRole } from "@/components/competition/console/types";
+import type { LiveEvent, Side } from "@/components/competition/console/types";
 import { BandeauEquipe } from "@/components/competition/console/BandeauEquipe";
 import { BandeauDEtat } from "@/components/competition/console/BandeauDEtat";
 import { LineupBuilder } from "@/components/competition/console/FeuilleDeMatch";
@@ -68,6 +61,12 @@ import { ModaleCartonPenalty, ModaleIssuePenalty } from "@/components/competitio
 import { PlayerPickerModal } from "@/components/competition/console/PlayerPickerModal";
 import { ModaleMVP } from "@/components/competition/console/ModaleMVP";
 import { EventTimeline } from "@/components/competition/console/EventTimeline";
+import { useAbonnements } from "@/components/competition/console/useAbonnements";
+import { useRetouchesEnAttente } from "@/components/competition/console/useRetouchesEnAttente";
+import { useEcrituresEnVol } from "@/components/competition/console/useEcrituresEnVol";
+import { useChrono } from "@/components/competition/console/useChrono";
+import { usePossession } from "@/components/competition/console/usePossession";
+import { useFeuilles } from "@/components/competition/console/useFeuilles";
 
 // Football rule constants. Le nombre de titulaires et la durée des mi-temps
 // viennent du format de la compétition (NvN, durée), voir plus bas.
@@ -142,73 +141,20 @@ export default function LiveMatchConsole({
   const { user } = useAuth();
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const [competition, setCompetition] = useState<Competition | null>(null);
-  const [matchBrut, setMatch] = useState<CompMatch | null>(null);
+  const { competition, matchBrut, loading } = useAbonnements(pilote);
 
+  const enLigne = useEnLigne();
   /**
-   * LES RETOUCHES QUI ATTENDENT LE RÉSEAU : le passeur d'un but, la victime
-   * d'une faute, l'issue d'un penalty. Elles s'écrivent par transaction, et
-   * une transaction ne part pas hors ligne. On les garde donc ici — et sur
-   * l'appareil, pour qu'un rechargement ne les perde pas —, et on les rejoue
-   * quand le réseau revient. Voir lib/retouches-en-attente.
-   *
-   * Tenues par une référence ET un état : la référence pour les gestes lancés
-   * depuis un message (« Annuler »), qui voient la file du moment où ils sont
-   * lus, l'état pour le rendu.
+   * Le match tel qu'il sera, retouches en attente appliquées, et la file de
+   * ces retouches : voir useRetouchesEnAttente.
    */
-  const [retouches, setRetouches] = useState<Retouche[]>([]);
-  const retouchesRef = useRef<Retouche[]>([]);
-  const cleRetouches = matchBrut ? `koppafoot:console-retouches:${matchBrut.competitionId}:${matchBrut.id}` : null;
-  const majRetouches = useCallback((changer: (f: Retouche[]) => Retouche[]) => {
-    const suivante = changer(retouchesRef.current);
-    retouchesRef.current = suivante;
-    setRetouches(suivante);
-    if (!cleRetouches) return;
-    try {
-      if (suivante.length > 0) localStorage.setItem(cleRetouches, JSON.stringify(suivante));
-      else localStorage.removeItem(cleRetouches);
-    } catch {
-      // Stockage refusé (navigation privée) : la file tient jusqu'au rechargement.
-    }
-  }, [cleRetouches]);
-  useEffect(() => {
-    if (!cleRetouches) return;
-    let relue: Retouche[] = [];
-    try {
-      relue = lireFile(localStorage.getItem(cleRetouches));
-    } catch {
-      // Voir plus haut.
-    }
-    retouchesRef.current = relue;
-    setRetouches(relue);
-  }, [cleRetouches]);
-
-  /**
-   * LE MATCH TEL QU'IL SERA, retouches en attente appliquées. C'est lui que
-   * toute la console lit : le scoreur voit son passeur tout de suite, pas au
-   * retour du réseau.
-   */
-  const match = useMemo<CompMatch | null>(() => {
-    if (!matchBrut?.liveState || retouches.length === 0) return matchBrut;
-    return {
-      ...matchBrut,
-      liveState: { ...matchBrut.liveState, events: appliquerRetouches(matchBrut.liveState.events, retouches) },
-    };
-  }, [matchBrut, retouches]);
+  const { match, retouches, majRetouches, retoucher } = useRetouchesEnAttente(pilote, matchBrut, enLigne);
   /** Le match du dernier rendu, pour les gestes lancés depuis un message. */
   const matchRef = useRef<CompMatch | null>(null);
   useEffect(() => {
     matchRef.current = match;
   }, [match]);
 
-  /**
-   * LES ÉCRITURES EN VOL. La console n'attend plus l'accusé du serveur pour
-   * rendre la main : c'est ce qui la figeait dès que le réseau tombait — dix-
-   * huit boutons grisés, sans un mot. Firestore garde l'écriture dans sa file
-   * et l'envoie au retour du réseau ; la console, elle, compte ce qui n'est
-   * pas encore parti, pour le dire.
-   */
-  const enLigne = useEnLigne();
   /** La consigne « ne quitte pas » : le temps de la lire, à l'ouverture. */
   const [consigneVisible, setConsigneVisible] = useState(true);
   useEffect(() => {
@@ -221,42 +167,11 @@ export default function LiveMatchConsole({
    * des terrains, pendant qu'il fallait ouvrir un tiroir pour relire le match.
    */
   const panneauFixe = useMedia("(min-width: 1024px) and (min-height: 720px)");
-  const [enVol, setEnVol] = useState(0);
-  const suivre = useCallback((ecriture: Promise<unknown>, echec: string) => {
-    setEnVol((n) => n + 1);
-    ecriture
-      .catch((err) => {
-        console.error(echec, err);
-        toast.error(echec);
-      })
-      .finally(() => setEnVol((n) => Math.max(0, n - 1)));
-  }, []);
-  const [loading, setLoading] = useState(true);
-  const [displayTime, setDisplayTime] = useState(0);
+  /** Les écritures parties et pas encore confirmées : voir useEcrituresEnVol. */
+  const { enVol, suivre } = useEcrituresEnVol();
+  const displayTime = useChrono(match);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Rosters (loaded once before kickoff for the match-sheet builder).
-  const [homeRoster, setHomeRoster] = useState<CompPlayer[] | null>(null);
-  const [awayRoster, setAwayRoster] = useState<CompPlayer[] | null>(null);
-  const [rostersLoading, setRostersLoading] = useState(false);
-  // Les lignes que l'effectif de chaque équipe porte vraiment. Un dossard tiré
-  // dans la console (voir lib/dossards) n'y est pas encore : la validation de
-  // la feuille l'y fait entrer, et seulement s'il y figure.
-  const [enBase, setEnBase] = useState<{ home: Set<string>; away: Set<string> }>(
-    () => ({ home: new Set(), away: new Set() }),
-  );
-
-  // Per-side match-sheet drafts (playerId -> role). Seeded from any saved lineup.
-  const [homeSheet, setHomeSheet] = useState<Record<string, SheetRole>>({});
-  const [awaySheet, setAwaySheet] = useState<Record<string, SheetRole>>({});
-  // LES DOSSARDS DU JOUR (lib/numeros-du-jour) : le numéro que chaque joueur
-  // porte sur la feuille de CE match, quand il diffère de l'effectif. Semés
-  // depuis la feuille enregistrée, comme les rôles : une feuille déjà validée
-  // garde les numéros qu'elle a constatés.
-  const [numerosDuJour, setNumerosDuJour] = useState<{ home: Record<string, string>; away: Record<string, string> }>(
-    () => ({ home: {}, away: {} }),
-  );
-  const [savingSide, setSavingSide] = useState<Side | null>(null);
   // Mobile shows ONE match sheet at a time: stacking both put the kickoff
   // button several screens down. On md+ the two sit side by side and this
   // is ignored.
@@ -272,24 +187,7 @@ export default function LiveMatchConsole({
    * et le menu ⋯ la change ensuite dans le match lui-même.
    */
   const [caseSansGardien, setCaseSansGardien] = useState<boolean | null>(null);
-  /**
-   * Le gardien désigné sur chaque feuille en préparation. `undefined` tant
-   * que le scoreur n'a rien touché : on propose alors le titulaire que
-   * l'effectif met au poste (voir `gardienPropose`).
-   */
-  const [gardiensChoisis, setGardiensChoisis] = useState<Record<Side, string | null | undefined>>(
-    { home: undefined, away: undefined },
-  );
 
-  /**
-   * La possession de balle, tenue ICI et non dans le match.
-   *
-   * La console est le seul ecrivain : un match n'a qu'un scoreur. L'etat local
-   * fait donc autorite tant qu'elle est ouverte, et l'abonnement ne le reseme
-   * qu'une fois — au premier match recu. Sans cette regle, chaque ecriture
-   * reviendrait par l'abonnement et ecraserait la bascule suivante, qui a eu
-   * lieu entre-temps.
-   */
   /**
    * Le tiroir « Plus d'infos » : les compteurs et l'historique.
    *
@@ -300,10 +198,6 @@ export default function LiveMatchConsole({
    * scoreur qui n'en regarde qu'un.
    */
   const [plusDInfos, setPlusDInfos] = useState(false);
-
-  const [possession, setPossession] = useState<Possession>(POSSESSION_VIDE);
-  const possessionRef = useRef<Possession | null>(null);
-  const flushRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Plus de « camp regarde » : les deux terrains sont a l'ecran en meme temps,
   // et le camp d'une saisie est celui du joueur qu'on touche. Voir
@@ -360,21 +254,6 @@ export default function LiveMatchConsole({
   const [showPenaltyModal, setShowPenaltyModal] = useState(false);
   const [penaltyHome, setPenaltyHome] = useState("");
   const [penaltyAway, setPenaltyAway] = useState("");
-
-  // Subscribe to match changes
-  useEffect(() => {
-    const unsub = pilote.onMatch((m) => {
-      setMatch(m);
-      setLoading(false);
-    });
-    return () => unsub();
-  }, [pilote]);
-
-  // Subscribe to the competition (for role-based exit/lock logic).
-  useEffect(() => {
-    const unsub = pilote.onCompetition(setCompetition);
-    return () => unsub();
-  }, [pilote]);
 
   // Qui peut sortir sans terminer : l'organisateur en competition, le manager
   // sur un amical. Le pilote repond, la console ne connait pas les roles.
@@ -446,12 +325,6 @@ export default function LiveMatchConsole({
     );
   };
 
-  // Load both rosters once, before kickoff, for the match-sheet builder. Drafts
-  // are seeded from any previously-saved lineup so re-validation overwrites cleanly.
-  const isPreKickoff = !!match && match.status !== "live" && match.status !== "completed";
-  const homeTeamId = match?.homeTeamId ?? null;
-  const awayTeamId = match?.awayTeamId ?? null;
-
   const idsDesEquipes = `${match?.homeTeamId ?? ""}|${match?.awayTeamId ?? ""}`;
   useEffect(() => {
     if (!match) return;
@@ -474,93 +347,12 @@ export default function LiveMatchConsole({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pilote, idsDesEquipes]);
 
-  /**
-   * LA COMPOSITION TYPE DE CHAQUE CLUB, quand il en a préparé une.
-   *
-   * Elle sert à deux choses ici, et c'est la même idée des deux côtés : que le
-   * scoreur n'arrive jamais devant une feuille vide.
-   *
-   *  — Elle COMPLÈTE L'EFFECTIF. Sur un amical, la console ne propose que les
-   *    joueurs qui ont confirmé leur venue : un dimanche où personne n'a
-   *    répondu, la liste est vide et il n'y a littéralement rien à cocher,
-   *    donc rien à valider, donc pas de coup d'envoi. Les joueurs de la
-   *    composition type y entrent, parce que le manager a déjà dit que ce sont
-   *    les siens.
-   *
-   *  — Elle PRÉ-COCHE LA FEUILLE, titulaires et remplaçants, quand le camp n'a
-   *    aucune feuille enregistrée. Le scoreur valide en un geste, ou corrige —
-   *    il ne part plus de rien.
-   *
-   * Elle ne touche JAMAIS à une feuille déjà faite : celle qu'un manager a
-   * validée depuis la fiche du match est la vraie, et elle décrit ce
-   * dimanche-là, ce que la composition type ne fait pas.
-   */
-  const [compoTypes, setCompoTypes] = useState<{
-    home: LineupEntry[] | null;
-    away: LineupEntry[] | null;
-  }>({ home: null, away: null });
-
-  useEffect(() => {
-    if (!isPreKickoff || !match) return;
-    let cancelled = false;
-    setRostersLoading(true);
-    (async () => {
-      try {
-        const [{ home, away }, compos] = await Promise.all([
-          pilote.effectifs(match),
-          // Jamais bloquant : le pilote avale ses propres erreurs et rend deux
-          // `null`, la console se comporte alors comme avant.
-          pilote.compositionsTypes(match, startersMax),
-        ]);
-        if (cancelled) return;
-        setCompoTypes(compos);
-        setEnBase({ home: new Set(home.map((p) => p.id)), away: new Set(away.map((p) => p.id)) });
-        setHomeRoster(fusionnerCompoAuRoster(home, compos.home));
-        setAwayRoster(fusionnerCompoAuRoster(away, compos.away));
-      } catch {
-        if (!cancelled) {
-          setHomeRoster([]);
-          setAwayRoster([]);
-          toast.error("Erreur de chargement des effectifs");
-        }
-      } finally {
-        if (!cancelled) setRostersLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // `match` est lu mais volontairement hors dependances : il change a chaque
-    // but, et les effectifs, eux, ne bougent pas d'un evenement a l'autre.
-  }, [isPreKickoff, pilote, homeTeamId, awayTeamId, startersMax]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Seed each draft from the saved lineup whenever the match's lineup changes.
-  // À DÉFAUT DE FEUILLE ENREGISTRÉE, la composition type du club prend le
-  // relais : c'est la seule différence avec avant, et elle ne joue que sur un
-  // camp qui n'a rien.
-  // Le gardien désigné suit la feuille enregistrée ; une feuille qui n'en a
-  // pas laisse la proposition venir de l'effectif.
-  //
-  // CHAQUE FEUILLE SUR SON PROPRE CONTENU, et non sur le tableau du match :
-  // celui-ci est un nouveau tableau à chaque instantané du match, même quand
-  // rien n'y a changé. Valider la feuille de domicile réécrivait donc aussi
-  // le brouillon de l'extérieur, et le scoreur qui avait rempli les deux
-  // feuilles côte à côte perdait la seconde — rôles et dossards du jour.
-  const contenuHome = JSON.stringify(match?.homeLineup ?? []);
-  const contenuAway = JSON.stringify(match?.awayLineup ?? []);
-  useEffect(() => {
-    if (!match) return;
-    setHomeSheet(seedSheet(match.homeLineup.length > 0 ? match.homeLineup : compoTypes.home ?? []));
-    setNumerosDuJour((n) => ({ ...n, home: numerosDeLaFeuille(match.homeLineup) }));
-    setGardiensChoisis((g) => ({ ...g, home: gardienDeDepart(match.homeLineup)?.playerId ?? undefined }));
-  }, [contenuHome, compoTypes.home]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!match) return;
-    setAwaySheet(seedSheet(match.awayLineup.length > 0 ? match.awayLineup : compoTypes.away ?? []));
-    setNumerosDuJour((n) => ({ ...n, away: numerosDeLaFeuille(match.awayLineup) }));
-    setGardiensChoisis((g) => ({ ...g, away: gardienDeDepart(match.awayLineup)?.playerId ?? undefined }));
-  }, [contenuAway, compoTypes.away]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** L'atelier des feuilles, avant le coup d'envoi : voir useFeuilles. */
+  const {
+    homeRoster, awayRoster, rostersLoading, homeSheet, awaySheet, savingSide, compoTypes,
+    numeroDuJour, changerNumero, toggleSheetRole, gardienDeLaFeuille, designerGardien,
+    tirerDossards, dossardsRestants, handleValidateSheet, gardienManquant, handleLaunch,
+  } = useFeuilles({ pilote, match, startersMax, sansGardien });
 
   // Prevent accidental navigation while live
   useEffect(() => {
@@ -641,49 +433,8 @@ export default function LiveMatchConsole({
     suivre(pilote.poserTempsAdditionnel(mitempsEnCours, suivant), "Le temps additionnel n'a pas été enregistré");
   };
 
-  // L'horloge du serveur : `timerStartAt` + `timerOffset`. La garde
-  // `match.status === "live"` fige l'horloge au coup de sifflet final : ne pas
-  // la retirer.
-  useEffect(() => {
-    if (!match?.liveState) return;
-    let interval: ReturnType<typeof setInterval>;
-
-    if (match.status === "live" && match.liveState.isTimerRunning && match.liveState.timerStartAt) {
-      const start = new Date(match.liveState.timerStartAt).getTime();
-      const offset = match.liveState.timerOffset || 0;
-      interval = setInterval(() => setDisplayTime(Date.now() - start + offset), 100);
-    } else {
-      setDisplayTime(match.liveState.timerOffset || 0);
-    }
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [match?.liveState, match?.status]);
-
   /** Le temps additionnel annoncé est écoulé : l'arbitre va siffler. */
   const tempsEcoule = cibleDeLaPeriode !== null && displayTime >= cibleDeLaPeriode;
-
-  // ---- La possession de balle ------------------------------------------------
-  //
-  // Le scoreur tient une bascule : le camp qui a le ballon. Tout le calcul vit
-  // dans `lib/possession`, la console ne fait que declarer les bascules et
-  // choisir QUAND elles partent en base.
-
-  /**
-   * Le delai avant qu'une bascule parte en base.
-   *
-   * Une possession change jusqu'a trois cents fois dans un match, et chaque
-   * ecriture reveille tous ceux qui regardent la fiche publique. On n'ecrit
-   * donc qu'une fois par fenetre, en gardant la derniere valeur — celui qui
-   * regarde voit de toute facon sa barre avancer entre deux ecritures, puisque
-   * le segment en cours se deduit de `since`.
-   *
-   * Le prix : les deux secondes et demie qui suivent une bascule sont creditees
-   * au camp precedent chez le lecteur. Sur quatre-vingt-dix minutes, ces
-   * erreurs se compensent d'un camp a l'autre et ne deplacent pas le chiffre.
-   */
-  const DELAI_ECRITURE_POSSESSION = 2500;
 
   /**
    * LA POSSESSION NE COMPTE QUE BALLON EN JEU. Elle suivait le chrono, qui
@@ -693,92 +444,8 @@ export default function LiveMatchConsole({
   const ballonEnJeu =
     match?.status === "live" && !!match.liveState?.isTimerRunning && jeu.balle === "en_jeu";
 
-
-  const enAttenteRef = useRef<Possession | null>(null);
-
-  const envoyerPossession = useCallback(() => {
-    if (flushRef.current) {
-      clearTimeout(flushRef.current);
-      flushRef.current = null;
-    }
-    const p = enAttenteRef.current;
-    enAttenteRef.current = null;
-    if (!p) return;
-    // Silencieuse : une possession perdue est un chiffre approximatif, pas un
-    // match fausse. Interrompre le scoreur pour ca couterait plus que ca ne
-    // rapporte.
-    void pilote.poserPossession(versStockage(p)).catch(() => {});
-  }, [pilote]);
-
-  const majPossession = useCallback((next: Possession, immediat = false) => {
-    possessionRef.current = next;
-    setPossession(next);
-    enAttenteRef.current = next;
-    if (immediat) {
-      envoyerPossession();
-      return;
-    }
-    // Une ecriture est deja programmee : elle emportera cette valeur-ci.
-    if (flushRef.current) return;
-    flushRef.current = setTimeout(envoyerPossession, DELAI_ECRITURE_POSSESSION);
-  }, [envoyerPossession]);
-
-  /** Ballon en jeu ou non, tel que la possession l'a vu en dernier. */
-  const ballonEnJeuRef = useRef<boolean | null>(null);
-
-  // Semee UNE SEULE FOIS. Voir la declaration de `possessionRef` : l'abonnement
-  // renvoie ce que la console vient d'ecrire, et le relire ecraserait la
-  // bascule qui a eu lieu depuis.
-  //
-  // L'ETAT DU BALLON EST RETENU AU MEME MOMENT. Le match arrive apres le premier
-  // rendu : l'effet ci-dessous, qui attend la possession, ne retenait donc
-  // rien au montage, et prenait le premier vrai changement — le coup d'envoi —
-  // pour une initialisation. La possession ne commencait a compter qu'au
-  // premier appui du scoreur.
-  useEffect(() => {
-    if (possessionRef.current !== null || !match) return;
-    const depart = match.liveState?.possession ?? POSSESSION_VIDE;
-    possessionRef.current = depart;
-    ballonEnJeuRef.current = ballonEnJeu;
-    setPossession(depart);
-  }, [match, ballonEnJeu]);
-
-  // Le ballon devient mort, le segment en cours se clot ; il revient en jeu, il
-  // reprend. Un effet plutot que des appels dans chaque bouton : le but, le
-  // penalty, l'arret de jeu, la mi-temps, l'interruption et la fin de match
-  // passent par autant de chemins, et il en manquerait un.
-  useEffect(() => {
-    if (possessionRef.current === null || ballonEnJeuRef.current === null) return;
-    if (ballonEnJeuRef.current === ballonEnJeu) return;
-    ballonEnJeuRef.current = ballonEnJeu;
-    const actuel = possessionRef.current;
-    majPossession(ballonEnJeu ? reprendre(actuel) : suspendre(actuel), true);
-  }, [ballonEnJeu, majPossession]);
-
-  // La derniere bascule part avant que l'ecran ne disparaisse.
-  useEffect(() => () => { envoyerPossession(); }, [envoyerPossession]);
-
-  const basculerPossession = (side: Side | null) => {
-    const actuel = possessionRef.current ?? POSSESSION_VIDE;
-    majPossession(basculer(actuel, side, ballonEnJeu));
-  };
-
-  /** L'heure du dernier appui RETENU sur la pelouse. Voir `appuyer`. */
-  const dernierAppuiRef = useRef<number | null>(null);
-
-  /**
-   * L'herbe d'un camp, ballon en jeu : elle lui donne le ballon, ou compte une
-   * passe s'il l'a deja. Les passes partent avec la possession, dans la meme
-   * fenetre d'ecriture — aucune ecriture de plus.
-   */
-  const appuyerSur = (side: Side) => {
-    const actuel = possessionRef.current ?? POSSESSION_VIDE;
-    const maintenant = Date.now();
-    const next = appuyer(actuel, side, ballonEnJeu, maintenant, dernierAppuiRef.current);
-    if (next === actuel) return;
-    dernierAppuiRef.current = maintenant;
-    majPossession(next);
-  };
+  /** La possession de balle, tenue ici : voir usePossession. */
+  const { possession, basculerPossession, appuyerSur, jeterLaPossession } = usePossession(pilote, match, ballonEnJeu);
 
   // ---- Les notes ---------------------------------------------------------------
 
@@ -1018,21 +685,6 @@ export default function LiveMatchConsole({
 
   // ----- Match-sheet builder -----
 
-  /** Le numéro que ce joueur porte sur la feuille de ce match. */
-  const numeroDuJour = (side: Side, p: CompPlayer): string =>
-    numeroModifiable(p.id) ? numerosDuJour[side][p.id] ?? p.number ?? "" : p.number ?? "";
-
-  /** Changer le numéro d'un joueur sur la feuille en préparation. Rien ne s'écrit avant la validation. */
-  const changerNumero = (side: Side, playerId: string, brut: string): boolean => {
-    const numero = lireNumero(brut);
-    if (numero === null) {
-      toast.error("Un dossard, c'est un nombre de 0 à 99");
-      return false;
-    }
-    setNumerosDuJour((n) => ({ ...n, [side]: { ...n[side], [playerId]: numero } }));
-    return true;
-  };
-
   /**
    * Les nouveaux numéros d'une feuille DÉJÀ JOUÉE, depuis le direct. Seuls les
    * camps qui changent s'écrivent, et leur feuille garde son état : on corrige
@@ -1052,181 +704,6 @@ export default function LiveMatchConsole({
     }
     setDossardsOuverts(false);
     if (ecrits > 0) toast.success("Dossards mis à jour pour ce match");
-  };
-
-  const toggleSheetRole = (side: Side, playerId: string) => {
-    const sheet = side === "home" ? homeSheet : awaySheet;
-    const setter = side === "home" ? setHomeSheet : setAwaySheet;
-    const current = sheet[playerId] ?? "out";
-    let next: SheetRole =
-      current === "out" ? "starter" : current === "starter" ? "substitute" : "out";
-    // Hard cap: at most `startersMax` titulaires per side (le NvN du format).
-    // Un titulaire de trop bascule en remplaçant.
-    // Compute + toast OUTSIDE the state updater (no side effects during render).
-    if (next === "starter") {
-      const starters = Object.entries(sheet).filter(
-        ([id, role]) => role === "starter" && id !== playerId,
-      ).length;
-      if (starters >= startersMax) {
-        next = "substitute";
-        toast(`${startersMax} titulaires maximum, le reste = remplaçants`, { icon: "⚠️" });
-      }
-    }
-    setter((prev) => ({ ...prev, [playerId]: next }));
-  };
-
-  /**
-   * Le gardien d'une feuille en préparation : celui que le scoreur a désigné,
-   * ou, tant qu'il n'a rien touché, le titulaire que l'effectif met au poste.
-   * Un joueur qui n'est plus titulaire perd la désignation.
-   */
-  const gardienDeLaFeuille = (side: Side): string | null => {
-    const roster = (side === "home" ? homeRoster : awayRoster) ?? [];
-    const sheet = side === "home" ? homeSheet : awaySheet;
-    const titulaires = roster
-      .filter((p) => sheet[p.id] === "starter")
-      .map((p) => ({ id: p.id, position: p.position }));
-    return gardienPropose(titulaires, gardiensChoisis[side]);
-  };
-  /** Le 🧤 d'une ligne : désigne ce titulaire, ou retire la désignation. */
-  const designerGardien = (side: Side, playerId: string) =>
-    setGardiensChoisis((g) => ({ ...g, [side]: gardienDeLaFeuille(side) === playerId ? null : playerId }));
-
-  /**
-   * LA FEUILLE DE SECOURS : « N°1 » à « N°25 », sauf les numéros
-   * que l'effectif porte déjà. Rien ne s'écrit ici — le scoreur coche ceux
-   * qu'il voit sur le terrain, et seuls ceux-là entrent dans l'effectif, à la
-   * validation. L'équipe les nommera après le match (voir lib/dossards).
-   */
-  const tirerDossards = (side: Side) => {
-    const teamId = side === "home" ? match?.homeTeamId : match?.awayTeamId;
-    const roster = side === "home" ? homeRoster : awayRoster;
-    if (!teamId || !roster) return;
-    const lignes = lignesDeSecours(teamId, roster);
-    if (lignes.length === 0) return;
-    (side === "home" ? setHomeRoster : setAwayRoster)([...roster, ...lignes]);
-  };
-  const dossardsRestants = (side: Side) => {
-    const teamId = side === "home" ? match?.homeTeamId : match?.awayTeamId;
-    const roster = side === "home" ? homeRoster : awayRoster;
-    return !!teamId && !!roster && lignesDeSecours(teamId, roster).length > 0;
-  };
-
-  const handleValidateSheet = async (side: Side) => {
-    if (!match) return;
-    const roster = side === "home" ? homeRoster : awayRoster;
-    const sheet = side === "home" ? homeSheet : awaySheet;
-    if (!roster) return;
-    // La case que le manager avait choisie sur son terrain (voir
-    // lib/terrain) : la revalidation par le scoreur ne doit pas la defaire
-    // pour un joueur qui reste titulaire.
-    const dejaSurLaFeuille = side === "home" ? match.homeLineup : match.awayLineup;
-    const caseDe = (id: string) =>
-      dejaSurLaFeuille.find((e) => e.playerId === id && e.role === "starter")?.emplacement ?? null;
-
-    // LE GARDIEN DÉSIGNÉ PORTE LE POSTE, et lui seul parmi les titulaires : sur
-    // une feuille, le poste est le rôle du jour. Un titulaire que l'effectif
-    // dit gardien mais qui joue dans le champ ce jour-là le perd ; les
-    // remplaçants gardent le leur. Sans gardien, la feuille garde les postes
-    // de l'effectif : c'est la case qui décide, partout où l'on compte.
-    const teamIdDuCamp = side === "home" ? match.homeTeamId : match.awayTeamId;
-    const gardien = sansGardien ? null : gardienDeLaFeuille(side);
-    if (gardienExige(teamIdDuCamp, sansGardien) && !gardien) {
-      toast.error("Désigne le gardien 🧤 parmi les titulaires");
-      return;
-    }
-    const posteSurLaFeuille = (p: CompPlayer) => {
-      const poste = normaliserPoste(p.position);
-      if (sansGardien || sheet[p.id] !== "starter") return poste;
-      if (p.id === gardien) return "goalkeeper";
-      return poste === "goalkeeper" ? null : poste;
-    };
-
-    const entries: LineupEntry[] = roster
-      .filter((p) => (sheet[p.id] ?? "out") !== "out")
-      .map((p) => ({
-        playerId: p.id,
-        name: p.name,
-        // Le numéro du jour, quand le scoreur l'a changé (lib/numeros-du-jour).
-        number: numeroDuJour(side, p),
-        role: (sheet[p.id] as "starter" | "substitute"),
-        // Le compte, quand la ligne a ete revendiquee : c'est lui qui permet
-        // de reconnaitre le joueur d'une equipe a l'autre (voir lib/types).
-        userId: p.user_id ?? null,
-        // Le poste suit le joueur sur la feuille, sous sa forme canonique. La
-        // console en a besoin pour savoir qui est le gardien, et le terrain
-        // pour placer les maillots. La ligne d'effectif l'ecrit en trois
-        // orthographes, d'ou le normaliseur. Le gardien designe, voir plus haut.
-        position: posteSurLaFeuille(p),
-        emplacement: sheet[p.id] === "starter" ? caseDe(p.id) : null,
-      }));
-
-    const starters = entries.filter((e) => e.role === "starter").length;
-    if (starters === 0) {
-      toast.error("Ajoute au moins un titulaire à la feuille");
-      return;
-    }
-    if (starters > startersMax) {
-      toast.error(`${startersMax} titulaires maximum`);
-      return;
-    }
-
-    setSavingSide(side);
-    try {
-      // Les dossards cochés entrent d'abord dans l'effectif : une feuille qui
-      // désignerait une ligne absente de l'équipe ne pourrait plus être
-      // nommée après coup.
-      const nouveaux = entries.filter((e) => estLigneDossard(e.playerId) && !enBase[side].has(e.playerId));
-      if (nouveaux.length > 0 && pilote.ajouterDossards) {
-        let lignes: CompPlayer[];
-        try {
-          lignes = await pilote.ajouterDossards(side, nouveaux.map((e) => Number(e.number)));
-        } catch (err) {
-          // Le message vient de la route, en français, et dit quoi faire.
-          toast.error(err instanceof Error && err.message ? err.message : "Les dossards n'ont pas pu être enregistrés");
-          return;
-        }
-        const recus = new Set(lignes.map((l) => l.id));
-        const manquant = nouveaux.find((e) => !recus.has(e.playerId));
-        if (manquant) {
-          toast.error(`Le n°${manquant.number} vient d'être donné à un joueur de l'effectif. Recharge la console.`);
-          return;
-        }
-        setEnBase((prev) => ({ ...prev, [side]: new Set([...prev[side], ...recus]) }));
-      }
-      await pilote.poserFeuille(side, entries, true);
-      toast.success("Feuille validée");
-    } catch {
-      toast.error("Erreur lors de la validation");
-    } finally {
-      setSavingSide(null);
-    }
-  };
-
-  /**
-   * Le camp n'a pas le gardien qu'il lui faut pour lancer le match : la case
-   * est décochée, et sa feuille enregistrée ne met aucun titulaire au but.
-   */
-  const gardienManquant = (side: Side): boolean => {
-    if (!match) return false;
-    const teamId = side === "home" ? match.homeTeamId : match.awayTeamId;
-    const lineup = side === "home" ? match.homeLineup : match.awayLineup;
-    return gardienExige(teamId, sansGardien) && !gardienDeDepart(lineup);
-  };
-
-  const handleLaunch = async () => {
-    if (!match?.homeLineupReady || !match?.awayLineupReady) return;
-    if (gardienManquant("home") || gardienManquant("away")) return;
-    const homeOnPitch = match.homeLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
-    const awayOnPitch = match.awayLineup.filter((e) => e.role === "starter").map((e) => e.playerId);
-    try {
-      // Le direct s'ouvre ; le coup d'envoi, et son push, sont un geste à part
-      // dans la console. Voir `remettreEnJeu`. La case « Sans gardien » part
-      // avec lui.
-      await pilote.lancer({ home: homeOnPitch, away: awayOnPitch }, sansGardien);
-    } catch {
-      toast.error("Erreur technique");
-    }
   };
 
   /**
@@ -1254,13 +731,7 @@ export default function LiveMatchConsole({
       action: "Revenir aux feuilles",
     });
     if (!ok) return;
-    if (flushRef.current) {
-      clearTimeout(flushRef.current);
-      flushRef.current = null;
-    }
-    enAttenteRef.current = null;
-    possessionRef.current = POSSESSION_VIDE;
-    setPossession(POSSESSION_VIDE);
+    jeterLaPossession();
     try {
       await pilote.revenirAuxFeuilles();
       setRevoirLesFeuilles(true);
@@ -1360,65 +831,6 @@ export default function LiveMatchConsole({
   // ----- La saisie, joueur par joueur -----
 
   // ----- Retouches, retraits, annulation -----
-
-  /** Écrire une retouche par le pilote. Voir lib/retouches-en-attente. */
-  const ecrireRetouche = useCallback((r: Retouche): Promise<void> => {
-    if (r.genre === "passeur") return pilote.poserPasseur(r.eventId, r.valeur);
-    if (r.genre === "victime") return pilote.poserVictime(r.eventId, r.valeur);
-    return pilote.poserIssuePenalty(r.eventId, r.valeur.issue, r.valeur.tireur);
-  }, [pilote]);
-
-  /**
-   * Rejouer la file, dans l'ordre.
-   *
-   * APRÈS LES ÉCRITURES DE L'APPAREIL : le but d'un passeur en attente est
-   * peut-être lui-même encore dans la file de Firestore, et la transaction qui
-   * le cherche sur le serveur ne l'y trouverait pas. `ecrituresEnvoyees`
-   * attend qu'il y soit.
-   */
-  const envoiEnCours = useRef(false);
-  const envoyerLesRetouches = useCallback(async () => {
-    if (envoiEnCours.current || retouchesRef.current.length === 0) return;
-    if (typeof navigator !== "undefined" && !navigator.onLine) return;
-    envoiEnCours.current = true;
-    try {
-      await pilote.ecrituresEnvoyees();
-      for (const r of [...retouchesRef.current]) {
-        try {
-          await ecrireRetouche(r);
-          // Par identité : une réponse plus récente à la même question a
-          // pu la remplacer entre-temps, et celle-là reste à écrire.
-          majRetouches((f) => f.filter((x) => x !== r));
-        } catch (err) {
-          if (estHorsLigne(err)) break;
-          // Refusée pour de bon : l'événement a été retiré ailleurs, ou
-          // l'écriture n'est pas permise. On l'abandonne, en le disant quand
-          // ce n'est pas le premier cas.
-          majRetouches((f) => f.filter((x) => x !== r));
-          if (!/introuvable/i.test(String((err as { message?: unknown })?.message ?? ""))) {
-            toast.error("Une précision n'a pas pu être enregistrée");
-          }
-        }
-      }
-    } finally {
-      envoiEnCours.current = false;
-    }
-  }, [pilote, ecrireRetouche, majRetouches]);
-
-  // Au retour du réseau, et toutes les vingt secondes tant qu'il en reste :
-  // `navigator.onLine` peut dire oui sur un réseau trop faible pour passer.
-  useEffect(() => {
-    if (!enLigne || retouches.length === 0) return;
-    void envoyerLesRetouches();
-    const t = setInterval(() => void envoyerLesRetouches(), 20_000);
-    return () => clearInterval(t);
-  }, [enLigne, retouches.length, envoyerLesRetouches]);
-
-  /** Poser une retouche : affichée tout de suite, écrite dès que possible. */
-  const retoucher = (r: Retouche) => {
-    majRetouches((f) => ajouterRetouche(f, r));
-    void envoyerLesRetouches();
-  };
 
   /**
    * RETIRER UN ÉVÉNEMENT, avec ce qu'il emporte (voir lib/retrait-evenement).
@@ -3621,44 +3033,3 @@ export default function LiveMatchConsole({
 // Sub-components
 // ============================================
 
-/**
- *  * L'effectif du match, complété par la composition type du club.
- *
- * Les joueurs que la console propose viennent du match : les inscrits d'une
- * équipe de compétition, les présents confirmés d'un amical. Les seconds
- * manquent souvent — personne n'a répondu à la convocation —, et la feuille
- * n'a alors littéralement personne à cocher : pas de feuille, pas de coup
- * d'envoi, un match paralysé pour une raison administrative.
- *
- * Ceux de la composition type entrent donc dans la liste, à la suite : le
- * manager a déjà déclaré que ce sont ses joueurs. L'EFFECTIF DU MATCH RESTE
- * PRIORITAIRE, y compris sur son propre poste et son numéro — il dit qui est
- * là aujourd'hui, la composition type dit comment on joue en général.
- *
- * Personne n'est retiré : un joueur présent mais absent de la composition type
- * reste cochable. Le scoreur voit tout le monde, et tranche.
- */
-function fusionnerCompoAuRoster(
-  duMatch: CompPlayer[],
-  compo: LineupEntry[] | null,
-): CompPlayer[] {
-  if (!compo || compo.length === 0) return duMatch;
-  const connus = new Set(duMatch.map((j) => j.id));
-  const ajouts = compo
-    .filter((e) => !connus.has(e.playerId))
-    .map<CompPlayer>((e) => ({
-      id: e.playerId,
-      name: e.name,
-      number: e.number,
-      user_id: e.userId ?? null,
-      position: e.position ?? undefined,
-    }));
-  return [...duMatch, ...ajouts];
-}
-
-/** Seed a per-side match-sheet draft (playerId -> role) from a saved lineup. */
-function seedSheet(lineup: LineupEntry[]): Record<string, SheetRole> {
-  const out: Record<string, SheetRole> = {};
-  for (const e of lineup) out[e.playerId] = e.role;
-  return out;
-}
