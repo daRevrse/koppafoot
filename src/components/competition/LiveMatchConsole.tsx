@@ -30,14 +30,14 @@ import { libelleMinute } from "@/lib/minute-du-match";
 import { SEANCE_VIDE, etatDeLaSeance, type Seance, type Tir } from "@/lib/tirs-au-but";
 import {
   JEU_AVANT, apresBut, apresIssuePenalty, apresPenaltyAccorde, apresRetraitDuBut, arretDeJeu,
-  actionDeBallon, autre, balleApres, campsSousLeMinimum, dribblePossible, interrompre, lireJeu,
+  autre, balleApres, campsSousLeMinimum, interrompre, lireJeu,
   miTemps, pause, relancer, reprendreLeMatch, scoreDeForfait, seanceDeTirs, verrou, type Jeu,
   type Transition,
 } from "@/lib/etat-du-jeu";
 import { lignesStats } from "@/lib/stats-match";
 import {
   gardienDeDepart, gardienEnPlace, gardienExige, gardienPropose, lignesSurLaPelouse,
-  peutPrendreLesGants, regleDuGardienDesigne, type GardienEnPlace,
+  regleDuGardienDesigne, type GardienEnPlace,
 } from "@/lib/gardiens";
 import { annonceDuRetrait, DETAIL_SECOND_JAUNE, planDuRetrait } from "@/lib/retrait-evenement";
 import {
@@ -53,6 +53,11 @@ import ConsoleCouchee from "@/components/competition/ConsoleCouchee";
 import type { CompMatch, CompPlayer, LineupEntry, Competition, GoalVarStatus } from "@/types";
 import { isSuperAdmin } from "@/lib/hats";
 import { demanderLeRecalculDuClassement } from "@/lib/classement-client";
+import { actionsDuJoueur } from "@/lib/actions-joueur";
+import { avertis, leBanc, remplacementsEpuises, surLaPelouse } from "@/lib/banc";
+import {
+  CONSIGNE_ENGAGEMENT, apresLeTempsDeJeu, attenteDesCamps, boutonDuDeroule, estUnePeriodeDeJeu,
+} from "@/lib/deroule";
 import type { LiveEvent, Side, SheetRole } from "@/components/competition/console/types";
 import { BandeauEquipe } from "@/components/competition/console/BandeauEquipe";
 import { BandeauDEtat } from "@/components/competition/console/BandeauDEtat";
@@ -1957,15 +1962,10 @@ export default function LiveMatchConsole({
     const inEntry = lineup.find((e) => e.playerId === entreId);
     if (!outEntry || !inEntry) return;
 
-    const events = match.liveState.events ?? [];
-    // `null` : aucun plafond, c'est le cas d'un amical. Le compte n'est meme
-    // pas fait — il n'y a rien a comparer.
-    if (remplacementsMax !== null) {
-      const subsUsed = events.filter((e) => e.type === "substitution" && e.teamId === teamId).length;
-      if (subsUsed >= remplacementsMax) {
-        toast.error(`${remplacementsMax} remplacements maximum`);
-        return;
-      }
+    // Pas de plafond sur un amical (`remplacementsMax` à null) : voir lib/banc.
+    if (remplacementsEpuises(match.liveState.events ?? [], teamId, remplacementsMax)) {
+      toast.error(`${remplacementsMax} remplacements maximum`);
+      return;
     }
     const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
 
@@ -2034,21 +2034,22 @@ export default function LiveMatchConsole({
     const scoreAway = match.scoreAway ?? 0;
     const finDuJeu = periode >= 6 ? fullMs + 2 * etMs : fullMs;
 
-    if (match.stage === "knockout" && scoreHome === scoreAway) {
-      if (periode === 3 && prolongationMin) {
-        const ok = await demander({
-          titre: "Égalité : prolongations ?",
-          corps: <>{`Deux périodes de ${prolongationMin} minutes, puis tirs au but s'il le faut.`}</>,
-          action: "Prolongations",
-        });
-        if (!ok) return;
-        appliquer({ jeu: pause(jeu, null), periode: 5, chrono: { arreterA: fullMs } }, "Les prolongations n'ont pas été enregistrées");
-        pilote.notifier(
-          { title: "⏱️ Prolongations", body: `${match.homeTeamName} ${scoreHome} – ${scoreAway} ${match.awayTeamName}` },
-          competition,
-        );
-        return;
-      }
+    const suite = apresLeTempsDeJeu({ stage: match.stage, scoreHome, scoreAway, periode, prolongationMin });
+    if (suite === "prolongations") {
+      const ok = await demander({
+        titre: "Égalité : prolongations ?",
+        corps: <>{`Deux périodes de ${prolongationMin} minutes, puis tirs au but s'il le faut.`}</>,
+        action: "Prolongations",
+      });
+      if (!ok) return;
+      appliquer({ jeu: pause(jeu, null), periode: 5, chrono: { arreterA: fullMs } }, "Les prolongations n'ont pas été enregistrées");
+      pilote.notifier(
+        { title: "⏱️ Prolongations", body: `${match.homeTeamName} ${scoreHome} – ${scoreAway} ${match.awayTeamName}` },
+        competition,
+      );
+      return;
+    }
+    if (suite === "tirs_au_but") {
       const ok = await demander({
         titre: "Égalité : tirs au but ?",
         corps: <>La séance se saisit tir par tir, ici même.</>,
@@ -2518,17 +2519,13 @@ export default function LiveMatchConsole({
     0,
   );
   // Players who already have a yellow (for the picker marker). Player ids are unique.
-  const yellowCardedIds = new Set(
-    events.filter((e) => e.type === "yellow_card" && e.playerId).map((e) => e.playerId as string),
-  );
+  const yellowCardedIds = avertis(events);
 
   // Players currently on the pitch for a side (id ∈ on_pitch), resolved to lineup entries.
-  const onPitchEntries = (side: Side): LineupEntry[] => {
-    const lineup = side === "home" ? homeLineup : awayLineup;
-    const onPitch = side === "home" ? match.homeOnPitch : match.awayOnPitch;
-    const set = new Set(onPitch);
-    return lineup.filter((e) => set.has(e.playerId));
-  };
+  const onPitchEntries = (side: Side): LineupEntry[] => surLaPelouse(
+    side === "home" ? homeLineup : awayLineup,
+    side === "home" ? match.homeOnPitch : match.awayOnPitch,
+  );
 
   /**
    * La pelouse telle que le terrain la dessine : celui qui entre à la place de
@@ -2545,173 +2542,55 @@ export default function LiveMatchConsole({
   );
 
   /**
-   * Le banc : qui peut entrer.
-   *
-   * En competition, les remplacants de la feuille et eux seuls — un titulaire
-   * sorti ne revient pas, et le banc ne le reproposait donc jamais. SUR UN
-   * AMICAL C'EST L'INVERSE : la sortie n'y est pas definitive, donc tout ce
-   * qui est sur la feuille sans etre sur la pelouse peut entrer, un titulaire
-   * parti souffler compris. La regle vient du pilote, pas d'ici.
-   *
-   * Un exclu ne revient dans aucun des deux cas : un carton rouge est un
-   * carton rouge, meme entre copains.
+   * Le banc : qui peut entrer. Les remplaçants en compétition, toute la
+   * feuille sur un amical, jamais un exclu : voir lib/banc et le
+   * `retourAutorise` du pilote.
    */
-  const benchEntries = (side: Side): LineupEntry[] => {
-    const lineup = side === "home" ? homeLineup : awayLineup;
-    const onPitch = new Set(side === "home" ? match.homeOnPitch : match.awayOnPitch);
-    const sentOff = new Set(
-      events.filter((e) => e.type === "red_card" && e.playerId).map((e) => e.playerId as string),
-    );
-    // SANS RETOUR, CELUI QUI EST SORTI NE REVIENT PAS — remplaçant compris. Le
-    // banc reproposait un remplaçant entré puis ressorti, seul le titulaire
-    // était écarté. Une sortie sans remplaçant vaut sortie.
-    const sortis = new Set(
-      events
-        .map((e) => (e.type === "substitution" ? e.outPlayerId : e.type === "sortie" ? e.playerId : null))
-        .filter((id): id is string => !!id),
-    );
-    return lineup.filter(
-      (e) => !onPitch.has(e.playerId)
-        && !sentOff.has(e.playerId)
-        && (retourAutorise || (e.role === "substitute" && !sortis.has(e.playerId))),
-    );
-  };
+  const benchEntries = (side: Side): LineupEntry[] => leBanc(
+    side === "home" ? homeLineup : awayLineup,
+    side === "home" ? match.homeOnPitch : match.awayOnPitch,
+    events,
+    retourAutorise,
+  );
 
   /**
-   * Les actions proposées pour ce joueur.
-   *
-   * Elles dépendent de lui, et c'est tout l'intérêt d'être parti du joueur :
-   * l'arrêt n'a de sens que pour un gardien, le hors-jeu n'en a aucun pour
-   * lui, et un remplaçant ne peut ni marquer ni sortir — il entre.
-   *
-   * L'ARRÊT S'OUVRE À TOUT LE MONDE QUAND AUCUN GARDIEN N'EST DÉCLARÉ. Deux
-   * tiers des lignes d'effectif n'ont pas de poste : réserver l'arrêt au
-   * gardien déclaré le rendrait impossible à saisir sur la plupart des
-   * feuilles. Le scoreur touche alors le bon joueur lui-même.
-   *
-   * CE N'EST PLUS VRAI D'UN MATCH LANCÉ AVEC LA CASE « SANS GARDIEN » (voir
-   * lib/gardiens), cochée ou non. L'arrêt y va au gardien EN PLACE et à lui
-   * seul, et à personne dans un petits poteaux : la feuille a désigné le
-   * gardien, il n'y a plus rien à deviner. Quand les cages sont vides — le
-   * gardien expulsé, ou blessé sans changement possible —, tous ont « Prendre
-   * les gants ». Un match lancé avant la case garde la règle ci-dessus.
+   * Les actions proposées pour ce joueur, et le geste de chacune. QUOI
+   * proposer, dans quel ordre et avec quel verrou : lib/actions-joueur.
    */
   const actionsPour = (side: Side, entry: LineupEntry): ActionJoueur[] => {
-    const surLeTerrain = new Set(
-      side === "home" ? match.homeOnPitch : match.awayOnPitch,
-    ).has(entry.playerId);
-    const enPlace = regleDuGardien ? gardienDuCamp(side) : null;
-    const gardienDuPoste = regleDuGardien ? null : gardienDe(side === "home" ? homeLineup : awayLineup);
-    const estLeGardien = regleDuGardien
-      ? enPlace?.playerId === entry.playerId
-      : gardienDuPoste?.playerId === entry.playerId;
-    const peutArreter = estLeGardien || (!regleDuGardien && gardienDuPoste === null);
-    const teamIdDuCamp = side === "home" ? match.homeTeamId : match.awayTeamId;
-    const prendreLesGants = regleDuGardien && !sansGardien && teamIdDuCamp != null
-      && peutPrendreLesGants(enPlace, entry.playerId);
-
-    const evenement = (
-      cle: TypeEvenementJoueur,
-      emoji: string,
-      ton?: ActionJoueur["ton"],
-    ): ActionJoueur => ({
-      cle,
-      libelle: LIBELLE_EVENEMENT[cle],
-      emoji,
-      ton,
-      onClick: () => void enregistrerAction(side, entry, cle),
+    const proposees = actionsDuJoueur({
+      playerId: entry.playerId,
+      cote: side,
+      surLeTerrain: new Set(side === "home" ? match.homeOnPitch : match.awayOnPitch).has(entry.playerId),
+      equipeConnue: (side === "home" ? match.homeTeamId : match.awayTeamId) != null,
+      gardien: regleDuGardien
+        ? { regle: "designe", enPlace: gardienDuCamp(side), sansGardien }
+        : { regle: "poste", gardienId: gardienDe(side === "home" ? homeLineup : awayLineup)?.playerId ?? null },
+      ballon: possession.side,
+      verrou: verrouDuJeu,
     });
-
-    const jaune = evenement("yellow_card", "🟨", "jaune");
-    const rouge = evenement("red_card", "🟥", "rouge");
-
-    // Sur le banc : il ne joue pas, donc il n'a rien pu faire sur le terrain.
-    // Il peut en revanche entrer, et prendre un carton en attendant.
-    if (!surLeTerrain) {
-      return [
-        {
-          cle: "entrer",
-          libelle: "Faire entrer",
-          emoji: "🔄",
-          ton: "vert",
+    return proposees.map((action) => {
+      const { cle } = action;
+      if (cle === "entrer" || cle === "remplacer") {
+        return {
+          ...action,
           onClick: () => {
             setActions(null);
-            openSubModal(side, { entre: entry.playerId });
+            openSubModal(side, cle === "entrer" ? { entre: entry.playerId } : { sort: entry.playerId });
           },
-        },
-        jaune,
-        rouge,
-      ];
-    }
-
-    // Les actions de jeu, verrouillées le temps que le ballon revienne au rond
-    // central. Voir `SECONDES_JEU_MORT`.
-    const deJeu = (
-      cle: TypeEvenementJoueur,
-      emoji: string,
-      ton?: ActionJoueur["ton"],
-    ): ActionJoueur => ({ ...evenement(cle, emoji, ton), desactive: verrouDuJeu });
-
-    return [
-      {
-        ...evenement("goal", "⚽", "vert"),
-        // Pas de second but sans engagement entre les deux : c'est l'état du
-        // jeu qui l'interdit, plus un minuteur.
-        libelle: "But",
-        desactive: verrouDuJeu,
-        onClick: () => {
-          if (verrouDuJeu) return;
-          void enregistrerAction(side, entry, "goal");
-        },
-      },
-      // LE TIR CADRE EST AUSSI UN TIR, et il n'est saisi qu'une fois : les
-      // compteurs de l'onglet Stats additionnent les deux (voir `statRows`).
-      // Demander au scoreur de taper « tir » puis « cadré » aurait double le
-      // geste le plus frequent du match pour une information deja contenue
-      // dans le second.
-      ...(estLeGardien ? [] : [
-        deJeu("shot_on_target", EMOJI_EVENEMENT.shot_on_target),
-        deJeu("shot", EMOJI_EVENEMENT.shot),
-      ]),
-      // LE BALLON, selon qui l'a : son équipe l'a, il peut le perdre ; elle
-      // ne l'a pas, ou personne, il peut le gagner. Une seule des deux, et la
-      // saisie fait basculer la possession (voir actionDeBallon).
-      (() => {
-        const cle = actionDeBallon(side, possession.side);
-        return deJeu(cle, EMOJI_EVENEMENT[cle]);
-      })(),
-      // LE DRIBBLE, réussi ou raté, seulement avec le ballon (voir
-      // dribblePossible). Pas pour le gardien, qui n'a pas non plus le tir :
-      // sa fenêtre reste courte. Le ballon suit la saisie, comme ci-dessus.
-      ...(!estLeGardien && dribblePossible(side, possession.side) ? [
-        deJeu("dribble", EMOJI_EVENEMENT.dribble),
-        deJeu("dribble_failed", EMOJI_EVENEMENT.dribble_failed),
-      ] : []),
-      ...(peutArreter ? [deJeu("save", "🧤")] : []),
-      ...(estLeGardien ? [] : [deJeu("offside", "🚩")]),
-      deJeu("foul", "⚠️"),
-      // Les cages sont vides, ou un joueur de champ y dépanne : jamais
-      // verrouillée, elle arrive justement ballon mort, après l'exclusion.
-      ...(prendreLesGants
-        ? [{ ...evenement("gants", EMOJI_EVENEMENT.gants, "vert"), libelle: "Prendre les gants" }]
-        : []),
-      // Le carton et le remplacement restent ouverts : ce sont les deux choses
-      // qui arrivent justement pendant un arrêt de jeu.
-      jaune,
-      rouge,
-      {
-        cle: "remplacer",
-        libelle: "Remplacer",
-        emoji: "🔄",
-        onClick: () => {
-          setActions(null);
-          openSubModal(side, { sort: entry.playerId });
-        },
-      },
-      // Blessé, plus de changement ou banc vide : il sort, personne n'entre.
-      // Jamais verrouillée, comme le remplacement : elle arrive ballon mort.
-      { ...evenement("sortie", EMOJI_EVENEMENT.sortie), libelle: "Sortie sans remplaçant" },
-    ];
+        };
+      }
+      if (cle === "goal") {
+        return {
+          ...action,
+          onClick: () => {
+            if (verrouDuJeu) return;
+            void enregistrerAction(side, entry, "goal");
+          },
+        };
+      }
+      return { ...action, onClick: () => void enregistrerAction(side, entry, cle) };
+    });
   };
 
   // Le contenu du tiroir, posé en deux endroits selon l'écran (voir le rendu).
@@ -2771,19 +2650,10 @@ export default function LiveMatchConsole({
   const aDroite = autre(aGauche);
   const scoreDe = (c: Side) => (c === "home" ? match.scoreHome : match.scoreAway) ?? 0;
   /** En période de jeu : ni avant le coup d'envoi, ni à la pause. */
-  const enPeriodeDeJeu = [1, 3, 6, 8].includes(match.liveState?.currentPeriod ?? 0);
+  const enPeriodeDeJeu = estUnePeriodeDeJeu(match.liveState?.currentPeriod);
 
-  /**
-   * CE QUE LES PASTILLES DES DEUX CAMPS ATTENDENT, ballon mort : qui engage,
-   * ou qui repart. Le camp désigné clignote ; quand personne n'est désigné
-   * (le coup d'envoi, un arrêt de jeu), les deux attendent.
-   */
-  const attente: { cotes: Side[]; libelle: string } | null =
-    jeu.balle === "en_jeu" || jeu.raison === "interruption" || jeu.raison === "penalty"
-      ? null
-      : jeu.raison === "arret"
-        ? { cotes: ["home", "away"], libelle: "Repart" }
-        : { cotes: jeu.engage ? [jeu.engage] : ["home", "away"], libelle: "Engage" };
+  /** Ce que les pastilles des deux camps attendent, ballon mort : lib/deroule. */
+  const attente = attenteDesCamps(jeu);
 
   const BOUTON_VERT =
     "flex max-w-[210px] items-center gap-1 bg-emerald-600 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-emerald-500 active:scale-95";
@@ -2794,31 +2664,32 @@ export default function LiveMatchConsole({
   );
   const dernierPenalty = penaltiesEnAttente[penaltiesEnAttente.length - 1];
 
-  /**
-   * LE BOUTON DU DÉROULÉ, un seul à la fois : ce que l'état du jeu attend.
-   * Ballon en jeu, c'est « Arrêt de jeu » — l'ancien « Arrêter », qui
-   * arrêtait le chrono, n'existe plus : la montre de l'arbitre ne s'arrête
-   * pas sur une blessure.
-   */
+  /** Le bouton du déroulé, un seul à la fois : lib/deroule. */
+  const bouton = boutonDuDeroule({
+    jeu,
+    periode: match.liveState?.currentPeriod,
+    ballon: possession.side,
+    penaltyEnAttente: dernierPenalty != null,
+    // Tant que rien n'est arrivé : chrono jamais parti, aucun fait.
+    // Après le premier engagement, ce sont les remplacements.
+    feuillesRouvrables: events.length === 0 && !match.liveState?.isTimerRunning && !match.liveState?.timerOffset,
+  });
   const boutonDuJeu = (() => {
-    if (jeu.balle === "en_jeu") {
-      return enPeriodeDeJeu ? (
-        <button
-          onClick={declarerArretDeJeu}
-          className="flex items-center gap-1 bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95"
-        >
-          <Pause size={10} fill="currentColor" /> Arrêt de jeu
-        </button>
-      ) : null;
-    }
-    switch (jeu.raison) {
+    switch (bouton?.type) {
+      case "arret_de_jeu":
+        return (
+          <button
+            onClick={declarerArretDeJeu}
+            className="flex items-center gap-1 bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-wider text-white transition-colors hover:bg-amber-600 active:scale-95"
+          >
+            <Pause size={10} fill="currentColor" /> Arrêt de jeu
+          </button>
+        );
       case "avant":
         return (
           <>
-            {consigne("Qui engage ? Touche son équipe")}
-            {/* Tant que rien n'est arrivé : chrono jamais parti, aucun fait.
-                Après le premier engagement, ce sont les remplacements. */}
-            {events.length === 0 && !match.liveState?.isTimerRunning && !match.liveState?.timerOffset && (
+            {consigne(CONSIGNE_ENGAGEMENT)}
+            {bouton.feuilles && (
               <button
                 onClick={handleRevenirAuxFeuilles}
                 className="flex items-center gap-1 border border-white/15 px-2 py-1 text-[9px] font-black uppercase tracking-wider text-white/70 transition-colors hover:bg-white/10"
@@ -2835,21 +2706,19 @@ export default function LiveMatchConsole({
             </button>
           </>
         );
-      case "but":
-      case "mi_temps":
-      case "pause":
-        return jeu.engage ? (
-          <button onClick={() => remettreEnJeu(jeu.engage as Side)} className={BOUTON_VERT}>
+      case "engagement":
+        return (
+          <button onClick={() => remettreEnJeu(bouton.camp)} className={BOUTON_VERT}>
             <Play size={10} fill="currentColor" className="shrink-0" />
-            <span className="truncate">Engagement · {nomDe(jeu.engage)}</span>
+            <span className="truncate">Engagement · {nomDe(bouton.camp)}</span>
           </button>
-        ) : consigne("Qui engage ? Touche son équipe");
-      case "arret":
-        return possession.side ? (
-          <button onClick={() => remettreEnJeu(possession.side as Side)} className={BOUTON_VERT}>
+        );
+      case "reprise":
+        return (
+          <button onClick={() => remettreEnJeu(bouton.camp)} className={BOUTON_VERT}>
             <Play size={10} fill="currentColor" className="shrink-0" /> Reprise
           </button>
-        ) : consigne("Reprise : touche une équipe");
+        );
       case "penalty":
         return dernierPenalty ? (
           <button
@@ -2863,13 +2732,15 @@ export default function LiveMatchConsole({
           >
             {EMOJI_EVENEMENT.penalty} Penalty · Issue ?
           </button>
-        ) : consigne("Reprise : touche une équipe");
-      case "interruption":
+        ) : null;
+      case "reprendre_le_match":
         return (
           <button onClick={reprendreApresInterruption} className={BOUTON_VERT}>
             <Play size={10} fill="currentColor" className="shrink-0" /> Reprendre le match
           </button>
         );
+      case "consigne":
+        return consigne(bouton.texte);
       default:
         return null;
     }
