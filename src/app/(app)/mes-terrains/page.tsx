@@ -357,7 +357,9 @@ function Formulaire({
         </Champ>
       </div>
 
-      <Champ label="Emplacement sur la carte" htmlFor="v-emplacement" optionnel>
+      {/* Requis : c'est lui qui range le terrain dans « Près de moi » de
+          l'annuaire. Sans épingle, le terrain passe après tous les autres. */}
+      <Champ label="Emplacement sur la carte" htmlFor="v-emplacement">
         <ChoixEmplacement
           position={brouillon.position}
           // Par fonction : la position arrive après un aller-retour au serveur
@@ -682,6 +684,10 @@ export default function MyVenuesPage() {
   };
 
   const enregistrer = async () => {
+    if (!brouillon.position) {
+      toast.error("Place le terrain sur la carte : colle son lien Google Maps, ou touche « Je suis sur le terrain ».");
+      return;
+    }
     if (!horairesCoherents(brouillon.horaires)) {
       toast.error("Un jour ferme avant d'ouvrir : corrige les horaires.");
       return;

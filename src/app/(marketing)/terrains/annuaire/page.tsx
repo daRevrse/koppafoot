@@ -1,6 +1,7 @@
 import { adminDb } from "@/lib/firebase-admin";
 import AnnuaireTerrains, { type TerrainListe } from "@/components/venue/AnnuaireTerrains";
 import { horairesLus, photosDuTerrain, type Occupation } from "@/lib/terrains";
+import { positionLue } from "@/lib/carte";
 
 // ============================================
 // L'annuaire des terrains.
@@ -86,6 +87,7 @@ async function lireTerrains(): Promise<TerrainListe[]> {
         available: v.available !== false,
         horaires: horairesLus(v.opening_hours),
         occupations: occupations.get(d.id) ?? [],
+        position: positionLue(v.position),
       };
     })
     // Les terrains ouverts d'abord, puis l'ordre alphabétique. Un terrain
