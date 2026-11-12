@@ -6,6 +6,7 @@
 // réglages par défaut de son formulaire. Sans SDK : l'application mobile a la
 // même règle.
 
+import { normaliserVille } from "@/lib/villes";
 import type { Categorie, Genre } from "@/lib/genre";
 import type { EvolutionRole } from "@/types";
 
@@ -41,7 +42,7 @@ export function equipeDeLActivation(
   const nom = c.equipe.trim().replace(/\s+/g, " ");
   if (role !== "manager" || !nom) return { genre: "rien" };
   if (nomsDejaGeres.some((n) => forme(n) === forme(nom))) return { genre: "deja", nom };
-  const ville = c.ville.trim();
+  const ville = normaliserVille(c.ville);
   if (!ville) return { genre: "sans-ville" };
   return {
     genre: "creer",

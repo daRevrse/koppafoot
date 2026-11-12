@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { estLigneLibre } from "@/lib/fusion-import";
 import { accorder, lireCategorie, type Categorie } from "@/lib/genre";
 import { normaliserPoste, type Poste } from "@/lib/postes";
@@ -73,7 +74,7 @@ export function equipeDepuisCompetition(
   return {
     name: e.nom.trim().slice(0, 80),
     manager_id: uid,
-    city: (e.ville ?? "").trim().slice(0, 80) || VILLE_PAR_DEFAUT,
+    city: normaliserVille(e.ville).slice(0, 80) || VILLE_PAR_DEFAUT,
     description: "",
     level: "amateur",
     looking_for: [],

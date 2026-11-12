@@ -1,5 +1,6 @@
 "use client";
 
+import { normaliserVille } from "@/lib/villes";
 import {
   createContext,
   useContext,
@@ -388,6 +389,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const cleaned = Object.fromEntries(
         Object.entries(data).filter(([, v]) => v !== undefined)
       );
+      if (typeof cleaned.location_city === "string") cleaned.location_city = normaliserVille(cleaned.location_city);
       const ref = doc(db, "users", auth.currentUser.uid);
       await setDoc(ref, { ...cleaned, updated_at: serverTimestamp() }, { merge: true });
       // Refresh local state

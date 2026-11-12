@@ -13,7 +13,7 @@ export function champsCandidature(body: {
 }): { erreur: string } | { champs: Record<string, string | null> } {
   const venueName = body.venueName?.trim().slice(0, 120) ?? "";
   if (venueName.length < 2) return { erreur: "Indique le nom du terrain." };
-  const city = body.city?.trim().slice(0, 80) ?? "";
+  const city = normaliserVille(body.city).slice(0, 80);
   if (city.length < 2) return { erreur: "Indique la ville du terrain." };
   return {
     champs: {
@@ -28,3 +28,4 @@ export function champsCandidature(body: {
   };
 }
 
+import { normaliserVille } from "@/lib/villes";

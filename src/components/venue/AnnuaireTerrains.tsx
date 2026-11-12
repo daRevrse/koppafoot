@@ -1,5 +1,6 @@
 "use client";
 
+import { memeVille, villesDistinctes } from "@/lib/villes";
 import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -320,15 +321,14 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
   );
 
   const villes = useMemo(() => {
-    const set = new Set(terrains.map((t) => t.city).filter((c): c is string => Boolean(c)));
-    return [...set].sort((a, b) => a.localeCompare(b, "fr"));
+    return villesDistinctes(terrains.map((t) => t.city));
   }, [terrains]);
 
   const resultats = useMemo(() => {
     const besoin = plie(q.trim());
     const garde = terrains.filter((t) => {
       if (ouvertsSeuls && !t.available) return false;
-      if (ville !== TOUS && t.city !== ville) return false;
+      if (ville !== TOUS && !memeVille(t.city, ville)) return false;
       if (format !== TOUS && t.fieldSize !== format) return false;
       if (surface !== TOUS && t.fieldSurface !== surface) return false;
       // Un créneau posé écarte les terrains fermés à ce moment, ceux déjà

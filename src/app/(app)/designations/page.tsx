@@ -1,5 +1,6 @@
 "use client";
 
+import { memeVille } from "@/lib/villes";
 import CommentFaire from "@/components/aide/CommentFaire";
 import GuideDeDemarrage from "@/components/onboarding/GuideDeDemarrage";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -304,7 +305,7 @@ export default function DesignationsPage() {
     const filtre =
       villeArbitre && maVilleSeulement
         ? liste.filter(
-            (m) => m.venueCity?.trim().toLowerCase() === villeArbitre.toLowerCase(),
+            (m) => memeVille(m.venueCity, villeArbitre),
           )
         : liste;
     return [...filtre].sort((a, b) => a.date.localeCompare(b.date));

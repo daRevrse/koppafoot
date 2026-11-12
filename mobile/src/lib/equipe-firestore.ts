@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import {
   addDoc, arrayRemove, arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query,
   serverTimestamp, updateDoc, where, writeBatch, type Unsubscribe,
@@ -198,7 +199,7 @@ export async function inviterJoueur(e: {
     receiver_name: `${e.joueur.prenom} ${e.joueur.nom}`.trim(),
     receiver_photo: e.joueur.photo ?? null,
     team_logo: e.team.logoUrl ?? null,
-    receiver_city: e.joueur.ville,
+    receiver_city: normaliserVille(e.joueur.ville),
     receiver_position: e.joueur.poste,
     receiver_level: e.joueur.niveau,
     team_id: e.team.id,

@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { NextRequest, NextResponse } from "next/server";
 import { dateLongue } from "@/lib/terrains";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
@@ -161,7 +162,7 @@ export async function POST(req: NextRequest) {
     manager_id: callerUid,
     away_manager_id: contreUnCompte ? opponentManagerId : "",
     date, time,
-    venue_name: venueName, venue_city: venueCity,
+    venue_name: venueName, venue_city: normaliserVille(venueCity),
     status: "completed" as const,
     result: null,
     score_home: isHome ? scoreUs : scoreThem,

@@ -1,5 +1,6 @@
 "use client";
 
+import { normaliserVille } from "@/lib/villes";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -205,7 +206,7 @@ export default function ChoixDuRole() {
       setGenreManquant(true);
       return;
     }
-    const ville = vVille.trim() || user?.locationCity || "";
+    const ville = normaliserVille(vVille.trim() || user?.locationCity);
     // L'équipe nommée sera créée (voir creerLEquipeNommee), et la route refuse
     // une équipe sans ville : on la demande avant d'activer, pas après.
     if (role === "manager" && vEquipe.trim() && !ville.trim()) {

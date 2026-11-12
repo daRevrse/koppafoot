@@ -1,5 +1,6 @@
 "use client";
 
+import { memeVille } from "@/lib/villes";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -478,12 +479,12 @@ function InviterMembre({ role, corps, moi, fermer, inviter, enCours }: {
   }, [fermer]);
 
   // Ceux de sa ville d'abord : c'est avec eux qu'on officie le dimanche.
-  const ville = (corps.ville ?? "").toLowerCase();
+  const ville = corps.ville ?? "";
   const q = nom.trim().toLowerCase();
   const affiches = (liste ?? [])
     .filter((p) => !q || `${p.firstName} ${p.lastName}`.toLowerCase().includes(q))
     .sort((a, b) =>
-      Number((b.locationCity ?? "").toLowerCase() === ville) - Number((a.locationCity ?? "").toLowerCase() === ville)
+      Number(memeVille(b.locationCity, ville)) - Number(memeVille(a.locationCity, ville))
       || `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`));
 
   return createPortal(

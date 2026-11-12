@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     const c = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const name = texte(c.name, 120);
     const address = texte(c.address, 200);
-    const city = texte(c.city, 80);
+    const city = normaliserVille(texte(c.city, 80));
     const fieldType = parmi(c.fieldType, TYPES);
     const fieldSurface = parmi(c.fieldSurface, SURFACES);
     const fieldSize = parmi(c.fieldSize, FORMATS);
