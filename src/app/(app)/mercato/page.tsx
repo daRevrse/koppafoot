@@ -1,5 +1,6 @@
 "use client";
 
+import { villesDistinctes } from "@/lib/villes";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "motion/react";
@@ -324,10 +325,8 @@ export default function MercatoPage() {
   // d'ailleurs ne trouvait jamais la sienne, et la liste mentait des qu'un
   // compte s'inscrivait hors de ces huit villes.
   const cities = useMemo(() => {
-    const vues = new Set<string>();
-    for (const p of players) if (p.locationCity?.trim()) vues.add(p.locationCity.trim());
-    for (const t of teams) if (t.city?.trim()) vues.add(t.city.trim());
-    return [...CITIES_STATIQUES, ...[...vues].sort((a, b) => a.localeCompare(b, "fr"))];
+    const vues = villesDistinctes([...players.map((p) => p.locationCity), ...teams.map((t) => t.city)]);
+    return [...CITIES_STATIQUES, ...vues];
   }, [players, teams]);
   const [candidatureTeam, setCandidatureTeam] = useState<Team | null>(null);
   const [submittingApp, setSubmittingApp] = useState(false);

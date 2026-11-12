@@ -1,3 +1,4 @@
+import { normaliserVille, normaliserVilleOuNull } from "@/lib/villes";
 import {
   collection,
   collectionGroup,
@@ -1088,7 +1089,7 @@ export async function createCompMatch(
     date: input.date?.trim() || null,
     time: input.time?.trim() || null,
     venue_name: input.venueName?.trim() || null,
-    venue_city: input.venueCity?.trim() || null,
+    venue_city: normaliserVilleOuNull(input.venueCity),
     venue_id: input.venueId || null,
     status: "scheduled",
     score_home: null,
@@ -1317,7 +1318,7 @@ export async function scheduleCompMatch(
     date: input.date,
     time: input.time,
     venue_name: input.venueName,
-    venue_city: input.venueCity,
+    venue_city: normaliserVille(input.venueCity),
     venue_id: venueId,
   });
 

@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -174,6 +175,9 @@ export async function POST(req: NextRequest) {
     const propre: Record<string, unknown> = {};
     for (const [cle, valeur] of Object.entries(data ?? {})) {
       if (permis.includes(cle) && valeur !== undefined) propre[cle] = valeur;
+    }
+    for (const champ of ["city", "location_city", "venue_city"]) {
+      if (typeof propre[champ] === "string") propre[champ] = normaliserVille(propre[champ] as string);
     }
     if (!Object.keys(propre).length) {
       return NextResponse.json({ error: "Aucun champ modifiable fourni" }, { status: 400 });

@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { adminDb } from "@/lib/firebase-admin";
 
 // ============================================
@@ -81,14 +82,14 @@ export async function rechercherMembres(f: FiltresMembres): Promise<ProfilMembre
   let requetes: FirebaseFirestore.Query[];
   if (f.role === "joueur") {
     let q = users.where("evolution_role", "==", "player").where("is_active", "==", true);
-    if (f.ville) q = q.where("location_city", "==", f.ville);
+    if (f.ville) q = q.where("location_city", "==", normaliserVille(f.ville));
     if (f.poste) q = q.where("position", "==", f.poste);
     if (f.niveau) q = q.where("skill_level", "==", f.niveau);
     requetes = [q];
   } else if (f.role === "arbitre") {
     const filtrer = (q: FirebaseFirestore.Query) => {
       let r = q.where("is_active", "==", true);
-      if (f.ville) r = r.where("location_city", "==", f.ville);
+      if (f.ville) r = r.where("location_city", "==", normaliserVille(f.ville));
       if (f.licence) r = r.where("license_level", "==", f.licence);
       return r;
     };

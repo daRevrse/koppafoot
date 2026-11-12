@@ -1,3 +1,4 @@
+import { normaliserVilleOuNull } from "@/lib/villes";
 import { NextRequest, NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       name,
       email: u.email ?? null,
       phone: phone?.trim() || u.phone || null,
-      city: city?.trim() || u.location_city || null,
+      city: normaliserVilleOuNull(city?.trim() || u.location_city),
       motivation: motivation.trim(),
       status: "pending",
       reviewed_by: null,

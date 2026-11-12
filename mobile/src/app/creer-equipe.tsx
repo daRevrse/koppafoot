@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
@@ -90,7 +91,7 @@ export default function EcranCreerEquipe() {
       const id = await creerEquipe(utilisateur, {
         ...champs,
         name: champs.name.trim(),
-        city: champs.city.trim(),
+        city: normaliserVille(champs.city),
         description: champs.description.trim(),
       });
       // L'onglet du club, le club créé choisi (EcranMonClub lit ce paramètre).

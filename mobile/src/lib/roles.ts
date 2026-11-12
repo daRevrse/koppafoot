@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { accorder, type Genre } from "@/lib/genre";
 import type { EvolutionRole } from "@/types";
 import type { ChampsEquipe } from "~/lib/equipe-api";
@@ -57,7 +58,7 @@ export function patchDActivation(role: EvolutionRole, c: ChampsDActivation): Rec
   const patch: Record<string, string> = {
     evolution_role: role,
     user_type: role,
-    location_city: c.ville.trim(),
+    location_city: normaliserVille(c.ville),
     gender: c.genre,
   };
   if (role === "player") {
@@ -98,7 +99,7 @@ export function equipeDeLActivation(
   const nom = c.equipe.trim().replace(/\s+/g, " ");
   if (role !== "manager" || !nom) return { genre: "rien" };
   if (nomsDejaGeres.some((n) => memeNom(n, nom))) return { genre: "deja", nom };
-  const ville = c.ville.trim();
+  const ville = normaliserVille(c.ville);
   if (!ville) return { genre: "sans-ville" };
   return {
     genre: "creer",

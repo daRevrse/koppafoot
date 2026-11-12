@@ -1,3 +1,4 @@
+import { normaliserVilleOuNull } from "@/lib/villes";
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
       format,
       start_date: jour(c.startDate),
       end_date: jour(c.endDate),
-      venue_city: ouNull(c.venueCity, 80),
+      venue_city: normaliserVilleOuNull(ouNull(c.venueCity, 80)),
       ...(description !== undefined ? { description } : {}),
       ...(category ? { category } : {}),
       // Non validée à la naissance : c'est l'administration qui ouvre la porte

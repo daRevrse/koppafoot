@@ -1,3 +1,4 @@
+import { normaliserVille } from "@/lib/villes";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { ghostOpponentLineup, totalJoueurs } from "@/lib/effectif-match";
@@ -70,7 +71,7 @@ export async function creerAmicalAdmin(
     date: a.date,
     time: a.time,
     venue_name: a.venueName,
-    venue_city: a.venueCity,
+    venue_city: normaliserVille(a.venueCity),
     venue_id: null,
     status: "upcoming",
     result: null,

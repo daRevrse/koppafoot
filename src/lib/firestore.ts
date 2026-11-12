@@ -1,4 +1,5 @@
 // v1.0.1 - Fixed exports detection
+import { normaliserVille } from "@/lib/villes";
 import {
   collection,
   query,
@@ -282,7 +283,7 @@ export async function createTeam(data: {
   // Par le serveur : l'offre gratuite plafonne le nombre d'équipes gérées
   // (lib/offre). Le manager est l'appelant, `managerId` ne part pas.
   return creerParLeServeur("/api/teams", {
-    name: data.name, city: data.city, description: data.description, level: data.level,
+    name: data.name, city: normaliserVille(data.city), description: data.description, level: data.level,
     maxMembers: data.maxMembers, color: data.color, category: data.category ?? null,
   });
 }
@@ -294,7 +295,11 @@ export async function createTeam(data: {
 export { tailleEffectif, totalJoueurs, quotaMinimum, ghostOpponentLineup };
 
 export async function updateTeam(teamId: string, data: Partial<FirestoreTeam>): Promise<void> {
-  await updateDoc(doc(db, "teams", teamId), { ...data, updated_at: serverTimestamp() });
+  await updateDoc(doc(db, "teams", teamId), {
+    ...data,
+    ...(data.city !== undefined ? { city: normaliserVille(data.city) } : {}),
+    updated_at: serverTimestamp(),
+  });
 }
 
 /**
@@ -483,7 +488,7 @@ export async function findTeams(term: string, max = 24): Promise<Team[]> {
 
 export async function searchTeams(filters: { city?: string; level?: string; query?: string }): Promise<Team[]> {
   const constraints: QueryConstraint[] = [where("is_recruiting", "==", true)];
-  if (filters.city) constraints.push(where("city", "==", filters.city));
+  if (filters.city) constraints.push(where("city", "==", normaliserVille(filters.city)));
   if (filters.level) constraints.push(where("level", "==", filters.level));
   const q = query(collection(db, "teams"), ...constraints);
   const snap = await getDocs(q);
@@ -549,7 +554,7 @@ export async function addToShortlist(data: {
   const ref = await addDoc(collection(db, "shortlists"), {
     manager_id: data.managerId, player_id: data.playerId,
     player_name: data.playerName, player_photo: data.playerPhoto ?? null,
-    player_city: data.playerCity,
+    player_city: normaliserVille(data.playerCity),
     player_position: data.playerPosition, player_level: data.playerLevel,
     player_bio: data.playerBio, created_at: serverTimestamp(),
   });
@@ -588,7 +593,7 @@ export async function createJoinRequest(data: {
   const ref = await addDoc(collection(db, "join_requests"), {
     player_id: data.playerId, player_name: data.playerName,
     player_photo: data.playerPhoto ?? null, team_logo: data.teamLogo ?? null,
-    player_city: data.playerCity, player_position: data.playerPosition,
+    player_city: normaliserVille(data.playerCity), player_position: data.playerPosition,
     player_level: data.playerLevel, team_id: data.teamId,
     team_name: data.teamName, manager_id: data.managerId,
     message: data.message, status: "pending",
@@ -870,7 +875,7 @@ export async function createMatch(data: {
     home_team_logo: data.homeTeamLogo ?? null, away_team_logo: data.awayTeamLogo ?? null,
     manager_id: data.managerId, away_manager_id: data.awayManagerId,
     date: data.date, time: data.time,
-    venue_name: data.venueName, venue_city: data.venueCity,
+    venue_name: data.venueName, venue_city: normaliserVille(data.venueCity),
     // `venue_booking` n'est PAS écrit ici : seul le serveur le pose, une fois
     // la demande faite au propriétaire (voir firestore.rules).
     venue_id: data.venueId ?? null,
@@ -912,7 +917,11 @@ export async function createMatch(data: {
 }
 
 export async function updateMatch(matchId: string, data: Partial<FirestoreMatch>): Promise<void> {
-  await updateDoc(doc(db, "matches", matchId), { ...data, updated_at: serverTimestamp() });
+  await updateDoc(doc(db, "matches", matchId), {
+    ...data,
+    ...(data.venue_city !== undefined ? { venue_city: normaliserVille(data.venue_city) } : {}),
+    updated_at: serverTimestamp(),
+  });
 }
 
 /**
@@ -1583,7 +1592,7 @@ export async function requestMatchModification(
       date: data.date,
       time: data.time,
       venue_name: data.venueName,
-      venue_city: data.venueCity,
+      venue_city: normaliserVille(data.venueCity),
       venue_id: data.venueId ?? null,
       reason: data.reason,
       requested_by: data.requestedBy,
@@ -1608,7 +1617,7 @@ export async function updateMatchSchedule(
   const avant = await getDoc(doc(db, "matches", matchId));
   await updateDoc(doc(db, "matches", matchId), {
     date: data.date, time: data.time,
-    venue_name: data.venueName, venue_city: data.venueCity,
+    venue_name: data.venueName, venue_city: normaliserVille(data.venueCity),
     venue_id: data.venueId ?? null,
     modification_request: null,
     updated_at: serverTimestamp(),
@@ -1967,7 +1976,7 @@ export async function sendInvitation(data: {
     sender_id: data.senderId, sender_name: data.senderName,
     receiver_id: data.receiverId, receiver_name: data.receiverName,
     receiver_photo: data.receiverPhoto ?? null, team_logo: data.teamLogo ?? null,
-    receiver_city: data.receiverCity, receiver_position: data.receiverPosition,
+    receiver_city: normaliserVille(data.receiverCity), receiver_position: data.receiverPosition,
     receiver_level: data.receiverLevel, team_id: data.teamId,
     team_name: data.teamName, message: data.message,
     status: "pending",
@@ -2106,7 +2115,7 @@ export async function searchReferees(filters: { city?: string; licenseLevel?: st
 
 export async function getVenues(filters?: { city?: string; fieldSize?: string; query?: string }): Promise<Venue[]> {
   const constraints: QueryConstraint[] = [];
-  if (filters?.city) constraints.push(where("city", "==", filters.city));
+  if (filters?.city) constraints.push(where("city", "==", normaliserVille(filters.city)));
   if (filters?.fieldSize) constraints.push(where("field_size", "==", filters.fieldSize));
   const q = query(collection(db, "venues"), ...constraints);
   const snap = await getDocs(q);
@@ -2273,7 +2282,7 @@ export async function updatePostContent(postId: string, content: string): Promis
 export async function getMatchesByCity(city: string, limitCount = 15): Promise<Match[]> {
   const q = query(
     collection(db, "matches"),
-    where("venue_city", "==", city),
+    where("venue_city", "==", normaliserVille(city)),
     where("status", "in", ["upcoming", "completed"]),
     orderBy("date", "desc"),
     firestoreLimit(limitCount)
@@ -3285,7 +3294,7 @@ export async function createVenue(data: Omit<Venue, "id" | "createdAt" | "update
   return creerParLeServeur("/api/venues", {
     name: data.name,
     address: data.address,
-    city: data.city,
+    city: normaliserVille(data.city),
     fieldType: data.fieldType,
     fieldSurface: data.fieldSurface,
     fieldSize: data.fieldSize,
@@ -3301,7 +3310,7 @@ export async function updateVenue(venueId: string, data: Partial<Omit<Venue, "id
   const updates: any = {};
   if (data.name) updates.name = data.name;
   if (data.address) updates.address = data.address;
-  if (data.city) updates.city = data.city;
+  if (data.city) updates.city = normaliserVille(data.city);
   if (data.fieldType) updates.field_type = data.fieldType;
   if (data.fieldSurface) updates.field_surface = data.fieldSurface;
   if (data.fieldSize) updates.field_size = data.fieldSize;

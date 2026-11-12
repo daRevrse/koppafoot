@@ -9,6 +9,7 @@
 // Module sans SDK (ni Firebase, ni React) : voir lib/direct-shared.
 // ============================================
 
+import { normaliserVille } from "@/lib/villes";
 import { formatDate } from "@/lib/dates";
 import { lireCondition } from "@/lib/etat-de-forme";
 import { lireGenre } from "@/lib/genre";
@@ -110,7 +111,7 @@ export function buildFirestoreUser(
     first_name: data.firstName,
     last_name: data.lastName,
     user_type: data.userType,
-    location_city: data.locationCity ?? "",
+    location_city: normaliserVille(data.locationCity),
     profile_picture_url: null,
     cover_photo_url: null,
     is_active: true,
