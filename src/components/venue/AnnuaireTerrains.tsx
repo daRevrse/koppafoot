@@ -5,8 +5,9 @@ import { useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
-  MapPin, Search, SlidersHorizontal, X, Clock, CalendarCheck, CalendarDays, Camera, ArrowRight,
+  MapPin, Search, SlidersHorizontal, X, Clock, CalendarCheck, CalendarDays, Camera, ArrowRight, LocateFixed,
 } from "lucide-react";
+import { distanceKm, distanceLisible, parDistance, type Position } from "@/lib/carte";
 import {
   FORMATS, SURFACES, formatCourt, surfaceCourte, aUnPrix, libelleEquipement,
   dateCourte, finCreneau, libreA, libellePlage, plageDuJour, type Occupation,
@@ -56,7 +57,12 @@ export interface TerrainListe {
   horaires: HorairesOuverture | null;
   /** Les créneaux déjà pris à venir : date, heure, durée, rien d'autre. */
   occupations: Occupation[];
+  /** L'épingle posée par le propriétaire ; null tant qu'il ne l'a pas posée. */
+  position: Position | null;
 }
+
+/** « Près de moi » range par distance, à partir de la position du téléphone. */
+type Tri = "pertinence" | "prix" | "proximite";
 
 /** Le créneau cherché, quand il y en a un. */
 interface Creneau {
@@ -167,10 +173,13 @@ function Carte({
   terrain,
   creneau,
   aujourdhui,
+  km = null,
 }: {
   terrain: TerrainListe;
   creneau: Creneau | null;
   aujourdhui: string | null;
+  /** La distance à celui qui cherche, quand il a donné sa position. */
+  km?: number | null;
 }) {
   const equipements = terrain.amenities
     .map((cle) => ({ cle, label: libelleEquipement(cle) }))
@@ -199,6 +208,7 @@ function Carte({
           <span className="truncate">
             {[terrain.address, terrain.city].filter(Boolean).join(", ") || "Adresse non précisée"}
           </span>
+          {km != null && <span className="shrink-0 font-black text-emerald-700">· {distanceLisible(km)}</span>}
         </p>
 
         {faits.length > 0 && (
@@ -311,7 +321,11 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
   const [date, setDate] = useState("");
   const [heure, setHeure] = useState("");
   const [duree, setDuree] = useState("1.5");
-  const [tri, setTri] = useState<"pertinence" | "prix">("pertinence");
+  const [tri, setTri] = useState<Tri>("pertinence");
+  // La position de celui qui cherche : demandée seulement quand il choisit
+  // « Près de moi », jamais à l'arrivée sur la page.
+  const [ici, setIci] = useState<Position | null>(null);
+  const [localisation, setLocalisation] = useState<"repos" | "recherche" | "refusee">("repos");
   const aujourdhui = useAujourdhui();
 
   /** Un créneau ne vaut que complet : un jour sans heure ne dit pas quand. */
@@ -341,13 +355,16 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
       if (!besoin) return true;
       return plie(`${t.name} ${t.city ?? ""} ${t.address ?? ""}`).includes(besoin);
     });
+    if (tri === "proximite" && ici) {
+      return parDistance(garde, ici, (t) => t.position).map((x) => x.element);
+    }
     if (tri === "prix") {
       // Les « prix à convenir » à la fin : on ne compare pas un tarif à rien.
       const prix = (t: TerrainListe) => (aUnPrix(t.pricePerHour) ? t.pricePerHour : Infinity);
       return [...garde].sort((a, b) => prix(a) - prix(b));
     }
     return garde;
-  }, [terrains, q, ville, format, surface, ouvertsSeuls, creneau, tri]);
+  }, [terrains, q, ville, format, surface, ouvertsSeuls, creneau, tri, ici]);
 
   /** Les filtres du panneau : leur nombre s'affiche sur le bouton qui l'ouvre. */
   const dansLePanneau = [ville !== TOUS, format !== TOUS, surface !== TOUS, ouvertsSeuls].filter(Boolean).length;
@@ -361,6 +378,32 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
     setOuvertsSeuls(false);
     setDate("");
     setHeure("");
+  };
+
+  const choisirTri = (t: Tri) => {
+    if (t !== "proximite" || ici) {
+      setTri(t);
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setLocalisation("refusee");
+      return;
+    }
+    setTri(t);
+    setLocalisation("recherche");
+    navigator.geolocation.getCurrentPosition(
+      (p) => {
+        setIci({ lat: p.coords.latitude, lng: p.coords.longitude });
+        setLocalisation("repos");
+      },
+      () => {
+        setLocalisation("refusee");
+        setTri("pertinence");
+      },
+      // La précision du quartier suffit pour ranger des terrains, et elle
+      // arrive vite ; une position de moins de cinq minutes fait l'affaire.
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
   };
 
   const libelle = (liste: readonly { value: string; label: string }[], v: string) =>
@@ -562,19 +605,45 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
               </button>
             )}
 
-            <label className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => choisirTri(tri === "proximite" ? "pertinence" : "proximite")}
+              aria-pressed={tri === "proximite"}
+              className={`ml-auto inline-flex h-8 items-center gap-1.5 border px-2.5 text-xs font-bold transition-colors ${
+                tri === "proximite"
+                  ? "border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"
+                  : "border-gray-200/70 bg-white text-gray-900 hover:border-gray-900"
+              }`}
+            >
+              <LocateFixed size={13} aria-hidden />
+              {localisation === "recherche" ? "Localisation…" : "Près de moi"}
+            </button>
+
+            <label className="flex items-center gap-2">
               <span className="text-xs font-semibold text-gray-500">Trier</span>
               <select
                 value={tri}
-                onChange={(e) => setTri(e.target.value as "pertinence" | "prix")}
+                onChange={(e) => choisirTri(e.target.value as Tri)}
                 aria-label="Trier les terrains"
                 className="h-8 border border-gray-200/70 bg-white px-2 text-xs font-bold text-gray-900 focus:border-gray-900 focus:outline-none"
               >
                 <option value="pertinence">Ouverts d&apos;abord</option>
                 <option value="prix">Prix croissant</option>
+                <option value="proximite">Près de moi</option>
               </select>
             </label>
           </div>
+
+          {localisation === "refusee" && (
+            <p role="status" className="mb-4 text-xs font-semibold text-gray-600">
+              Position indisponible : autorise la localisation pour ce site dans ton navigateur, ou choisis une ville dans les filtres.
+            </p>
+          )}
+          {tri === "proximite" && ici && (
+            <p className="mb-4 text-xs font-semibold text-gray-500">
+              Du plus proche au plus loin, à vol d&apos;oiseau. Les terrains sans emplacement sur la carte viennent après.
+            </p>
+          )}
 
           {resultats.length === 0 ? (
             terrains.length === 0 ? (
@@ -595,7 +664,13 @@ export default function AnnuaireTerrains({ terrains }: { terrains: TerrainListe[
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
               {resultats.map((t) => (
-                <Carte key={t.id} terrain={t} creneau={creneau} aujourdhui={aujourdhui} />
+                <Carte
+                  key={t.id}
+                  terrain={t}
+                  creneau={creneau}
+                  aujourdhui={aujourdhui}
+                  km={ici && t.position ? distanceKm(ici, t.position) : null}
+                />
               ))}
             </div>
           )}

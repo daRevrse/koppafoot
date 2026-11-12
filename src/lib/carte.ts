@@ -193,3 +193,41 @@ export function lienItineraire(cible: Position | string): string {
 /** Le terrain ouvert dans Maps, pour le voir ou le partager. */
 export const lienCarte = (p: Position) =>
   `https://www.google.com/maps/search/?api=1&query=${coord(p)}`;
+
+// --------------------------------------------
+// « Près de moi » : la distance à vol d'oiseau.
+//
+// À VOL D'OISEAU, ET ON LE DIT. La distance par la route demanderait une API
+// payante ; pour ranger les terrains d'une ville, l'ordre à vol d'oiseau est
+// presque toujours le bon. L'itinéraire, lui, reste à Maps.
+// --------------------------------------------
+
+/** Distance entre deux points, en kilomètres (formule de haversine). */
+export function distanceKm(a: Position, b: Position): number {
+  const rad = (x: number) => (x * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** « à 400 m », « à 2,3 km », « à 18 km » : la précision qui sert, pas plus. */
+export function distanceLisible(km: number): string {
+  if (km < 0.95) return `à ${Math.max(100, Math.round(km * 10) * 100)} m`;
+  if (km < 10) return `à ${(Math.round(km * 10) / 10).toLocaleString("fr-FR")} km`;
+  return `à ${Math.round(km).toLocaleString("fr-FR")} km`;
+}
+
+/**
+ * Range des éléments du plus proche au plus loin. Ceux sans position gardent
+ * leur ordre et passent après : on ne les cache pas, on ne sait pas où ils sont.
+ */
+export function parDistance<T>(elements: T[], depuis: Position, position: (e: T) => Position | null): { element: T; km: number | null }[] {
+  return elements
+    .map((element, i) => {
+      const p = position(element);
+      return { element, km: p ? distanceKm(depuis, p) : null, i };
+    })
+    .sort((a, b) => (a.km ?? Infinity) - (b.km ?? Infinity) || a.i - b.i)
+    .map(({ element, km }) => ({ element, km }));
+}
